@@ -67,7 +67,8 @@ button.deck.sel, #panBtn.sel { border-color: var(--acc); color: var(--acc); back
 .lb .sp.on { display: block; } .lb .sp::after { content: ""; position: absolute; left: 50%; bottom: -5px; margin-left: -5px; border: 5px solid transparent; border-bottom: 0; border-top-color: rgba(255,255,255,.95); }
 .lb .sp.mood { background: rgba(255,244,214,.97); font-style: italic; } .lb .sp.greet { background: rgba(214,240,255,.97); }
 .lb.mid .nm { font-size: 11px; } .lb.me.mid .nm { font-size: 13px; } .lb.mid .st { display: none !important; } .lb.mid .sp { font-size: 11px; max-width: 150px; }
-.lb.far .n, .lb.far .st, .lb.far .sp { display: none !important; } .lb.far .nm { padding: 0 3px; background: rgba(8,18,32,.5); }
+.lb.far .n, .lb.far .st { display: none !important; } .lb.far .sp { font-size: 11px; max-width: 130px; padding: 3px 7px; } .lb.xfar .sp, .lb.xfar .n, .lb.xfar .st { display: none !important; }
+@media (max-width: 700px), (pointer: coarse) { .lb .sp { font-size: 13px; max-width: 170px; } .lb.mid .sp, .lb.far .sp { font-size: 12px; max-width: 150px; } .lb.mid .nm { font-size: 12px; } } .lb.far .nm { padding: 0 3px; background: rgba(8,18,32,.5); }
 
 #loading { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 60%, #14304c, #050c16); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; z-index: 50; transition: opacity .8s; }
 #loading.done { opacity: 0; pointer-events: none; } .ld-title { font-size: 40px; letter-spacing: .3em; color: var(--acc); } .ld-sub { opacity: .7; letter-spacing: .12em; font-size: 13px; }

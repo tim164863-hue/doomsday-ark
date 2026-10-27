@@ -33,10 +33,38 @@ function pergola(b, x0, z0, x1, z1, h = 2.6) {
 }
 function stringLights(b, x0, z0, x1, z1, y = 2.3, n = 10) { for (let i = 0; i <= n; i++) { const t = i / n; b.sph('lamp', x0 + (x1 - x0) * t, y - Math.sin(t * PI) * 0.22, z0 + (z1 - z0) * t, 0.045, 1, 1, 1, 5); } }
 
-function lifeboat(b, x, z, s = 1) { // 救生艇（吊艇架上）：橘色艇身 + 白色艇緣 + 艇罩
-  b.sph('orange', x, 1.35, z, 1.9, 1, 0.5, 0.52, 14); b.box('white', x, z, 3.5, 0.9, 0.1, 1.28); b.boxc('white', x, 1.62, z, 2.2, 0.35, 0.5); b.box('steelDark', x, z, 3.7, 0.12, 0.05, 1.22);
-  for (const dx of [-1.3, 1.3]) { b.box('steelDark', x + dx, z + s * 0.9, 0.1, 0.1, 1.9); b.box('steelDark', x + dx, z + s * 0.45, 0.08, 1.0, 0.08, 1.85); }
-  b.blockC(x, z, 3.9, 2.0);
+// 救生艇：真正的尖頭艇身（放樣）+ 內艙 + 艇罩 + 舷窗 + 吊艇架
+function boatLoft(L, W, H, flip = false) {
+  const N = 16, M = 9, pos = [], idx = [];
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * 2 - 1; const w = W * Math.pow(Math.max(1 - Math.pow(Math.abs(t), 2.6), 0), 0.55); const top = H + 0.3 * t * t;
+    for (let j = 0; j <= M; j++) { const u = (j / M) * 2 - 1; pos.push(t * L / 2, top * Math.pow(Math.abs(u), 2.5) * 0.92 + (j === 0 || j === M ? 0.08 * top : 0), u * w); }
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) { const a = i * (M + 1) + j, b2 = a + 1, c = a + (M + 1), d = c + 1; if (flip) idx.push(a, b2, c, b2, d, c); else idx.push(a, c, b2, b2, c, d); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals(); return g;
+}
+function lifeboat(b, x, z, s = 1) {
+  const y0 = 0.42; const L = 4.2, W = 0.9, H = 0.78;
+  b.geo('orange', xform(boatLoft(L, W, H), x, y0, z));
+  b.geo('white', xform(boatLoft(L * 0.94, W * 0.9, H * 0.86, true), x, y0 + 0.1, z));       // 內艙
+  b.boxc('white', x, y0 + 0.22, z, 3.4, 0.07, 0.04 + 1.5); b.boxc('white', x, y0 + 0.4, z, 3.6, 0.05, 0.05 + 1.62);
+  b.boxc('white', x, y0 + 0.28, z + W * 0.9, 3.2, 0.12, 0.03); b.boxc('white', x, y0 + 0.28, z - W * 0.9, 3.2, 0.12, 0.03); // 舷側白條
+  // 艇罩：半圓拱 + 兩端圓頂
+  b.geo('orange', xform(new THREE.CylinderGeometry(0.62, 0.62, 2.4, 14, 1, true, 0, PI).rotateZ(PI / 2), x, y0 + H * 0.55, z));
+  for (const e of [-1.2, 1.2]) b.geo('orange', xform(new THREE.SphereGeometry(0.62, 12, 6, 0, PI * 2, 0, PI / 2), x + e, y0 + H * 0.55, z, 0, 0, 0, 1, 1, 1));
+  for (const dx of [-0.8, 0, 0.8]) for (const sg of [-1, 1]) b.boxc('black', x + dx, y0 + H * 0.55 + 0.34, z + sg * 0.5, 0.36, 0.2, 0.04, 0, sg * -0.5);
+  b.boxc('yellow', x, y0 + H * 0.55 + 0.63, z, 0.5, 0.05, 0.4);
+  b.box('steelDark', x - 1.0, z, 0.22, 0.9, 0.0, 0.0); b.box('steelDark', x + 1.0, z, 0.22, 0.9, 0.0, 0.0);
+  // 墊木 / 艇架
+  for (const dx of [-1.1, 1.1]) b.box('woodDark', x + dx, z, 0.3, 1.2, 0.34);
+  // 吊艇架：內側立柱 + 懸臂 + 吊索
+  for (const dx of [-1.3, 1.3]) {
+    const pz = z - s * 1.25;
+    b.box('white', x + dx, pz, 0.16, 0.16, 2.9); b.boxc('white', x + dx, 2.95, z - s * 0.55, 0.14, 0.14, 1.9); b.boxc('steelDark', x + dx, 2.4, pz + s * 0.3, 0.07, 0.07, 1.0, 0, -s * 0.7);
+    b.cylc('steelDark', x + dx, 2.0, z, 0.02, 1.9, 5); b.sph('steel', x + dx, 2.95, z, 0.07, 1, 1, 1, 6);
+    b.blockC(x + dx, pz, 0.3, 0.3);
+  }
+  b.blockC(x, z, 4.4, 1.9);
 }
 function pipeRun(b, x0, x1, z, y = 2.0) { b.box('steelDark', (x0 + x1) / 2, z, x1 - x0, 0.22, 0.22, y); b.box('red', (x0 + x1) / 2, z, x1 - x0, 0.14, 0.14, y + 0.3); b.box('steel', (x0 + x1) / 2, z, x1 - x0, 0.3, 0.05, y - 0.35); }
 function chainCoil(b, x, z) { for (let k = 0; k < 5; k++) b.add(b.M.steelDark, xform(new THREE.TorusGeometry(1.5 - k * 0.12, 0.17, 6, 18), x, 0.2 + k * 0.28, z, PI / 2, 0, 0)); b.blockC(x, z, 3.2, 3.2); }

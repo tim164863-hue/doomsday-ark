@@ -135,7 +135,7 @@ function loftBand(shape, rows, { bottom = false, stations = 110 } = {}) {
   if (bottom) { for (let i = 0; i < stations; i++) { const a = at(0, i, R - 1), b = at(0, i + 1, R - 1), c = at(1, i, R - 1), d = at(1, i + 1, R - 1); idx.push(a, c, b, b, c, d); } }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
-  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.0, emissive: 0x8e98a8, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.0, emissive: 0xd0ccc6, side: THREE.DoubleSide }));
   mesh.castShadow = true; mesh.receiveShadow = true; return mesh;
 }
 

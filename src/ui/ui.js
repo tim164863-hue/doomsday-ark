@@ -100,7 +100,7 @@ export class UI {
       if (v.z > 1 || Math.abs(v.x) > 1.1 || Math.abs(v.y) > 1.1 || dist > 260) { if (L.on !== false) { L.el.style.display = 'none'; L.on = false; } continue; }
       if (L.on !== true) { L.el.style.display = ''; L.on = true; }
       L.el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W).toFixed(1)}px,${((-v.y * 0.5 + 0.5) * H).toFixed(1)}px) translate(-50%,-100%)`;
-      const far = dist > 70, mid = dist > 36; L.el.classList.toggle('far', far); L.el.classList.toggle('mid', mid && !far); L.el.style.zIndex = 1000 - Math.round(dist);
+      const far = dist > 70, mid = dist > 36, xfar = dist > 150; L.el.classList.toggle('xfar', xfar); L.el.classList.toggle('far', far); L.el.classList.toggle('mid', mid && !far); L.el.style.zIndex = 1000 - Math.round(dist);
       if (isP) continue;
       const m = MOODS[b.mood] || MOODS.focus; const icon = b.sleeping ? '💤' : m.icon; if (L.last.mi !== icon) { L.mi.textContent = icon; L.last.mi = icon; }
       const sp = b.speech && b.speech.until > g.time ? b.speech : null; const spt = sp ? sp.text : ''; if (L.last.sp !== spt) { L.sp.textContent = spt; L.last.sp = spt; L.sp.className = 'sp' + (sp ? ' on ' + sp.kind : ''); }

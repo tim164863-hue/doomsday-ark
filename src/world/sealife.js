@@ -79,7 +79,7 @@ export class SeaLife {
   }
   buildBirds() {
     const n = this.q.birds; const per = Math.ceil(n / 3);
-    for (let f = 0; f < 3; f++) { const fl = { r: 40 + f * 30, a: this.rng() * TAU, h: 22 + f * 9, sp: 0.08 + f * 0.01, list: [] }; for (let i = 0; i < per; i++) { const b = makeBird(this.birdMat); b.scale.setScalar(1.6); this.group.add(b); fl.list.push({ b, o: this.rng() * 3, ro: (this.rng() - 0.5) * 14, ho: (this.rng() - 0.5) * 8, ph: this.rng() * 6 }); } this.birds.push(fl); }
+    for (let f = 0; f < 3; f++) { const fl = { r: 78 + f * 28, a: this.rng() * TAU, h: 26 + f * 9, sp: 0.08 + f * 0.01, list: [] }; for (let i = 0; i < per; i++) { const b = makeBird(this.birdMat); b.scale.setScalar(0.85); this.group.add(b); fl.list.push({ b, o: this.rng() * 3, ro: (this.rng() - 0.5) * 14, ho: (this.rng() - 0.5) * 8, ph: this.rng() * 6 }); } this.birds.push(fl); }
   }
   buildFish() {
     for (let f = 0; f < 3; f++) {

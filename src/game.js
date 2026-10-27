@@ -89,14 +89,19 @@ export class Game {
     this.sealife.update(sdt, this.time, e);
     this.tv.update(sdt);
     for (const s of systems) s.update(dt, this);
-    // FPS 與自動降級
-    if (dt < 0.5) { this.fpsAcc += dt; this.fpsN++; if (this.fpsAcc >= 1) { this.fps = this.fpsN / this.fpsAcc; this.fpsAcc = 0; this.fpsN = 0; this.autoQuality(); } }
+    // FPS 與自動降級（用牆上時鐘計算；掉到很低的幀率也要能偵測）
+    const nowMs = performance.now(); this.fpsN++; if (this.t0Ms == null) this.t0Ms = nowMs; this.realT = (nowMs - this.t0Ms) / 1000;
+    if (this.fpsT0 == null) this.fpsT0 = nowMs;
+    if (nowMs - this.fpsT0 >= 1000) { this.fps = this.fpsN * 1000 / (nowMs - this.fpsT0); this.fpsT0 = nowMs; this.fpsN = 0; this.autoQuality(); }
     return e;
   }
   autoQuality() {
-    if (this.qLocked || document.hidden || this.time < 6) return;
+    if (this.qLocked || document.hidden || (this.realT || 0) < 5) return;
+    // 連續 4 秒 < 26fps 降一級；< 12fps 連續 2 秒直接降兩級（手機載入重的場景救急）
     if (this.fps < 26) this.lowCount++; else this.lowCount = Math.max(0, this.lowCount - 1);
-    if (this.lowCount >= 4) { this.lowCount = 0; const i = ORDER.indexOf(this.qLevel); if (i < ORDER.length - 1) { this.setQuality(ORDER[i + 1]); emit('quality', this.qLevel); } }
+    if (this.fps < 12) this.vlowCount = (this.vlowCount || 0) + 1; else this.vlowCount = 0;
+    const drop = this.vlowCount >= 2 ? 2 : this.lowCount >= 4 ? 1 : 0;
+    if (drop) { this.lowCount = 0; this.vlowCount = 0; const i = Math.min(ORDER.length - 1, ORDER.indexOf(this.qLevel) + drop); if (ORDER[i] !== this.qLevel) { this.setQuality(ORDER[i]); emit('quality', this.qLevel); this.qDowngrades = (this.qDowngrades || 0) + 1; } }
   }
   /** 導航自測：每層所有 POI 是否可由樓梯口 / 電梯到達 */
   selfTest() {

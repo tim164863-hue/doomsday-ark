@@ -12,6 +12,8 @@ export function detectQuality() {
   if (saved && QUALITY[saved]) return { level: saved, locked: true };
   const mobile = isTouchDevice() || Math.min(screen.width, screen.height) < 520;
   const mem = navigator.deviceMemory || 4;
-  if (mobile) return { level: mem >= 6 ? 'mid' : 'low', locked: false };
+  // 手機預設：保守起步（低階/不明記憶體 → low；高階 → mid），之後由自動降級把關
+  const cores = navigator.hardwareConcurrency || 4;
+  if (mobile) return { level: mem >= 8 && cores >= 6 ? 'mid' : 'low', locked: false };
   return { level: 'high', locked: false };
 }
