@@ -208,3 +208,6 @@ export function helicopter(deck, x, z) {
   deck.b.blockC(x, z, 3.4, 2.0);
   return g;
 }
+
+// 吊燈：細線 + 錐形燈罩（自發光，夜間有光暈）
+export function pendant(b, x, z, y = 2.55, r = 0.26) { b.cyl('steelDark', x, z, 0.012, 3.4 - y - 0.2, y + 0.2, 4); b.cyl('steelDark', x, z, r, 0.16, y + 0.04, 14, 0.06); b.cyl('lamp', x, z, r * 0.7, 0.04, y + 0.03, 12); }

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { applyDetail, KIND } from './detail.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 function plankTexture() {
@@ -11,7 +12,7 @@ function plankTexture() {
 }
 const col = (hex, o = {}) => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.7, metalness: 0.0, ...o });
 
-export function makeMaterials(env) {
+export function makeMaterials(env, quality) {
   const m = {
     white: col(0xf1f3f5, { roughness: 0.55 }),
     offwhite: col(0xdfe3e6, { roughness: 0.6 }),
@@ -40,6 +41,12 @@ export function makeMaterials(env) {
     funnel: col(0xc83a2a, { roughness: 0.5 }),
   };
   m.sunshade.side = THREE.DoubleSide;
+  if (quality && quality.name !== 'low') {
+    const D = (names, kind) => names.forEach((n) => applyDetail(m[n], kind));
+    D(['tile', 'tileBlue', 'tileDark'], KIND.tile); D(['carpet', 'carpet2', 'rug'], KIND.carpet); D(['wood', 'woodLight', 'woodDark'], KIND.wood);
+    D(['rubber'], KIND.rubber); D(['asphalt', 'concrete'], KIND.grit); D(['courtBlue', 'courtGreen'], KIND.court); D(['steel', 'steelDark'], KIND.steel);
+    D(['sofa', 'sofa2', 'fabricW', 'fabricB', 'fabricP', 'fabricG', 'fabricY'], KIND.fabric);
+  }
   return m;
 }
 
@@ -72,6 +79,21 @@ export class Builder {
     this.block(x - hw, z - hd, x + hw, z + hd);
   }
   /** 軸向牆，doors: [[a,b],...] 沿牆軸的絕對座標縫隙 */
+  // 精細：踢腳線、壓頂、玻璃框與窗欞（純視覺，不加碰撞）
+  trimSeg(mat, alongX, mid, fixed, len, thick, h, y0) {
+    if (len < 0.3) return;
+    const T = (m, a, w, t, hh, yy) => (alongX ? this.box(m, a, fixed, w, t, hh, yy) : this.box(m, fixed, a, t, w, hh, yy));
+    if (mat === 'white' && h >= 0.9) {
+      T('steelDark', mid, len + 0.01, thick + 0.04, 0.12, y0);
+      T('offwhite', mid, len + 0.01, thick + 0.035, 0.04, y0 + h);
+    } else if (mat === 'glass' && h >= 0.6) {
+      T('steelDark', mid, len, thick + 0.04, 0.05, y0);
+      T('steelDark', mid, len, thick + 0.04, 0.05, y0 + h - 0.05);
+      const n = Math.max(1, Math.round(len / 2.2));
+      for (let i = 0; i <= n; i++) { const a = mid - len / 2 + (len * i) / n; T('steelDark', a, 0.06, thick + 0.03, h, y0); }
+    }
+  }
+
   wall(x0, z0, x1, z1, h, mat = 'white', thick = 0.16, doors = [], y0 = 0) {
     const alongX = Math.abs(x1 - x0) >= Math.abs(z1 - z0);
     const a0 = alongX ? Math.min(x0, x1) : Math.min(z0, z1), a1 = alongX ? Math.max(x0, x1) : Math.max(z0, z1);
@@ -83,7 +105,9 @@ export class Builder {
       const len = s1 - s0, mid = (s0 + s1) / 2;
       if (alongX) { this.box(mat, mid, fixed, len, thick, h, y0); if (h > 0.2 && mat !== 'glass' && mat !== 'glassTint') this.block(s0 - 0.02, fixed - thick / 2 - 0.05, s1 + 0.02, fixed + thick / 2 + 0.05); else this.block(s0 - 0.02, fixed - thick / 2 - 0.05, s1 + 0.02, fixed + thick / 2 + 0.05); }
       else { this.box(mat, fixed, mid, thick, len, h, y0); this.block(fixed - thick / 2 - 0.05, s0 - 0.02, fixed + thick / 2 + 0.05, s1 + 0.02); }
+      this.trimSeg(mat, alongX, mid, fixed, len, thick, h, y0);
     }
+    if (mat === 'glass') for (const [da, db] of doors) if (db - da < 3.6 && da >= a0 - 0.01 && db <= a1 + 0.01) { const m = (da + db) / 2, l = db - da; if (alongX) this.box('steelDark', m, fixed, l, thick + 0.05, 0.07, y0 + h - 0.07); else this.box('steelDark', fixed, m, thick + 0.05, l, 0.07, y0 + h - 0.07); }
   }
   /** 合併後輸出 Group */
   build(shadow = true) {

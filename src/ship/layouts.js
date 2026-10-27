@@ -67,7 +67,7 @@ function deck1(d, ship) {
   for (const [tx, tz] of [[-25.5, -5.5], [-25.5, 5.5], [-19.5, -5.5], [-19.5, 5.5]]) {
     FN.table(b, tx, tz, 2.4, 1.0, 0, 'woodLight');
     for (const sx of [-0.65, 0.65]) for (const sz of [-1, 1]) { const cz = tz + sz * 0.95; FN.diningChair(b, tx + sx, cz, faceTo(tx + sx, cz, tx + sx, tz), 'wood'); seatsAll.push({ x: tx + sx, z: cz, face: faceTo(tx + sx, cz, tx + sx, tz) }); }
-    b.cylc('white', tx - 0.4, 0.8, tz, 0.12, 0.05, 10); b.cylc('orange', tx + 0.5, 0.78, tz + 0.15, 0.16, 0.03, 12);
+    FN.pendant(b, tx, tz); b.cylc('white', tx - 0.4, 0.8, tz, 0.12, 0.05, 10); b.cylc('orange', tx + 0.5, 0.78, tz + 0.15, 0.16, 0.03, 12);
   }
   seatsAll.forEach((s) => poi(d, 'canteen', s));
   b.wall(-14, -9.5, -14, 9.5, 1.2, 'white', 0.16, [[-1.1, 1.1]]);

@@ -1,5 +1,6 @@
 import { SHIP, ex, HULL_XS, HULL_XB } from './config.js';
 import * as THREE from 'three';
+import { applyDetail, KIND } from './detail.js';
 import { Builder, makeMaterials, xform } from './builder.js';
 import { NavGrid, CS, GX0, GZ0, GW, GH } from './nav.js';
 import { outline, pointInPoly, distToEdges, buildHullParts, outlineHull, halfWidth } from './hull.js';
@@ -134,7 +135,7 @@ export class Deck {
 
 export class Ship {
   constructor(env, quality, tvTex) {
-    this.env = env; this.quality = quality; this.tvTex = tvTex; this.M = makeMaterials(env);
+    this.env = env; this.quality = quality; this.tvTex = tvTex; this.M = makeMaterials(env, quality);
     this.root = new THREE.Group();      // 搖晃用
     this.decks = [];
     this.explode = 0; this.explodeTarget = 0;
@@ -142,6 +143,7 @@ export class Ship {
     const hp = buildHullParts(HULL, F, KEEL_Y, this.M, this.env); this.hullShape = hp.shape; this.hullBase = hp.base; this.hullBands = hp.bands;
     this.root.add(hp.base); hp.bands.forEach((g) => this.root.add(g));
     this.hullLights = []; this.hullMats = [hp.base.material, hp.bands[0].children[0].material, hp.bands[1].children[0].material];
+    if (quality.name !== 'low') this.hullMats.forEach((m) => applyDetail(m, KIND.hull));
     for (let i = 0; i < 5; i++) {
       const d = new Deck(i, this); this.decks.push(d);
       // 孔洞：電梯（>=2F）與樓梯（上來的那一側）
