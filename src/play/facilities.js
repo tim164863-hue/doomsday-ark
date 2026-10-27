@@ -75,8 +75,8 @@ const MODELS = {
 };
 
 /** 在 nav 上找一塊四周留空的位置（hw×hd 半尺寸 + 1m 邊界全是可走格） */
-export function findSlot(nav, ax, az, hw, hd, avoid = [], margin = 1.0) {
-  let best = null, bd = 1e9; const rx = hw + margin, rz = hd + margin;
+export function findSlot(nav, ax, az, hw, hd, avoid = [], margin = 1.0, maxD = 1e9) {
+  let best = null, bd = maxD; const rx = hw + margin, rz = hd + margin;
   for (let iz = 0; iz < GH; iz++) for (let ix = 0; ix < GW; ix++) {
     const x = GX0 + (ix + 0.5) * CS, z = GZ0 + (iz + 0.5) * CS; const d = Math.hypot(x - ax, z - az); if (d >= bd) continue;
     if (avoid.some((a) => Math.abs(a.x - x) < a.hw + hw + 0.9 && Math.abs(a.z - z) < a.hd + hd + 0.9)) continue;

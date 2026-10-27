@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { clamp, isTouchDevice } from './util.js';
 import { BASE_Y, DH } from './ship/ship.js';
 import { pointInPoly } from './ship/hull.js';
+import { SHIP_CX } from './ship/config.js';
 
 const MODES = ['follow', 'free', 'overview'];
 export const MODE_NAMES = { follow: '追隨', free: '自由', overview: '俯瞰' };
@@ -18,7 +19,7 @@ export class Controls {
     if (m === this.mode) return;
     this.saved[this.mode] = { yaw: this.yaw, pitch: this.pitch, dist: this.dist, target: this.target.clone() };
     this.mode = m; const s = this.saved[m];
-    if (m === 'overview') { this.yaw = 0.8; this.pitch = 0.5; this.dist = 175; this.tgtOver = new THREE.Vector3(0, 9, 0); this.game.ship.setExplode(0); }
+    if (m === 'overview') { this.yaw = 0.8; this.pitch = 0.5; this.dist = 175; this.tgtOver = new THREE.Vector3(SHIP_CX, 9, 0); this.game.ship.setExplode(0); }
     else if (m === 'follow') { if (s) { this.yaw = s.yaw; this.pitch = s.pitch; this.dist = s.dist; } else { this.dist = 17; this.pitch = 0.95; } }
     else { if (s) { this.yaw = s.yaw; this.pitch = s.pitch; this.dist = s.dist; this.target.copy(s.target); } else { this.dist = 45; this.pitch = 0.8; } }
     if (m !== 'free') this.game.soloDeck = null; this.focusBot = null; this.game.onModeChange && this.game.onModeChange(m);

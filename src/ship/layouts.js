@@ -1,3 +1,4 @@
+import { ex } from './config.js';
 import * as THREE from 'three';
 import { xform } from './builder.js';
 import * as FN from './furniture.js';
@@ -43,18 +44,18 @@ function door(d, hx, hz, closedYaw, openYaw, w = 1.1, h = 2.1) {
 function deck1(d, ship) {
   const b = d.b;
   // 甲板地面：室內瓷磚 / 地毯
-  floorRect(d, 'tileDark', -44.4, -9.5, -34, 9.5);        // 儲藏
+  floorRect(d, 'tileDark', ex(-44.4), -9.5, -34, 9.5);        // 儲藏
   floorRect(d, 'tile', -34, -9.5, -14, 9.5);               // 餐廳
   floorRect(d, 'carpet', -14, -1.4, 10, 1.4);             // 走廊
   // 外牆（z=±9.5），玻璃窗
-  wallG(d, -44.4, -9.5, 10, -9.5); wallG(d, -44.4, 9.5, 10, 9.5);
-  b.wall(-44.4, -9.5, -44.4, 9.5, 1.3, 'white', 0.2);
+  wallG(d, ex(-44.4), -9.5, 10, -9.5); wallG(d, ex(-44.4), 9.5, 10, 9.5);
+  b.wall(ex(-44.4), -9.5, ex(-44.4), 9.5, 1.3, 'white', 0.2);
   // 儲藏室
   b.wall(-34, -9.5, -34, 9.5, 1.2, 'white', 0.16, [[-1.1, 1.1]]);
-  for (const [x, z, r, m] of [[-41, -6.6, 0, 'cargoBlue'], [-41, 6.6, 0, 'cargoRed'], [-37, 7.4, 0.0, 'cargoGreen']]) FN.cargoContainer(b, x, z, r, m, m === 'cargoGreen' ? 3.0 : 4.8);
-  FN.shelf(b, -43.6, -2.2, PI / 2, 2.4); FN.shelf(b, -43.6, 2.2, PI / 2, 2.4);
-  [[-38, -2.6], [-38.8, -1.8], [-38, -0.8], [-36.4, -7.6], [-36.4, -6.6]].forEach(([x, z], i) => FN.crate(b, x, z, 0.8 + (i % 2) * 0.2, 'crate', i * 0.3));
-  [[-35.2, -4.5], [-35.2, -3.7], [-35.6, 3.5], [-36.4, 4.2]].forEach(([x, z], i) => FN.barrel(b, x, z, i % 2 ? 'cargoBlue' : 'rust'));
+  for (const [x, z, r, m] of [[-36.9, -6.6, 0, 'cargoBlue'], [-36.9, 6.6, 0, 'cargoRed']]) FN.cargoContainer(b, x, z, r, m, 3.8);
+  FN.shelf(b, ex(-43.6) + 0.15, -2.2, PI / 2, 2.4); FN.shelf(b, ex(-43.6) + 0.15, 2.2, PI / 2, 2.4);
+  [[-37.6, -3.0], [-37.8, -1.9], [-37.5, 3.4]].forEach(([x, z], i) => FN.crate(b, x, z, 0.8 + (i % 2) * 0.2, 'crate', i * 0.3));
+  [[-35.4, -3.6], [-35.4, -4.4], [-35.6, 3.5], [-36.2, 4.3]].forEach(([x, z], i) => FN.barrel(b, x, z, i % 2 ? 'cargoBlue' : 'rust'));
   signBoard(d, '儲藏室', -34.12, 1.95, 0.0, PI / 2 * 3 - PI, 1.6, 0.4);
   // 廚房 + 餐廳
   FN.counter(b, -33.6, -8.5, -33.6, -2.0, 0.95); FN.counter(b, -33.6, 2.0, -33.6, 8.5, 0.95);
@@ -123,10 +124,8 @@ function deck1(d, ship) {
     d.steams.push({ x: W(6.6), y: 2.3, z: Z(1.6), s: 1, cabin: title });
   }
   // 大廳 / 艦首「未來設施」區（淨水、農場、釣魚）預留
-  floorRect(d, 'wood', 24, -9, 44, 9, 0.02);
+  floorRect(d, 'wood', 24, -9, ex(44), 9, 0.02);
   for (const z of [-7, -4.5, 4.5, 7]) { b.box('woodDark', 30, z, 5, 1.1, 0.5); b.box('soil' in d.M ? 'soil' : 'woodDark', 30, z, 4.8, 0.9, 0.05, 0.5); for (let i = 0; i < 6; i++) b.sph('leaf', 27.9 + i * 0.8, 0.8, z + ((i * 7) % 3 - 1) * 0.1, 0.22, 1, 1.1, 1); b.block(27.5, z - 0.55, 32.5, z + 0.55); }
-  for (const [x, z] of [[38, -5], [38, 5], [41, 0]]) { b.cyl('steel', x, z, 1.1, 2.4, 0, 16); b.cyl('steelDark', x, z, 1.15, 0.15, 2.4, 16); b.cyl('lightblue', x, z, 0.5, 0.06, 2.55, 12); b.blockC(x, z, 2.4, 2.4); }
-  signBoard(d, '（未來）淨水 · 農場區', 36, 2.7, 0, -PI / 2, 3.2, 0.5);
   FN.plant(b, 12, -8.5, 1.1); FN.plant(b, 12, 8.5, 1.1); FN.floorLamp(b, 20, 8.6); FN.floorLamp(b, 20, -8.6);
   // 兩個聊天點
   poi(d, 'chat', { x: 12, z: 0 }); poi(d, 'chat', { x: -22, z: 0 });
@@ -216,7 +215,7 @@ function deck3(d, ship) {
   d.tvs[d.tvs.length - 1].position.x = 26.15 + 0.1;
   signBoard(d, '會議室', 25.88, 2.45, -2.6, -PI / 2, 1.6, 0.42);
   FN.plant(b, 36.6, -4.6, 1); FN.plant(b, 36.6, 4.6, 1);
-  poi(d, 'rail', { x: 14, z: 12.4, face: 0 }); poi(d, 'rail', { x: 14, z: -12.4, face: PI }); poi(d, 'rail', { x: -40, z: 0, face: -PI / 2 }); poi(d, 'rail', { x: 52, z: 0, face: PI / 2 });
+  poi(d, 'rail', { x: 14, z: 12.4, face: 0 }); poi(d, 'rail', { x: 14, z: -12.4, face: PI }); poi(d, 'rail', { x: ex(-40), z: 0, face: -PI / 2 }); poi(d, 'rail', { x: ex(52), z: 0, face: PI / 2 });
 }
 
 // ------------------------------------------------------------ 4F 娛樂休閒層

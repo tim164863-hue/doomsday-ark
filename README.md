@@ -112,7 +112,7 @@ src/
   player.js        T董（手動移動 / 尋路 / 樓梯 / 電梯）
   events.js        事件匯流排 + registerSystem()（後續階段掛載點）
   world/           waves、environment（天空/光/霧）、ocean、sealife
-  ship/            hull、builder、layouts（5 層佈局/POI）、furniture、nav（格網 A*）、tv
+  ship/            config（SHIP 船體設定）、hull、builder、layouts（5 層佈局/POI）、furniture、nav（格網 A*）、tv
   crew/            avatar、actor（跨層路徑）、crew（行為狀態機）、match（球賽）、mood、chatter
   ui/              ui.js（時間列/樓層/成員/標籤/說明）、hud.js（資源列/船員列/互動提示/離線報告/任務/出海）
   sim/             純模擬核心（defs 常數、sim 規則、rng、selftest）
@@ -132,3 +132,10 @@ src/
 - 無頭瀏覽器（swiftshader）只有約 10–15 fps，實機 GPU 會順很多；請以真機為準。
 - 5F 直升機坪僅為裝飾（不可走上去）。
 - 球賽 / 游泳等動作為程序動畫，細節（手指、衣物物理）刻意簡化。
+
+## 船體設定（src/ship/config.js）
+
+`SHIP` 集中了船名、半寬、龍骨、船艏長度、各層外形、層高與「兩端壓縮」參數；`HULL` / `PARAMS` / 海面泡沫 shader / 俯瞰鏡頭中心都由它導出。
+佈局原本以舊版 106 m 長船的絕對座標手工擺放，縮短的方式是：中段（`sternEdge`~`bowEdge`）原封不動，兩端的景觀甲板依 `sternK` / `bowK` 壓縮，
+端部裝飾的 x 座標以 `ex(x)` 轉換。調小 `sternK` / `bowK` 就能更短（裝飾會變擠）。目前全長約 91 m（舊版 106 m）。
+日後的艦隊船型，只要提供另一份 SHIP 設定即可。

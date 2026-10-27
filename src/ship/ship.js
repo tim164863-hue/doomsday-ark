@@ -1,3 +1,4 @@
+import { SHIP, ex, HULL_XS, HULL_XB } from './config.js';
 import * as THREE from 'three';
 import { Builder, makeMaterials, xform } from './builder.js';
 import { NavGrid, CS, GX0, GZ0, GW, GH } from './nav.js';
@@ -5,20 +6,15 @@ import { outline, pointInPoly, distToEdges, buildHullParts, outlineHull, halfWid
 import { layouts } from './layouts.js';
 import { waveHeight } from '../world/waves.js';
 
-export const DH = 3.7;            // 層高
-export const BASE_Y = 1.4;        // 1F 地板高度（船殼內，水線之上）
+export const DH = SHIP.deckH;            // 層高
+export const BASE_Y = SHIP.baseY;        // 1F 地板高度（船殼內，水線之上）
 export const NAMES = ['1F', '2F', '3F', '4F', '5F'];
 export const TITLES = ['船艙 · 員工生活層', '船艙 · 運動健康層', '主甲板 · 會議工作層', '娛樂休閒層', '董事長辦公層（直升機坪）'];
-export const HULL = { xs: -46, xb: 46, hz: 13.6, bl: 14 };
-export const KEEL_Y = -4.8;
-export const HULL_DECKS = 2;      // 1F、2F 在船殼內；3F 為主甲板（船殼頂）
-export const PARAMS = [
-  { xs: -45.9, xb: 45.9, hz: 12.8, bl: 13.9 },   // 1F / 2F 實際外形由船殼斷面推導（見 outlineHull）
-  { xs: -45.9, xb: 45.9, hz: 13.3, bl: 13.9 },
-  { xs: -45.7, xb: 45.7, hz: 13.5, bl: 13.9 },   // 3F 主甲板 = 船殼頂
-  { xs: -28, xb: 28, hz: 9, bl: 8 },
-  { xs: -22, xb: 27, hz: 7.5, bl: 6 },
-];
+export const HULL = { xs: HULL_XS, xb: HULL_XB, hz: SHIP.hz, bl: SHIP.bowLen };
+export const KEEL_Y = SHIP.keelY;
+export const HULL_DECKS = SHIP.hullDecks;      // 1F、2F 在船殼內；3F 為主甲板（船殼頂）
+// 各層外形由 SHIP 設定導出（1F / 2F 實際外形由船殼斷面推導，見 outlineHull）
+export const PARAMS = SHIP.decks.map((d, i) => ({ xs: ex(d.xs), xb: ex(d.xb), hz: d.hz, bl: d.bl ?? SHIP.bowLen - 0.1 }));
 export const ELEV = { x0: 10.7, x1: 13.3, z0: -6.8, z1: -4.2, cx: 12, cz: -5.5, portalZ: -3.6 };
 export const STAIR = { x0: 16, x1: 23.2, holeX0: 18.4, w: 2.4, laneOff: 3, arrive: 25.0, bottom: 14.4, upTrig: 15.4, downTrig: 24.0 };
 export const pairLane = (k) => (k % 2 === 0 ? 1 : -1);

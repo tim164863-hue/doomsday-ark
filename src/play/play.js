@@ -13,7 +13,7 @@ import { FAC, FAC_ORDER, SITES, TIERS, TICK, RES } from '../sim/defs.js';
 import { FacilityView, findSlot, blockRect, FOOT, SC } from './facilities.js';
 
 // 各設施的樓層與偏好位置（x,z）；實際位置會在附近找一塊四周留空的地方
-const ANCHOR = { purifier: [34, -6], generator: [34, 7], workshop: [22, 8], infirmary: [24, -8], greenhouse: [36, 4] };
+const ANCHOR = { purifier: [35, -5.5], generator: [35.5, 5.5], workshop: [22, 8], infirmary: [29.5, -6.6], greenhouse: [37.6, 8.2] };
 const nowSec = () => clock.now();
 const rnd = Math.random;
 const pick = (a) => a[Math.floor(rnd() * a.length)];
@@ -55,7 +55,7 @@ export class Play {
     const ship = this.game.ship; const used = [[], [], [], [], []];
     for (const f of FAC_ORDER) {
       const d = FAC[f].deck; const nav = ship.decks[d].nav; const [hw, hd] = FOOT[f];
-      const [ax, az] = ANCHOR[f]; const p = findSlot(nav, ax, az, hw, hd, used[d]) || findSlot(nav, ax, az, hw, hd, used[d], 0.5) || [ax, az];
+      const [ax, az] = ANCHOR[f]; const p = findSlot(nav, ax, az, hw, hd, used[d], 1.0, 7) || findSlot(nav, ax, az, hw, hd, used[d], 0.5, 7) || findSlot(nav, ax, az, hw, hd, used[d]) || findSlot(nav, ax, az, hw, hd, used[d], 0.5) || [ax, az];
       used[d].push({ x: p[0], z: p[1], hw, hd }); blockRect(nav, p[0], p[1], hw, hd);
       const v = new FacilityView(f, ship.decks[d].group, p[0], p[1]); v.deck = d; this.fac[f] = v;
     }

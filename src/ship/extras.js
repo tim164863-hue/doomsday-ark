@@ -1,4 +1,5 @@
 // 各層的細節加料：隔間、設備、植栽、露台家具……（純裝飾 + 少量碰撞，不動既有的 POI）
+import { ex } from './config.js';
 import * as THREE from 'three';
 import * as FN from './furniture.js';
 import { plate, signBoard, floorRect, wallG, poi } from './layouts.js';
@@ -76,30 +77,30 @@ function hullFill(i, d) {
   const b = d.b;
   const side = d.hw(0) - 0.55;                         // 舷側貼牆線
   for (const s of [-1, 1]) {
-    pipeRun(b, -43, 42, s * (side - 0.0), 2.1); pipeRun(b, -43, 42, s * (side - 0.0), 1.2);
-    for (let x = -42; x <= 40; x += 6) { b.box('lamp', x, s * (side + 0.25), 0.34, 0.06, 0.18, 1.7); b.box('steelDark', x, s * (side + 0.2), 0.5, 0.1, 0.08, 1.7); }
+    pipeRun(b, ex(-43), ex(42), s * (side - 0.0), 2.1); pipeRun(b, ex(-43), ex(42), s * (side - 0.0), 1.2);
+    for (let x = ex(-42); x <= ex(40); x += 6) { b.box('lamp', x, s * (side + 0.25), 0.34, 0.06, 0.18, 1.7); b.box('steelDark', x, s * (side + 0.2), 0.5, 0.1, 0.08, 1.7); }
   }
   if (i === 0) {
-    for (const s of [-1, 1]) for (const x of [-40, -33, -26, -19, -12, -5, 2, 9, 28, 35, 42]) cabinet(b, x, s * (d.hw(0) - 1.15), s > 0 ? PI : 0, 1.4, 1.5, ['steel', 'steelDark', 'woodDark'][Math.abs(x) % 3]);
+    for (const s of [-1, 1]) for (const x of [ex(-40), -33, -26, -19, -12, -5, 2, 9, 28, 35, ex(42)]) cabinet(b, x, s * (d.hw(0) - 1.15), s > 0 ? PI : 0, 1.4, 1.5, ['steel', 'steelDark', 'woodDark'][Math.abs(x) % 3]);
     for (const s of [-1, 1]) for (const x of [-38, -17, 6]) { FN.crate(b, x, s * 10.9, 0.7, 'crate', 0.2, 0.7); } // 備品堆
     // 艏尖艙：錨鏈艙 + 貨櫃
-    chainCoil(b, 50, 0); FN.cargoContainer(b, 47, 7.6, 0, 'cargoRed', 4.0); FN.cargoContainer(b, 47, -7.6, 0, 'cargoBlue', 4.0);
-    b.box('yellow', 44.8, 0, 0.3, 14, 0.02, 0.025);
-    for (const s of [-1, 1]) lampPost(b, 54, s * 3.5, 2.3);
-    plate(d, '⚓ 錨鏈艙', 56.2, 2.0, 0, PI / 2, 2.2, 0.45);
+    chainCoil(b, ex(50), 0); FN.cargoContainer(b, ex(47), 7.6, 0, 'cargoRed', 4.0); FN.cargoContainer(b, ex(47), -7.6, 0, 'cargoBlue', 4.0);
+    b.box('yellow', ex(44.8), 0, 0.3, 14, 0.02, 0.025);
+    for (const s of [-1, 1]) lampPost(b, ex(54), s * 3.5, 2.3);
+    plate(d, '⚓ 錨鏈艙', ex(56.2), 2.0, 0, PI / 2, 2.2, 0.45);
   } else {
     // 船艉：蒸氣室 / 按摩池
-    FN.hotTub(d, -41.5, -5.2, 2.1); FN.hotTub(d, -41.5, 5.2, 2.1);
-    for (const z of [-9.2, 0, 9.2]) bench(b, -44.3, z, PI / 2, 2.2, 'woodDark'); lampPost(b, -38.5, 0, 2.0);
-    bigPlant(b, -37.2, -9.0, 0.9); bigPlant(b, -37.2, 9.0, 0.9);
-    plate(d, '♨ 溫泉 · SPA', -45.2, 2.2, 0, PI / 2, 2.4, 0.5);
+    FN.hotTub(d, ex(-41.5), -5.2, 2.1); FN.hotTub(d, ex(-41.5), 5.2, 2.1);
+    for (const z of [-9.2, 0, 9.2]) bench(b, ex(-44.3), z, PI / 2, 2.2, 'woodDark'); lampPost(b, ex(-38.5), 0, 2.0);
+    bigPlant(b, ex(-37.2), -9.0, 0.9); bigPlant(b, ex(-37.2), 9.0, 0.9);
+    plate(d, '♨ 溫泉 · SPA', ex(-45.2), 2.2, 0, PI / 2, 2.4, 0.5);
     // 船艏：觀景休憩艙
-    pergola(b, 40, -2.4, 46, 2.4, 2.5);
-    FN.sofa(b, 42, -4.6, 0, 2.6, 'sofa'); FN.sofa(b, 42, 4.6, PI, 2.6, 'sofa2'); FN.coffeeTable(b, 43.5, 0, 0, 1.4, 0.8);
-    FN.sofa(b, 50, -3.3, PI / 2, 2.4, 'sofa2'); FN.sofa(b, 50, 3.3, -PI / 2, 2.4, 'sofa2'); FN.roundTable(b, 52.6, 0, 0.5);
-    bigPlant(b, 46.8, -7.8, 1); bigPlant(b, 46.8, 7.8, 1); bigPlant(b, 55, -3.2, 0.8); bigPlant(b, 55, 3.2, 0.8);
-    stringLights(b, 40, -2.4, 46, -2.4, 2.4, 10); stringLights(b, 40, 2.4, 46, 2.4, 2.4, 10);
-    poi(d, 'chat', { x: 43.5, z: 0 }); plate(d, '☕ 船艏休憩艙', 38.6, 2.4, 0, -PI / 2, 2.4, 0.45);
+    pergola(b, ex(40), -2.4, ex(46), 2.4, 2.5);
+    FN.sofa(b, ex(42), -4.6, 0, 2.6, 'sofa'); FN.sofa(b, ex(42), 4.6, PI, 2.6, 'sofa2'); FN.coffeeTable(b, ex(43.5), 0, 0, 1.4, 0.8);
+    FN.sofa(b, ex(50), -3.3, PI / 2, 2.4, 'sofa2'); FN.sofa(b, ex(50), 3.3, -PI / 2, 2.4, 'sofa2'); FN.roundTable(b, ex(52.6), 0, 0.5);
+    bigPlant(b, ex(46.8), -7.8, 1); bigPlant(b, ex(46.8), 7.8, 1); bigPlant(b, ex(55), -3.2, 0.8); bigPlant(b, ex(55), 3.2, 0.8);
+    stringLights(b, ex(40), -2.4, ex(46), -2.4, 2.4, 10); stringLights(b, ex(40), 2.4, ex(46), 2.4, 2.4, 10);
+    poi(d, 'chat', { x: ex(43.5), z: 0 }); plate(d, '☕ 船艏休憩艙', ex(38.6), 2.4, 0, -PI / 2, 2.4, 0.45);
   }
 }
 
@@ -108,21 +109,21 @@ function mainDeckFill(d) {
   // 辦公區外牆（玻璃）：保持水線上方的「上層建築」感，兩側保留甲板走道
   wallG(d, -33.9, -9.7, 6.9, -9.7, [[-23, -21.8], [-1.6, -0.4]]); wallG(d, -33.9, 9.7, 6.9, 9.7, [[-23, -21.8], [-1.6, -0.4]]); wallG(d, -33.9, -9.7, -33.9, 9.7, []);
   for (const s of [-1, 1]) {
-    for (const x of [-31, -19, -7, 33, 42]) lifeboat(b, x, s * 12.2, s);
+    for (const x of [-31, -19, -7, 33, ex(42)]) lifeboat(b, x, s * 12.2, s);
     for (const x of [-26, -14, 0, 12, 24]) FN.lifeRing(b, x, 0.78, s * 13.25, s > 0 ? 0 : PI);
     for (const x of [-12, -4, 4]) { FN.loungeChair(b, x, s * 11.3, s > 0 ? -PI / 2 : PI / 2, 'fabricW'); }
-    for (const x of [-41, -25, 14, 50]) { b.cyl('steelDark', x, s * 12.9, 0.18, 0.55, 0, 8); b.cyl('red', x, s * 12.9, 0.2, 0.08, 0.5, 8); b.blockC(x, s * 12.9, 0.45, 0.45); }
+    for (const x of [ex(-41), -25, 14, ex(50)]) { b.cyl('steelDark', x, s * 12.9, 0.18, 0.55, 0, 8); b.cyl('red', x, s * 12.9, 0.2, 0.08, 0.5, 8); b.blockC(x, s * 12.9, 0.45, 0.45); }
   }
   // 船艉：日光浴甲板
-  for (const z of [-7, -3.5, 3.5, 7]) FN.loungeChair(b, -41, z, -PI / 2, 'fabricW');
-  FN.umbrella(b, -43.2, -5.3, 1.7); FN.umbrella(b, -43.2, 5.3, 1.7); FN.roundTable(b, -43.2, -5.3, 0.5); FN.roundTable(b, -43.2, 5.3, 0.5);
-  bigPlant(b, -45.2, -9.8, 1); bigPlant(b, -45.2, 9.8, 1); flag(b, -44.8, 0, 'hullBlue', 4.6); stringLights(b, -44.6, -9, -44.6, 9, 2.4, 18);
+  for (const z of [-7, -3.5, 3.5, 7]) FN.loungeChair(b, ex(-41), z, -PI / 2, 'fabricW');
+  FN.umbrella(b, ex(-43.2), -5.3, 1.7); FN.umbrella(b, ex(-43.2), 5.3, 1.7); FN.roundTable(b, ex(-43.2), -5.3, 0.5); FN.roundTable(b, ex(-43.2), 5.3, 0.5);
+  bigPlant(b, ex(-45.2), -9.8, 1); bigPlant(b, ex(-45.2), 9.8, 1); flag(b, ex(-44.8), 0, 'hullBlue', 4.6); stringLights(b, ex(-44.6), -9, ex(-44.6), 9, 2.4, 18);
   // 船艏：起錨機、絞盤、纜樁、船首旗
-  for (const s of [-1, 1]) { b.cyl('steelDark', 52, s * 3.2, 0.5, 0.9, 0, 12); b.cyl('steel', 52, s * 3.2, 0.38, 0.12, 0.9, 12); b.blockC(52, s * 3.2, 1.1, 1.1); for (const x of [46, 56]) { b.cyl('red', x, s * 6.2, 0.2, 0.55, 0, 8); b.blockC(x, s * 6.2, 0.5, 0.5); } }
-  b.box('steelDark', 49, 0, 2.4, 1.6, 0.7); b.cyl('steel', 49, -0.7, 0.55, 1.3, 0.7, 12); b.cyl('steel', 49, 0.7, 0.55, 1.3, 0.7, 12); b.blockC(49, 0, 2.4, 1.6);
-  for (let k = 0; k < 6; k++) b.box('steelDark', 51 + k * 0.5, 0, 0.35, 0.18, 0.05, 0.22 + 0.0);
-  flag(b, 58.2, 0, 'red', 4.4);
-  for (const x of [-39, -30]) { b.box('yellow', x, 0, 0.18, 14, 0.02, 0.025); }
+  for (const s of [-1, 1]) { b.cyl('steelDark', ex(52), s * 3.2, 0.5, 0.9, 0, 12); b.cyl('steel', ex(52), s * 3.2, 0.38, 0.12, 0.9, 12); b.blockC(ex(52), s * 3.2, 1.1, 1.1); for (const x of [ex(46), ex(56)]) { b.cyl('red', x, s * 6.2, 0.2, 0.55, 0, 8); b.blockC(x, s * 6.2, 0.5, 0.5); } }
+  { const wx = ex(49); b.box('steelDark', wx, 0, 2.4, 1.6, 0.7); b.cyl('steel', wx, -0.7, 0.55, 1.3, 0.7, 12); b.cyl('steel', wx, 0.7, 0.55, 1.3, 0.7, 12); b.blockC(wx, 0, 2.4, 1.6); }
+  for (let k = 0; k < 6; k++) b.box('steelDark', ex(51) + k * 0.5, 0, 0.35, 0.18, 0.05, 0.22 + 0.0);
+  flag(b, ex(58.2), 0, 'red', 4.4);
+  for (const x of [ex(-39), -30]) { b.box('yellow', x, 0, 0.18, 14, 0.02, 0.025); }
 }
 
 export function enrich(i, d, ship) { [e1, e2, e3, e4, e5][i](d, ship); if (d.hullDeck) hullFill(i, d); if (i === 2) mainDeckFill(d); }
@@ -148,13 +149,11 @@ function e1(d) {
   FN.sofa(b, -22.2, -9.0, 0, 2.0, 'sofa'); FN.sofa(b, -22.2, 9.0, PI, 2.0, 'sofa2');
   for (const x of [-30, -17]) { b.cyl('woodDark', x, 0, 0.5, 0.5, 0, 14); b.sph('leaf', x, 0.85, 0, 0.45, 1, 0.9, 1, 8); b.blockC(x, 0, 1, 1); }
   // 儲藏室：棧板、油桶區、標示線
-  for (const [x, z] of [[-41.2, 0], [-39.6, 0.0]]) { b.box('woodLight', x, z, 1.1, 1.1, 0.12); b.box('crate', x, z, 0.9, 0.9, 0.7, 0.12); b.block(x - 0.55, z - 0.55, x + 0.55, z + 0.55); }
-  for (let k = 0; k < 6; k++) b.box('yellow', -36 - k * 1.3, 0, 0.7, 0.14, 0.02, 0.025);
+  for (const [x, z] of [[ex(-41.2), 0], [ex(-39.6), 0.0]]) { b.box('woodLight', x, z, 1.1, 1.1, 0.12); b.box('crate', x, z, 0.9, 0.9, 0.7, 0.12); b.block(x - 0.55, z - 0.55, x + 0.55, z + 0.55); }
+  for (let k = 0; k < 6; k++) b.box('yellow', -36 - k * 0.6, 0, 0.7, 0.14, 0.02, 0.025);
   // 前甲板：長椅 + 欄邊植栽 + 繩纜捲
-  for (const z of [-6.3, 6.3]) bench(b, 40, z, PI / 2, 1.8);
-  for (const [x, z] of [[44, -3], [44, 3]]) { b.cyl('steelDark', x, z, 0.4, 0.32, 0, 12); b.cyl('rust', x, z, 0.3, 0.34, 0.05, 10); b.blockC(x, z, 0.8, 0.8); }
   bigPlant(b, 25.5, -8, 1); bigPlant(b, 25.5, 8, 1);
-  lampPost(b, 36, -8.5); lampPost(b, 36, 8.5); lampPost(b, 46, -4.5); lampPost(b, 46, 4.5);
+  lampPost(b, 36, -8.5); lampPost(b, 36, 8.5); lampPost(b, ex(46), -4.5); lampPost(b, ex(46), 4.5);
 }
 
 // ================= 2F 運動健康層
@@ -181,8 +180,8 @@ function e2(d) {
   for (const x of [26, 29, 32]) bench(b, x, 9.4, PI, 2.2, 'fabricB');
   for (const x of [24.5, 33.5]) { b.cyl('steelDark', x, -9.4, 0.05, 2.4, 0, 6); }
   // 艦艏甲板：咖啡桌椅
-  for (const z of [-5, 0, 5]) { FN.roundTable(b, 41, z, 0.5); FN.diningChair(b, 40.2, z, PI / 2); FN.diningChair(b, 41.8, z, -PI / 2); }
-  FN.umbrella(b, 41, 0, 2.0);
+  for (const z of [-5, 0, 5]) { FN.roundTable(b, ex(41), z, 0.5); FN.diningChair(b, ex(41) - 0.8, z, PI / 2); FN.diningChair(b, ex(41) + 0.8, z, -PI / 2); }
+  FN.umbrella(b, ex(41), 0, 2.0);
   bigPlant(b, 36.5, -8, 1); bigPlant(b, 36.5, 8, 1); bigPlant(b, 8, -9.4, 0.9);
 }
 
@@ -224,7 +223,7 @@ function e3(d, ship) {
   cabinet(b, 35.2, -5.0, 0, 1.6, 0.9, 'woodDark'); cabinet(b, 35.2, 5.0, PI, 1.6, 0.9, 'woodDark'); FN.coffeeMachine(b, 35.4, -5.1, 0); FN.waterCooler(b, 36.4, 4.9, PI);
   b.box('rug', 31.8, 0, 7.4, 3.8, 0.02, 0.02);
   plate(d, '週會 10:00', 37.45, 1.7, 0, -PI / 2, 1.6, 0.32);
-  lampPost(b, 40.5, -3.5); lampPost(b, 40.5, 3.5);
+  lampPost(b, ex(40.5), -3.5); lampPost(b, ex(40.5), 3.5);
 }
 
 // ================= 4F 娛樂休閒層

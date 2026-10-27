@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { HULL_XS, HULL_TIP } from './config.js';
 
 /** 甲板外形：船尾略圓、兩側平行、船頭尖 */
 export function halfWidth(x, p) {
@@ -140,7 +141,7 @@ function loftBand(shape, rows, { bottom = false, stations = 110 } = {}) {
 }
 
 /** 舷窗：沿船殼表面貼合（含法線朝向） */
-function portholes(shape, y, mats, { x0 = -42, x1 = 56, step = 2.3, r = 0.27 } = {}) {
+function portholes(shape, y, mats, { x0 = HULL_XS + 4, x1 = HULL_TIP - 4, step = 2.3, r = 0.27 } = {}) {
   const frame = new THREE.CylinderGeometry(r * 1.3, r * 1.3, 0.1, 14).rotateX(Math.PI / 2), glass = new THREE.CylinderGeometry(r, r, 0.12, 14).rotateX(Math.PI / 2);
   const pts = [];
   for (let x = x0; x <= x1; x += step) for (const sgn of [-1, 1]) {

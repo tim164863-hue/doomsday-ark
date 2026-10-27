@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { WAVES } from './waves.js';
+import { SHIP, HULL_XS, HULL_XB, HULL_TIP, SHIP_CX } from '../ship/config.js';
 
 const N = WAVES.length;
 const vert = /* glsl */`
@@ -44,7 +45,7 @@ vec3 skyCol(vec3 d){
 }
 float hullHW(float x){
   // 與船體外形一致的簡化寬度
-  float xs = -${(46).toFixed(1)}, xb = 46.0, bl = 14.0;
+  float xs = ${HULL_XS.toFixed(2)}, xb = ${HULL_XB.toFixed(2)}, bl = ${SHIP.bowLen.toFixed(2)};
   if (x < xs) return 0.0;
   if (x < xs+3.0) return uShipHW*(0.84+0.16*(x-xs)/3.0);
   if (x < xb) return uShipHW;
@@ -78,7 +79,7 @@ void main(){
   float dx = vWorld.x, dz = abs(vWorld.z);
   float hw = hullHW(dx);
   float dd = dz - hw;
-  float outside = (hw > 0.0) ? dd : length(vec2(dx < 0.0 ? dx + 46.0 : dx - 60.0, dz));
+  float outside = (hw > 0.0) ? dd : length(vec2(dx < ${SHIP_CX.toFixed(2)} ? dx - ${HULL_XS.toFixed(2)} : dx - ${HULL_TIP.toFixed(2)}, dz));
   float ring = smoothstep(1.7, 0.1, outside) * smoothstep(-8.0, 0.0, outside) * (0.25 + 0.6*fn);
   foam = max(foam, ring*0.55);
   vec3 foamCol = mix(vec3(0.8,0.88,0.92), uHorizon*1.1+0.1, 0.25) * (0.06 + 0.94*uDay);
@@ -125,7 +126,7 @@ export class Ocean {
       uDeep: { value: env.waterDeep }, uShallow: { value: env.waterShallow },
       uZenith: U.uZenith, uHorizon: U.uHorizon, uGlow: U.uGlow, uSunDir: U.uSunDir, uSunCol: U.uSunCol, uMoonDir: U.uMoonDir,
       uFog: { value: scene.fog.color }, uFogD: { value: 0.0005 }, uDay: U.uDay, uMoonVis: U.uMoonVis, uSunVis: U.uSunVis,
-      uShipHL: { value: 46 }, uShipHW: { value: 12.3 },
+      uShipHL: { value: (HULL_XB - HULL_XS) / 2 }, uShipHW: { value: 12.3 },
     };
     this.mat = new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: vert, fragmentShader: frag, fog: false });
     this.scene = scene; this.build(quality);
