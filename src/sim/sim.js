@@ -29,13 +29,17 @@ export function makeDaily(s, dk) {
 }
 
 /** 同步目前船員名單與真實 bot 狀態快照（唯讀資料 → 只影響小幅產能加成） */
-export function syncCrew(s, list) {
+export function syncCrew(s, list, nowSec = 0) {
   const keys = [];
   for (const c of list) { keys.push(c.key); if (!s.crew[c.key]) s.crew[c.key] = { inj: 0, away: 0, sick: false }; s.statusSnap[c.key] = c.cat; }
-  for (const k of Object.keys(s.crew)) if (!keys.includes(k)) { /* 離線的船員保留紀錄（可能還在出海） */ }
+  // 清掉不在名單內的舊紀錄（例如示範 / 虛擬船員名字殘留在存檔裡）；仍在出海或受傷中的保留，等他們回來。
+  if (list.length) for (const k of Object.keys(s.crew)) {
+    if (keys.includes(k)) continue; const c = s.crew[k];
+    if (c.away || (c.inj || 0) > nowSec) continue;
+    delete s.crew[k]; delete s.statusSnap[k]; if (s.cdCheer) delete s.cdCheer[k]; if (s.cdChat) delete s.cdChat[k];
+  }
   return s;
 }
-
 export function crewKeys(s) { return Object.keys(s.crew).sort(); }
 /** 設施 → 駐守船員（依名稱排序、固定對應）；出海或受傷者不算 */
 export function staffOf(s) {

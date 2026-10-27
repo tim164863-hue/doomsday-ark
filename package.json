@@ -12,5 +12,8 @@
   "devDependencies": {
     "three": "^0.186.1",
     "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "firebase": "^13.1.0"
   }
 }

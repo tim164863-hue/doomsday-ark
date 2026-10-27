@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 每個登入使用者只有一份自己的方舟：arks/{uid}
+    // 欄位：v(int 存檔版本) / data(string，JSON 存檔) / lastSeen(number) / updatedAt(server timestamp)
+    function validArk(d) {
+      return d.keys().hasAll(['v', 'data', 'lastSeen', 'updatedAt'])
+        && d.keys().hasOnly(['v', 'data', 'lastSeen', 'updatedAt'])
+        && d.v is int && d.v >= 1 && d.v <= 99
+        && d.data is string && d.data.size() > 2 && d.data.size() <= 100000
+        && d.lastSeen is number
+        && d.updatedAt == request.time;
+    }
+
+    match /arks/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+                            && validArk(request.resource.data);
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // 其他一律拒絕
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

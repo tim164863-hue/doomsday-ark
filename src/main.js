@@ -4,13 +4,17 @@ import { UI } from './ui/ui.js';
 import { preloadAvatars } from './crew/avatar.js';
 import { Play } from './play/play.js';
 import { HUD } from './ui/hud.js';
+import { initCloud, cloud } from './save/cloud.js';
+import { bootSave } from './save/boot.js';
+import { AccountUI, chooseSave } from './ui/account.js';
 
 const canvas = document.getElementById('gl');
 const P = new URLSearchParams(location.search);
 let game;
-await preloadAvatars();
+await Promise.all([preloadAvatars(), initCloud()]);
+const boot = await bootSave({ cloud, choose: chooseSave, fresh: !!P.get('fresh'), demo: !!P.get('demo') });
 try {
-  game = new Game(canvas);
+  game = new Game(canvas, { owner: boot.owner });
 } catch (e) {
   document.getElementById('loading').innerHTML = '<div class="ld-title">😢</div><div class="ld-sub">你的瀏覽器不支援 WebGL，無法啟動末日方舟</div>';
   throw e;
@@ -19,7 +23,8 @@ if (P.get('help') === '0') localStorage.setItem('ark.helped', '1');
 window.ark = game;
 const ui = new UI(game);
 const play = new Play(game); const hud = new HUD(game); game.play = play; game.hud = hud;
-await play.init(hud);
+await play.init(hud, boot);
+new AccountUI(game, cloud, boot); game.boot = boot;
 game.ds.start();
 
 // 偵錯 / 截圖用的網址參數：?t=0.74 &cam=yaw,pitch,dist,x,y,z &mode=free|overview|follow &explode=1 &deck=2 &q=low|mid|high &demo=cycle|1

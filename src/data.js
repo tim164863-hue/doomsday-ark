@@ -1,4 +1,5 @@
 import { emit } from './events.js';
+import { hash, mulberry32 } from './sim/rng.js';
 
 /** 唯讀資料來源：只 GET 公開的 sessions.json（辦公室既有輸出，已淨化），不會對 bot 送出任何東西。 */
 export const DATA_URL = 'https://tim164863-hue.github.io/grokbot-office/sessions.json';
@@ -35,6 +36,18 @@ export function normalize(raw) {
   return { now, crew, arena, offline: false };
 }
 
+/** 虛擬船員（非船東帳號 / 訪客）：通用名字，狀態依裝置本地時段 + 時間桶決定（確定性），完全不含任何真實 bot / 交易資料。 */
+export const VIRTUAL_CREW = [['舵手小艾', 'manager'], ['工程師阿鐵', 'other'], ['廚師小米', 'other'], ['醫護小安', 'research'], ['甲板長阿浪', 'other'], ['研究員小星', 'research']];
+export function virtualData(nowMs = Date.now(), offline = false) {
+  const h = new Date(nowMs).getHours(); const bucket = Math.floor(nowMs / (25 * 60000));
+  const pWork = h >= 9 && h < 19 ? 0.62 : h >= 19 && h < 24 ? 0.3 : 0.1, pRest = h >= 9 && h < 24 ? 0.28 : 0.12;
+  const crew = VIRTUAL_CREW.map(([title, kind], i) => {
+    const r = mulberry32(hash('virt', i, bucket))(); const cat = r < pWork ? 'work' : r < pWork + pRest ? 'rest' : 'off';
+    return { key: title, title, kind, status: cat === 'work' ? 'tool' : cat === 'rest' ? 'done' : 'idle', cat, ageMin: cat === 'rest' ? 12 : 600, since: nowMs - 600000, virtual: true };
+  });
+  return { now: nowMs, crew, arena: null, offline, demo: false, virtual: true };
+}
+
 const DEMO_NAMES = [['最高級打工仔', 'manager'], ['交易員-1', 'trader'], ['交易員-2', 'trader'], ['0xcat', 'research'], ['策略研究員', 'research'], ['鏈上獵手', 'research']];
 export function demoData(tick = 0, cycle = false) {
   const now = Date.now();
@@ -61,13 +74,14 @@ export class DataSource {
       if (!r.ok) throw new Error('http ' + r.status);
       const raw = await r.json(); this.lastOk = Date.now(); this.push(normalize(raw)); return true;
     } catch (e) {
-      if (!this.data) this.push(demoData(0, false));
+      if (!this.data) this.push(virtualData(Date.now(), true));
       else if (Date.now() - this.lastOk > 5 * 60000 && !this.data.offline) this.push({ ...this.data, offline: true });
       return false;
     }
   }
   start() {
     if (this.mode === 'cycle') { this.push(demoData(0, true)); setInterval(() => { this.demoTick++; this.push(demoData(this.demoTick, true)); }, 30000); return; }
+    if (this.mode === 'virtual') { this.push(virtualData()); setInterval(() => this.push(virtualData()), 60000); return; }
     if (this.mode === 'demo') { this.push(demoData(0, false)); return; }
     this.fetchOnce(); setInterval(() => this.fetchOnce(), this.every);
   }

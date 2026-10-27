@@ -16,7 +16,7 @@ import { BASE_Y, DH } from './ship/ship.js';
 import { waveHeight } from './world/waves.js';
 
 export class Game {
-  constructor(canvas) {
+  constructor(canvas, opts = {}) {
     const q = detectQuality(); this.qLevel = q.level; this.qLocked = q.locked; this.quality = QUALITY[this.qLevel];
     this.canvas = canvas;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality.dpr > 1 ? true : false, powerPreference: 'high-performance' });
@@ -38,7 +38,8 @@ export class Game {
     this.player = new Player(this); this.crew = new Crew(this);
     this.controls = new Controls(this, canvas); this.controls.tapCb = (x, y) => this.onTap(x, y);
     const P = new URLSearchParams(location.search);
-    this.ds = new DataSource({ mode: P.get('demo') === 'cycle' ? 'cycle' : P.get('demo') ? 'demo' : 'live' });
+    this.ds = new DataSource({ mode: P.get('demo') === 'cycle' ? 'cycle' : P.get('demo') ? 'demo' : opts.owner ? 'live' : 'virtual' });
+    this.owner = !!opts.owner; this.tv.setLocked(!this.owner && !P.get('demo'));
     this.ds.onData((d) => { this.dataInfo = d; this.crew.applyData(d); });
     this.resize();
     addEventListener('resize', () => this.resize());

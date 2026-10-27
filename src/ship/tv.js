@@ -8,12 +8,18 @@ export class ContestTV {
     this.tex = new THREE.CanvasTexture(this.canvas); this.tex.colorSpace = THREE.SRGBColorSpace; this.tex.anisotropy = 4;
     this.arena = null; this.t = 0; this.draw();
   }
+  setLocked(v) { this.locked = !!v; this.draw(); }
   setArena(arena) { this.arena = arena; this.draw(); }
   draw() {
     const c = this.ctx, W = this.canvas.width, H = this.canvas.height;
     const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#0b1626'); g.addColorStop(1, '#050a12'); c.fillStyle = g; c.fillRect(0, 0, W, H);
     c.fillStyle = '#12304f'; c.fillRect(0, 0, W, 52);
     c.font = 'bold 28px "Noto Sans TC","Microsoft JhengHei",sans-serif'; c.textBaseline = 'middle'; c.fillStyle = '#ffd36b'; c.fillText('🏆 交易競賽 · 直播', 16, 27);
+    if (this.locked) {
+      c.fillStyle = '#7f93a8'; c.textAlign = 'center'; c.font = '30px "Noto Sans TC",sans-serif'; c.fillText('🔒 交易直播僅限船東頻道', W / 2, H / 2 - 14);
+      c.font = '20px "Noto Sans TC",sans-serif'; c.fillText('你的方舟使用虛擬船員，電視暫停播出', W / 2, H / 2 + 28); c.textAlign = 'left';
+      c.fillStyle = '#12304f'; c.fillRect(0, 0, W, 52); c.fillStyle = '#ffd36b'; c.font = 'bold 28px "Noto Sans TC","Microsoft JhengHei",sans-serif'; c.fillText('📺 方舟電視台', 16, 27); this.tex.needsUpdate = true; return;
+    }
     const live = (Math.floor(this.t * 1.2) % 2 === 0); c.fillStyle = live ? '#ff3b3b' : '#7a1c1c'; c.beginPath(); c.arc(W - 90, 27, 9, 0, 7); c.fill(); c.fillStyle = '#fff'; c.font = 'bold 22px sans-serif'; c.fillText('LIVE', W - 72, 28);
     const a = this.arena;
     if (!a || !a.traders || !a.traders.length) { c.fillStyle = '#7f93a8'; c.font = '28px "Noto Sans TC",sans-serif'; c.textAlign = 'center'; c.fillText('等待賽況訊號…', W / 2, H / 2); c.textAlign = 'left'; this.tex.needsUpdate = true; return; }

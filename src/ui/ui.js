@@ -79,7 +79,7 @@ export class UI {
     this.timebar.querySelector('#clock').textContent = '🕒 ' + fmtClock(g.dayT) + ' ' + PHASE[g.phaseKey]; this.phaseChip.textContent = PHASE[g.phaseKey] || '';
     this._fc = (this._fc || 0) + 1;
     if (this._fc % 20 === 0) {
-      const d = g.dataInfo; if (d) { this.dataChip.textContent = d.offline ? '🟠 離線示範資料' : '🟢 即時連線 · ' + g.crew.bots.size + ' 位船員'; this.dataChip.className = 'chip ' + (d.offline ? 'warn' : 'ok'); }
+      const d = g.dataInfo; if (d) { this.dataChip.textContent = d.virtual && !d.offline ? '🧑‍✈️ 虛擬船員 · ' + g.crew.bots.size + ' 位' : d.offline ? '🟠 離線示範資料' : '🟢 即時連線 · ' + g.crew.bots.size + ' 位船員'; this.dataChip.className = 'chip ' + (d.offline ? 'warn' : d.virtual ? 'virt' : 'ok'); }
       this.fpsChip.textContent = Math.round(g.fps) + ' fps · ' + g.qLevel; this.refreshDeckBtns();
     }
     this.updateLabels();

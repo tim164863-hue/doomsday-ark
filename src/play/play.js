@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { registerSystem, on } from '../events.js';
 import { waveHeight } from '../world/waves.js';
-import { createAdapter } from '../save/adapter.js';
+import { clock } from '../clock.js';
 import { boatLoft } from '../ship/extras.js';
 import { moodLine } from '../crew/mood.js';
 import * as S from '../sim/sim.js';
@@ -14,29 +14,36 @@ import { FacilityView, findSlot, blockRect, FOOT, SC } from './facilities.js';
 
 // 各設施的樓層與偏好位置（x,z）；實際位置會在附近找一塊四周留空的地方
 const ANCHOR = { purifier: [34, -6], generator: [34, 7], workshop: [22, 8], infirmary: [24, -8], greenhouse: [36, 4] };
-const nowSec = () => Date.now() / 1000;
+const nowSec = () => clock.now();
 const rnd = Math.random;
 const pick = (a) => a[Math.floor(rnd() * a.length)];
 
 export class Play {
   constructor(game) {
-    this.game = game; this.adapter = createAdapter(); this.state = null; this.fac = {}; this.target = null; this.hud = null;
+    this.game = game; this.adapter = null; this.boot = null; this.state = null; this.fac = {}; this.target = null; this.hud = null;
     this.acc = 0; this.saveAcc = 0; this.hudAcc = 0; this.lastFrameWall = performance.now(); this.pendingReport = null; this.boats = new Map(); this.flags = new Map();
     this.ready = false;
   }
-  async init(hud) {
-    this.hud = hud; const P = new URLSearchParams(location.search);
-    if (P.get('fresh')) await this.adapter.clear();
-    let st = await this.adapter.load(); const t = nowSec(); let first = false; let rep = null; let away = 0;
-    if (!st) { st = S.newState((rnd() * 2 ** 32) >>> 0, t, -new Date().getTimezoneOffset()); first = true; }
-    else { away = t - (st.lastSeen || st.simT); rep = S.simulateTo(st, t); }
+  async init(hud, boot) {
+    this.hud = hud; this.boot = boot; this.adapter = boot.adapter;
+    let st = boot.state; let t = nowSec(); let first = false; let rep = null; let away = 0;
+    if (!st) {
+      st = S.newState((rnd() * 2 ** 32) >>> 0, t, -new Date().getTimezoneOffset()); first = true;
+      if (this.adapter.canWrite) { // 新方舟：先寫入一次以取得伺服器時間；裝置時鐘差太多就用伺服器時間重建
+        await this.adapter.save(st, { force: true });
+        if (clock.synced && Math.abs(clock.skew) > 60) { st = S.newState(st.seed, clock.now(), st.tz); }
+      }
+    } else {
+      t = nowSec(); if (st.lastSeen > t) st.lastSeen = t;
+      away = Math.max(0, t - (st.lastSeen || st.simT)); rep = S.simulateTo(st, t);
+    }
     this.state = st; this.placeFacilities(); this.applyFacilityStates();
     this.pendingReport = { first, away, rep };
     registerSystem({ name: 'play', update: (dt) => this.update(dt) });
     on('crew', () => this.onCrew());
-    addEventListener('visibilitychange', () => { if (document.hidden) this.save(); });
-    addEventListener('pagehide', () => this.save()); addEventListener('beforeunload', () => this.save());
-    this.ready = true; this.save();
+    addEventListener('visibilitychange', () => { if (document.hidden) this.save(true); else this.resync(); });
+    addEventListener('pagehide', () => this.save(true)); addEventListener('beforeunload', () => this.save(true));
+    this.ready = true; this.save(boot.needPush);
     hud.attach(this); this.onCrew();
     // 載入完成後顯示離線報告（等說明視窗關閉）
     const tryShow = () => { if (!this.hud.helpOpen()) { const r = this.pendingReport; this.pendingReport = null; if (r && (r.first || (r.rep && r.away >= 120))) this.hud.showReport(r); } else setTimeout(tryShow, 600); };
@@ -63,7 +70,8 @@ export class Play {
   // ------------------------------------------------------------ 船員同步
   onCrew() {
     if (!this.ready) return; const bots = [...this.game.crew.bots.values()];
-    S.syncCrew(this.state, bots.map((b) => ({ key: b.key, cat: b.info.cat })));
+    if (this.game.dataInfo && this.game.dataInfo.demo) return; // 示範資料不寫進存檔
+    S.syncCrew(this.state, bots.map((b) => ({ key: b.key, cat: b.info.cat })), nowSec());
     this.applyCrewFlags(); this.hud && this.hud.refresh(true);
   }
   botOf(key) { return this.game.crew.bots.get(key) || null; }
@@ -87,6 +95,7 @@ export class Play {
     this.updateTarget(); this.updateBoats(g.time);
     if (this.hudAcc >= 0.25) { this.hudAcc = 0; this.hud.refresh(); }
     if (this.saveAcc >= 10) { this.saveAcc = 0; this.save(); }
+    this.syncAcc = (this.syncAcc || 0) + dt; if (this.syncAcc >= 600) { this.syncAcc = 0; this.resync(); }
   }
   /** 分頁被丟到背景很久後回來：用同一套模擬補算，顯示報告 */
   catchUp() {
@@ -112,12 +121,17 @@ export class Play {
     else if (ev.type === 'crate' || ev.type === 'rain') { ui.toast('🎁 ' + ev.text); say(pick(bots), ev.type === 'rain' ? '下雨了！快接水！' : '看！海上漂來一個箱子！'); }
     this.hud.logEvent(ev);
   }
-  save() { if (this.state) { this.state.lastSeen = Math.max(this.state.lastSeen || 0, nowSec()); this.adapter.save(this.state); } }
+  save(force = false) { if (this.state) { this.state.lastSeen = Math.max(this.state.lastSeen || 0, nowSec()); return this.adapter.save(this.state, { force }); } }
+  /** 回到前景 / 每 10 分鐘：重新對伺服器時間（登入時），然後補算。 */
+  async resync() {
+    if (!this.ready || !this.adapter || !this.adapter.syncClock || !this.adapter.canWrite) return;
+    if (await this.adapter.syncClock()) { const s = this.state; if (nowSec() - s.simT > 120) this.catchUp(); }
+  }
 
   // ------------------------------------------------------------ 互動目標
   updateTarget() {
     const g = this.game, pl = g.player; const a = pl.actor; let best = null, bd = 1e9;
-    if (!(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
+    if (g.controls.mode !== 'overview' && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
       for (const f of FAC_ORDER) { const v = this.fac[f]; if (v.deck !== a.deck) continue; const d = Math.hypot(v.x - a.x, v.z - a.z) - Math.max(v.hw, v.hd) + 1.0; if (d < 2.4 && d < bd) { bd = d; best = { type: 'fac', id: f }; } }
       for (const b of g.crew.bots.values()) { if (b.away || b.actor.deck !== a.deck || !b.avatar.group.visible) continue; const d = Math.hypot(b.actor.x - a.x, b.actor.z - a.z); if (d < 2.4 && d < bd + 0.3 && (!best || d < bd)) { bd = d; best = { type: 'bot', bot: b }; } }
     }
