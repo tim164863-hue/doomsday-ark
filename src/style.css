@@ -22,6 +22,8 @@ select { padding: 6px 6px; }
 #right { position: absolute; right: 10px; top: 70px; display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
 #decks { display: flex; flex-direction: column; gap: 3px; }
 button.deck { display: flex; align-items: center; gap: 7px; text-align: left; padding: 5px 10px; font-size: 13px; }
+button.deck.hullDeck { background: rgba(21,40,74,.72); } button.deck small { font-size: 9px; opacity: .7; margin-left: auto; } button.deck.hullStart { margin-top: 8px; position: relative; }
+button.deck.hullStart::before { content: '水線'; position: absolute; top: -9px; right: 2px; font-size: 8px; color: #7fb4e8; opacity: .8; }
 button.deck i { width: 8px; height: 8px; border-radius: 50%; background: #5fd08a; display: inline-block; }
 button.deck.sel, #panBtn.sel { border-color: var(--acc); color: var(--acc); background: rgba(255,211,107,.16); } button.deck.here { box-shadow: inset 0 0 0 1px rgba(255,211,107,.7); }
 #right button.on { border-color: var(--acc); color: var(--acc); }

@@ -89,7 +89,7 @@ export class SeaLife {
     }
   }
   buildDebris() {
-    const mk = (c, r = 0.85, mt = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt, flatShading: true, emissive: 0x2a241e, side: THREE.DoubleSide });
+    const mk = (c, r = 0.85, mt = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt, flatShading: true, emissive: 0x4a4036, side: THREE.DoubleSide });
     const W = { wood: mk(0x6e5236), woodL: mk(0x9a7a52), wet: mk(0x5a4a3c), rust: mk(0x8a4a2c, 0.8, 0.3), red: mk(0x9c2f25), blue: mk(0x2a5b86), cargo: mk(0x2d6a8c, 0.7, 0.2), cargoR: mk(0x8c3a2a, 0.7, 0.2), steel: mk(0x6b7276, 0.6, 0.5), white: mk(0xe6e1d4), orange: mk(0xe8602a, 0.7), black: mk(0x1c1e20, 0.9), hullW: mk(0xdedbd2, 0.7), hullN: mk(0x2c4a7a, 0.7) };
     const add = (g, geo, mat, p = [0, 0, 0], r = [0, 0, 0]) => { const m = new THREE.Mesh(geo, mat); m.position.set(...p); m.rotation.set(...r); g.add(m); return m; };
     const BX = (w, h, d) => new THREE.BoxGeometry(w, h, d);
@@ -112,7 +112,7 @@ export class SeaLife {
     const n = this.q.debris;
     for (let i = 0; i < n; i++) {
       const k = i % 7; const m = makers[k](this.rng);
-      const ang = this.rng() * TAU, r = 38 + this.rng() * 170; m.position.set(Math.cos(ang) * r, 0, Math.sin(ang) * r); m.rotation.y = this.rng() * TAU; m.castShadow = false;
+      const ang = this.rng() * TAU, r = 72 + this.rng() * 150; m.position.set(Math.cos(ang) * r, 0, Math.sin(ang) * r); m.rotation.y = this.rng() * TAU; m.scale.setScalar(1.7); m.castShadow = false;
       m.traverse((o) => { if (o.isMesh) o.castShadow = false; });
       const tl = m.userData.tilt || [0, 0];
       this.group.add(m); this.debris.push({ m, ang, r, sp: (this.rng() - 0.5) * 0.002, bob: this.rng() * 6, k, spin: (this.rng() - 0.5) * 0.03, ty: k === 2 ? -0.1 : k === 4 ? 0.2 : k === 6 ? 0.25 : 0.08, tz: tl[0] * (this.rng() < 0.5 ? -1 : 1), tx: tl[1] * (this.rng() < 0.5 ? -1 : 1) });

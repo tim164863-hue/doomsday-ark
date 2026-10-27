@@ -127,16 +127,10 @@ function deck1(d, ship) {
   for (const z of [-7, -4.5, 4.5, 7]) { b.box('woodDark', 30, z, 5, 1.1, 0.5); b.box('soil' in d.M ? 'soil' : 'woodDark', 30, z, 4.8, 0.9, 0.05, 0.5); for (let i = 0; i < 6; i++) b.sph('leaf', 27.9 + i * 0.8, 0.8, z + ((i * 7) % 3 - 1) * 0.1, 0.22, 1, 1.1, 1); b.block(27.5, z - 0.55, 32.5, z + 0.55); }
   for (const [x, z] of [[38, -5], [38, 5], [41, 0]]) { b.cyl('steel', x, z, 1.1, 2.4, 0, 16); b.cyl('steelDark', x, z, 1.15, 0.15, 2.4, 16); b.cyl('lightblue', x, z, 0.5, 0.06, 2.55, 12); b.blockC(x, z, 2.4, 2.4); }
   signBoard(d, '（未來）淨水 · 農場區', 36, 2.7, 0, -PI / 2, 3.2, 0.5);
-  for (const s of [-1, 1]) { // 救生艇
-    for (const x of [-20, 4]) { const z = s * 11.6; b.sph('orange', x, 1.2, z, 1.8, 1, 0.55, 0.62, 12); b.box('white', x, z, 3.0, 0.5, 0.12, 1.55); b.blockC(x, z, 3.5, 2.2); }
-  }
-  for (const s of [-1, 1]) for (const x of [-30, -8, 18, 36]) FN.lifeRing(b, x, 0.7, s * (d.hw(x) - 0.25), s > 0 ? 0 : PI);
   FN.plant(b, 12, -8.5, 1.1); FN.plant(b, 12, 8.5, 1.1); FN.floorLamp(b, 20, 8.6); FN.floorLamp(b, 20, -8.6);
   // 兩個聊天點
   poi(d, 'chat', { x: 12, z: 0 }); poi(d, 'chat', { x: -22, z: 0 });
-  poi(d, 'rail', { x: 48, z: 0, face: 0 });
-  // 艦首拱形標誌 'ARK'
-  b.box('steelDark', 51, 0, 0.3, 0.3, 4); b.box('steelDark', 51, 0, 0.2, 5, 0.2, 4.0);
+  poi(d, 'rail', { x: 18, z: 11.2, face: 0 }); poi(d, 'rail', { x: 18, z: -11.2, face: PI });
 }
 
 // ------------------------------------------------------------ 2F 運動健康層
@@ -186,8 +180,7 @@ function deck2(d, ship) {
   poi(d, 'cooler', { x: 9, z: 7.4, face: PI });
   FN.plant(b, 2.5, 8.4, 1); FN.plant(b, 2.5, -8.4, 1); FN.floorLamp(b, 24, 8.4); FN.floorLamp(b, 24, -8.4);
   // 觀海點
-  poi(d, 'rail', { x: 8, z: 10.6, face: 0 }); poi(d, 'rail', { x: -8, z: -10.6, face: PI });
-  FN.lifeRing(b, 0, 0.7, -11.75, PI); FN.lifeRing(b, 14, 0.7, 11.75, 0);
+  poi(d, 'rail', { x: 8, z: 12.2, face: 0 }); poi(d, 'rail', { x: -8, z: -12.2, face: PI });
 }
 
 // ------------------------------------------------------------ 3F 會議工作層
@@ -223,8 +216,7 @@ function deck3(d, ship) {
   d.tvs[d.tvs.length - 1].position.x = 26.15 + 0.1;
   signBoard(d, '會議室', 25.88, 2.45, -2.6, -PI / 2, 1.6, 0.42);
   FN.plant(b, 36.6, -4.6, 1); FN.plant(b, 36.6, 4.6, 1);
-  poi(d, 'rail', { x: 14, z: 9.4, face: 0 }); poi(d, 'rail', { x: 14, z: -9.4, face: PI });
-  FN.lifeRing(b, 0, 0.7, 10.2, 0); FN.lifeRing(b, -22, 0.7, -10.2, PI);
+  poi(d, 'rail', { x: 14, z: 12.4, face: 0 }); poi(d, 'rail', { x: 14, z: -12.4, face: PI }); poi(d, 'rail', { x: -40, z: 0, face: -PI / 2 }); poi(d, 'rail', { x: 52, z: 0, face: PI / 2 });
 }
 
 // ------------------------------------------------------------ 4F 娛樂休閒層
@@ -304,7 +296,7 @@ function deck5(d, ship) {
   b.cyl('steelDark', -20.3, 5.2, 0.12, 5, 0, 8); b.box('red', -19.7, 5.2, 1.2, 0.02, 0.7, 4.2);
   FN.lifeRing(b, 0, 0.7, 7.35, 0); FN.lifeRing(b, 12, 0.7, -7.35, PI);
   // 煙囪裝飾（艦橋後方）
-  b.cyl('funnel', -19, -4.6, 1.15, 3.0, 0, 16, 0.9); b.cyl('black', -19, -4.6, 1.17, 0.4, 2.8, 16, 0.92); b.blockC(-19, -4.6, 2.3, 2.3);
+  b.blockC(-19.4, -4.6, 3.0, 3.0);
 }
 
 export const layouts = [deck1, deck2, deck3, deck4, deck5].map((fn, i) => (d, ship) => { fn(d, ship); enrich(i, d, ship); });

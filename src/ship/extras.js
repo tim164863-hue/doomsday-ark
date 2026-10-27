@@ -33,7 +33,71 @@ function pergola(b, x0, z0, x1, z1, h = 2.6) {
 }
 function stringLights(b, x0, z0, x1, z1, y = 2.3, n = 10) { for (let i = 0; i <= n; i++) { const t = i / n; b.sph('lamp', x0 + (x1 - x0) * t, y - Math.sin(t * PI) * 0.22, z0 + (z1 - z0) * t, 0.045, 1, 1, 1, 5); } }
 
-export function enrich(i, d, ship) { [e1, e2, e3, e4, e5][i](d, ship); }
+function lifeboat(b, x, z, s = 1) { // 救生艇（吊艇架上）：橘色艇身 + 白色艇緣 + 艇罩
+  b.sph('orange', x, 1.35, z, 1.9, 1, 0.5, 0.52, 14); b.box('white', x, z, 3.5, 0.9, 0.1, 1.28); b.boxc('white', x, 1.62, z, 2.2, 0.35, 0.5); b.box('steelDark', x, z, 3.7, 0.12, 0.05, 1.22);
+  for (const dx of [-1.3, 1.3]) { b.box('steelDark', x + dx, z + s * 0.9, 0.1, 0.1, 1.9); b.box('steelDark', x + dx, z + s * 0.45, 0.08, 1.0, 0.08, 1.85); }
+  b.blockC(x, z, 3.9, 2.0);
+}
+function pipeRun(b, x0, x1, z, y = 2.0) { b.box('steelDark', (x0 + x1) / 2, z, x1 - x0, 0.22, 0.22, y); b.box('red', (x0 + x1) / 2, z, x1 - x0, 0.14, 0.14, y + 0.3); b.box('steel', (x0 + x1) / 2, z, x1 - x0, 0.3, 0.05, y - 0.35); }
+function chainCoil(b, x, z) { for (let k = 0; k < 5; k++) b.add(b.M.steelDark, xform(new THREE.TorusGeometry(1.5 - k * 0.12, 0.17, 6, 18), x, 0.2 + k * 0.28, z, PI / 2, 0, 0)); b.blockC(x, z, 3.2, 3.2); }
+function flag(b, x, z, col = 'red', h = 4.2) { // x,z 為旗桿
+  b.cyl('steel', x, z, 0.04, h, 0, 6); b.box(col, x + 0.55, z, 1.1, 0.03, 0.7, h - 0.7); b.box('white', x + 0.55, z, 0.4, 0.035, 0.4, h - 0.55); }
+
+// ---- 船殼層（1F / 2F）補完：舷側走道、管線、燈、船艏艉空間
+function hullFill(i, d) {
+  const b = d.b;
+  const side = d.hw(0) - 0.55;                         // 舷側貼牆線
+  for (const s of [-1, 1]) {
+    pipeRun(b, -43, 42, s * (side - 0.0), 2.1); pipeRun(b, -43, 42, s * (side - 0.0), 1.2);
+    for (let x = -42; x <= 40; x += 6) { b.box('lamp', x, s * (side + 0.25), 0.34, 0.06, 0.18, 1.7); b.box('steelDark', x, s * (side + 0.2), 0.5, 0.1, 0.08, 1.7); }
+  }
+  if (i === 0) {
+    for (const s of [-1, 1]) for (const x of [-40, -33, -26, -19, -12, -5, 2, 9, 28, 35, 42]) cabinet(b, x, s * (d.hw(0) - 1.15), s > 0 ? PI : 0, 1.4, 1.5, ['steel', 'steelDark', 'woodDark'][Math.abs(x) % 3]);
+    for (const s of [-1, 1]) for (const x of [-38, -17, 6]) { FN.crate(b, x, s * 10.9, 0.7, 'crate', 0.2, 0.7); } // 備品堆
+    // 艏尖艙：錨鏈艙 + 貨櫃
+    chainCoil(b, 50, 0); FN.cargoContainer(b, 47, 7.6, 0, 'cargoRed', 4.0); FN.cargoContainer(b, 47, -7.6, 0, 'cargoBlue', 4.0);
+    b.box('yellow', 44.8, 0, 0.3, 14, 0.02, 0.025);
+    for (const s of [-1, 1]) lampPost(b, 54, s * 3.5, 2.3);
+    plate(d, '⚓ 錨鏈艙', 56.2, 2.0, 0, PI / 2, 2.2, 0.45);
+  } else {
+    // 船艉：蒸氣室 / 按摩池
+    FN.hotTub(d, -41.5, -5.2, 2.1); FN.hotTub(d, -41.5, 5.2, 2.1);
+    for (const z of [-9.2, 0, 9.2]) bench(b, -44.3, z, PI / 2, 2.2, 'woodDark'); lampPost(b, -38.5, 0, 2.0);
+    bigPlant(b, -37.2, -9.0, 0.9); bigPlant(b, -37.2, 9.0, 0.9);
+    plate(d, '♨ 溫泉 · SPA', -45.2, 2.2, 0, PI / 2, 2.4, 0.5);
+    // 船艏：觀景休憩艙
+    pergola(b, 40, -2.4, 46, 2.4, 2.5);
+    FN.sofa(b, 42, -4.6, 0, 2.6, 'sofa'); FN.sofa(b, 42, 4.6, PI, 2.6, 'sofa2'); FN.coffeeTable(b, 43.5, 0, 0, 1.4, 0.8);
+    FN.sofa(b, 50, -3.3, PI / 2, 2.4, 'sofa2'); FN.sofa(b, 50, 3.3, -PI / 2, 2.4, 'sofa2'); FN.roundTable(b, 52.6, 0, 0.5);
+    bigPlant(b, 46.8, -7.8, 1); bigPlant(b, 46.8, 7.8, 1); bigPlant(b, 55, -3.2, 0.8); bigPlant(b, 55, 3.2, 0.8);
+    stringLights(b, 40, -2.4, 46, -2.4, 2.4, 10); stringLights(b, 40, 2.4, 46, 2.4, 2.4, 10);
+    poi(d, 'chat', { x: 43.5, z: 0 }); plate(d, '☕ 船艏休憩艙', 38.6, 2.4, 0, -PI / 2, 2.4, 0.45);
+  }
+}
+
+function mainDeckFill(d) {
+  const b = d.b;
+  // 辦公區外牆（玻璃）：保持水線上方的「上層建築」感，兩側保留甲板走道
+  wallG(d, -33.9, -9.7, 6.9, -9.7, [[-23, -21.8], [-1.6, -0.4]]); wallG(d, -33.9, 9.7, 6.9, 9.7, [[-23, -21.8], [-1.6, -0.4]]); wallG(d, -33.9, -9.7, -33.9, 9.7, []);
+  for (const s of [-1, 1]) {
+    for (const x of [-31, -19, -7, 33, 42]) lifeboat(b, x, s * 12.2, s);
+    for (const x of [-26, -14, 0, 12, 24]) FN.lifeRing(b, x, 0.78, s * 13.25, s > 0 ? 0 : PI);
+    for (const x of [-12, -4, 4]) { FN.loungeChair(b, x, s * 11.3, s > 0 ? -PI / 2 : PI / 2, 'fabricW'); }
+    for (const x of [-41, -25, 14, 50]) { b.cyl('steelDark', x, s * 12.9, 0.18, 0.55, 0, 8); b.cyl('red', x, s * 12.9, 0.2, 0.08, 0.5, 8); b.blockC(x, s * 12.9, 0.45, 0.45); }
+  }
+  // 船艉：日光浴甲板
+  for (const z of [-7, -3.5, 3.5, 7]) FN.loungeChair(b, -41, z, -PI / 2, 'fabricW');
+  FN.umbrella(b, -43.2, -5.3, 1.7); FN.umbrella(b, -43.2, 5.3, 1.7); FN.roundTable(b, -43.2, -5.3, 0.5); FN.roundTable(b, -43.2, 5.3, 0.5);
+  bigPlant(b, -45.2, -9.8, 1); bigPlant(b, -45.2, 9.8, 1); flag(b, -44.8, 0, 'hullBlue', 4.6); stringLights(b, -44.6, -9, -44.6, 9, 2.4, 18);
+  // 船艏：起錨機、絞盤、纜樁、船首旗
+  for (const s of [-1, 1]) { b.cyl('steelDark', 52, s * 3.2, 0.5, 0.9, 0, 12); b.cyl('steel', 52, s * 3.2, 0.38, 0.12, 0.9, 12); b.blockC(52, s * 3.2, 1.1, 1.1); for (const x of [46, 56]) { b.cyl('red', x, s * 6.2, 0.2, 0.55, 0, 8); b.blockC(x, s * 6.2, 0.5, 0.5); } }
+  b.box('steelDark', 49, 0, 2.4, 1.6, 0.7); b.cyl('steel', 49, -0.7, 0.55, 1.3, 0.7, 12); b.cyl('steel', 49, 0.7, 0.55, 1.3, 0.7, 12); b.blockC(49, 0, 2.4, 1.6);
+  for (let k = 0; k < 6; k++) b.box('steelDark', 51 + k * 0.5, 0, 0.35, 0.18, 0.05, 0.22 + 0.0);
+  flag(b, 58.2, 0, 'red', 4.4);
+  for (const x of [-39, -30]) { b.box('yellow', x, 0, 0.18, 14, 0.02, 0.025); }
+}
+
+export function enrich(i, d, ship) { [e1, e2, e3, e4, e5][i](d, ship); if (d.hullDeck) hullFill(i, d); if (i === 2) mainDeckFill(d); }
 
 // ================= 1F 員工生活層
 function e1(d) {
@@ -132,7 +196,7 @@ function e3(d, ship) {
   cabinet(b, 35.2, -5.0, 0, 1.6, 0.9, 'woodDark'); cabinet(b, 35.2, 5.0, PI, 1.6, 0.9, 'woodDark'); FN.coffeeMachine(b, 35.4, -5.1, 0); FN.waterCooler(b, 36.4, 4.9, PI);
   b.box('rug', 31.8, 0, 7.4, 3.8, 0.02, 0.02);
   plate(d, '週會 10:00', 37.45, 1.7, 0, -PI / 2, 1.6, 0.32);
-  FN.lifeRing(b, 40, 0.7, 8.0, 0); lampPost(b, 40.5, -3.5); lampPost(b, 40.5, 3.5);
+  lampPost(b, 40.5, -3.5); lampPost(b, 40.5, 3.5);
 }
 
 // ================= 4F 娛樂休閒層
@@ -168,6 +232,16 @@ function e4(d) {
 // ================= 5F 董事長辦公層
 function e5(d, ship) {
   const b = d.b;
+  { // 大煙囪（白身、深藍頂帶 + 金色圓形 ARK 標誌）+ 雷達桅杆
+    const fx = -19.4, fz = -4.6;
+    b.cyl('white', fx, fz, 1.5, 4.6, 0, 20, 1.26); b.cyl('hullBlue', fx, fz, 1.26, 1.4, 4.6, 20, 1.2); b.cyl('black', fx, fz, 1.2, 0.18, 6.0, 20); b.cyl('yellow', fx, fz, 1.27, 0.1, 4.55, 20);
+    for (const sg of [-1, 1]) { b.cylc('white', fx, 5.1, fz + sg * 1.2, 0.5, 0.06, 18, PI / 2, 0, 0); b.sph('yellow', fx, 5.1, fz + sg * 1.24, 0.3, 1, 1, 0.12, 14); b.box('hullBlue', fx, fz + sg * 1.27, 0.34, 0.03, 0.34, 4.93); }
+    for (const dx of [-0.7, 0, 0.7]) b.cyl('steel', fx + dx, fz, 0.06, 1.1, 6.15, 6);
+    // 桅杆
+    b.cyl('white', -21.2, 0, 0.1, 7.5, 0, 8); b.box('steelDark', -21.2, 0, 0.1, 2.4, 0.08, 5.6); b.box('steel', -21.2, 0, 0.1, 2.0, 0.06, 6.6); b.sph('red', -21.2, 7.6, 0, 0.14, 1, 1, 1, 6); b.sph('lamp', -21.2, 7.9, 0, 0.1, 1, 1, 1, 6);
+    b.cyl('white', -21.2, 0, 0.12, 0.3, 7.3, 8); b.box('white', -21.2, 1.2, 0.08, 0.9, 0.5, 7.0); b.blockC(-21.2, 0, 0.5, 0.5);
+    flag(b, -21.6, 3.6, 'red', 3.2); flag(b, -21.6, -2.2, 'yellow', 3.2);
+  }
   // 直升機坪：邊燈、風向袋、H 標記、安全黃黑條紋、油桶與消防箱
   for (let k = 0; k < 24; k++) { const a = (k / 24) * PI * 2; b.sph(k % 2 ? 'yellow' : 'lamp', -14.5 + Math.cos(a) * 5.55, 0.18, Math.sin(a) * 5.55, 0.09, 1, 1, 1, 6); }
   b.box('courtLine', -14.5, 0, 0.5, 3.2, 0.02, 0.115); b.box('courtLine', -14.5 - 0.0, 0.0, 2.2, 0.5, 0.02, 0.116);

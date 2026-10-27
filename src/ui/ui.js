@@ -54,7 +54,7 @@ export class UI {
     this.slider.addEventListener('pointerdown', () => (this.sliding = true)); addEventListener('pointerup', () => (this.sliding = false));
     this.slider.addEventListener('input', () => g.setTime(this.slider.value / 1000));
     const dk = this.right.querySelector('#decks'); this.deckBtns = [];
-    for (let i = 4; i >= 0; i--) { const b = $(`<button class="deck" title="${TITLES[i]}"><i></i>${NAMES[i]}</button>`); b.onclick = () => g.showDeck(i); dk.appendChild(b); this.deckBtns[i] = b; }
+    for (let i = 4; i >= 0; i--) { const b = $(`<button class="deck${i < 2 ? ' hullDeck' : ''}${i === 1 ? ' hullStart' : ''}" title="${TITLES[i]}"><i></i>${NAMES[i]}${i < 2 ? '<small>船艙</small>' : ''}</button>`); b.onclick = () => g.showDeck(i); dk.appendChild(b); this.deckBtns[i] = b; }
     this.syncTime();
     const eb = this.elev.querySelector('.b'); for (let i = 4; i >= 0; i--) { const b = $(`<button data-d="${i}">${NAMES[i]}<small>${TITLES[i]}</small></button>`); b.onclick = () => { g.player.useElevator(i); this.showElevator(null); }; eb.appendChild(b); }
     if (!localStorage.getItem('ark.helped')) setTimeout(() => this.toggleHelp(true), 1200);

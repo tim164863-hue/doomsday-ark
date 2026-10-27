@@ -125,7 +125,7 @@ export class Ocean {
       uDeep: { value: env.waterDeep }, uShallow: { value: env.waterShallow },
       uZenith: U.uZenith, uHorizon: U.uHorizon, uGlow: U.uGlow, uSunDir: U.uSunDir, uSunCol: U.uSunCol, uMoonDir: U.uMoonDir,
       uFog: { value: scene.fog.color }, uFogD: { value: 0.0005 }, uDay: U.uDay, uMoonVis: U.uMoonVis, uSunVis: U.uSunVis,
-      uShipHL: { value: 46 }, uShipHW: { value: 13.6 },
+      uShipHL: { value: 46 }, uShipHW: { value: 12.3 },
     };
     this.mat = new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: vert, fragmentShader: frag, fog: false });
     this.scene = scene; this.build(quality);

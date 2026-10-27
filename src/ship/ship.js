@@ -1,19 +1,21 @@
 import * as THREE from 'three';
 import { Builder, makeMaterials, xform } from './builder.js';
 import { NavGrid, CS, GX0, GZ0, GW, GH } from './nav.js';
-import { outline, pointInPoly, distToEdges, buildHull, halfWidth } from './hull.js';
+import { outline, pointInPoly, distToEdges, buildHullParts, outlineHull, halfWidth } from './hull.js';
 import { layouts } from './layouts.js';
 import { waveHeight } from '../world/waves.js';
 
 export const DH = 3.7;            // 層高
-export const BASE_Y = 3.4;        // 1F 地板高度
+export const BASE_Y = 1.4;        // 1F 地板高度（船殼內，水線之上）
 export const NAMES = ['1F', '2F', '3F', '4F', '5F'];
-export const TITLES = ['員工生活層', '運動健康層', '會議工作層', '娛樂休閒層', '董事長辦公層'];
+export const TITLES = ['船艙 · 員工生活層', '船艙 · 運動健康層', '主甲板 · 會議工作層', '娛樂休閒層', '董事長辦公層（直升機坪）'];
 export const HULL = { xs: -46, xb: 46, hz: 13.6, bl: 14 };
+export const KEEL_Y = -4.8;
+export const HULL_DECKS = 2;      // 1F、2F 在船殼內；3F 為主甲板（船殼頂）
 export const PARAMS = [
-  { xs: -45.9, xb: 45.9, hz: 13.55, bl: 13.9 },
-  { xs: -38, xb: 38, hz: 12, bl: 11 },
-  { xs: -34, xb: 34, hz: 10.5, bl: 9 },
+  { xs: -45.9, xb: 45.9, hz: 12.8, bl: 13.9 },   // 1F / 2F 實際外形由船殼斷面推導（見 outlineHull）
+  { xs: -45.9, xb: 45.9, hz: 13.3, bl: 13.9 },
+  { xs: -45.7, xb: 45.7, hz: 13.5, bl: 13.9 },   // 3F 主甲板 = 船殼頂
   { xs: -28, xb: 28, hz: 9, bl: 8 },
   { xs: -22, xb: 27, hz: 7.5, bl: 6 },
 ];
@@ -26,13 +28,16 @@ export class Deck {
   constructor(index, ship) {
     this.index = index; this.ship = ship; this.name = NAMES[index]; this.title = TITLES[index];
     this.M = ship.M; this.env = ship.env;
-    this.p = PARAMS[index]; this.poly = outline(this.p);
+    this.p = PARAMS[index];
+    this.hullDeck = index < HULL_DECKS;
+    if (this.hullDeck) { this.shape = ship.hullShape; this.hullY = BASE_Y + index * DH - 0.05; this.poly = outlineHull(this.shape, this.hullY, 0.3); }
+    else this.poly = outline(this.p);
     this.group = new THREE.Group(); this.b = new Builder(this.M); this.nav = new NavGrid();
     this.tvs = []; this.screens = []; this.waters = []; this.rotors = []; this.doors = []; this.steams = []; this.dyn = [];
     this.holes = []; this.pois = { desks: [], cabins: {}, misc: {} };
     this.tvTex = ship.tvTex;
   }
-  hw(x) { return halfWidth(x, this.p); }
+  hw(x) { return this.hullDeck ? Math.max(this.shape.half(x, this.hullY) - 0.3, 0) : halfWidth(x, this.p); }
   floorY() { return BASE_Y + this.index * DH; }
 
   buildFloor() {
@@ -42,14 +47,14 @@ export class Deck {
     const g = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false, curveSegments: 1 });
     g.rotateX(-Math.PI / 2); g.translate(0, -t, 0);
     // 地板上面：木甲板色 / 下面：白
-    const mesh = new THREE.Mesh(g, [this.M.teak, this.M.white]);
+    const mesh = new THREE.Mesh(g, [this.hullDeck ? this.M.tileDark : this.M.teak, this.M.white]);
     // ExtrudeGeometry groups: 0 = caps (top/bottom), 1 = sides
     mesh.receiveShadow = true; mesh.castShadow = true; this.group.add(mesh);
     // 木紋條：頂面加一層淺色板條
     const sh2 = new THREE.Mesh(g.clone(), this.M.white); sh2.visible = false;
   }
   buildRails() {
-    if (this.index === 0) { this.buildBulwarkTop(); return; }
+    if (this.hullDeck) { this.buildHullStub(); return; }
     const b = this.b; const poly = this.poly; const n = poly.length;
     for (let i = 0; i < n; i++) {
       const [x1, z1] = poly[i], [x2, z2] = poly[(i + 1) % n];
@@ -62,6 +67,17 @@ export class Deck {
       b.boxc('rail', mx, 0.08, mz, len, 0.12, 0.07, ry);
       const posts = Math.max(1, Math.round(len / 2.2));
       for (let k = 0; k <= posts; k++) { const t = k / posts; b.cyl('rail', x1 + dx * t, z1 + dz * t, 0.035, 1.05, 0, 6); }
+    }
+  }
+  /** 船殼層：舷側剖面（外殼隱藏時露出的矮艙壁，頂部深藍收邊 + 燈帶） */
+  buildHullStub() {
+    const b = this.b; const poly = this.poly; const n = poly.length;
+    for (let i = 0; i < n; i++) {
+      const [x1, z1] = poly[i], [x2, z2] = poly[(i + 1) % n];
+      const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz); if (len < 0.05) continue;
+      const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2, ry = Math.atan2(-dz, dx);
+      b.boxc('white', mx, 0.55, mz, len + 0.04, 1.1, 0.3, ry); b.boxc('hullBlue', mx, 1.14, mz, len + 0.04, 0.08, 0.34, ry);
+      b.boxc('lamp', mx, 0.9, mz, len * 0.9, 0.05, 0.02 + 0.3, ry);
     }
   }
   buildBulwarkTop() {
@@ -90,7 +106,7 @@ export class Deck {
     this.buildFloor();
     this.buildRails();
     // 支柱（連到上一層）
-    if (this.index < 4) {
+    if (this.index >= HULL_DECKS && this.index < 4) {
       const up = PARAMS[this.index + 1];
       for (let x = up.xs + 2; x < up.xb; x += 8) for (const s of [-1, 1]) { const z = s * (up.hz - 0.15); this.b.cyl('white', x, z, 0.16, DH - 0.5, 0, 8); }
     }
@@ -126,8 +142,10 @@ export class Ship {
     this.root = new THREE.Group();      // 搖晃用
     this.decks = [];
     this.explode = 0; this.explodeTarget = 0;
-    this.hull = buildHull(HULL, BASE_Y + 1.0, -4.8, this.M); this.root.add(this.hull);
-    this.buildHullDetails();
+    const F = [0, 1, 2].map((i) => BASE_Y + i * DH);
+    const hp = buildHullParts(HULL, F, KEEL_Y, this.M, this.env); this.hullShape = hp.shape; this.hullBase = hp.base; this.hullBands = hp.bands;
+    this.root.add(hp.base); hp.bands.forEach((g) => this.root.add(g));
+    this.hullLights = []; this.hullMats = [hp.base.material, hp.bands[0].children[0].material, hp.bands[1].children[0].material];
     for (let i = 0; i < 5; i++) {
       const d = new Deck(i, this); this.decks.push(d);
       // 孔洞：電梯（>=2F）與樓梯（上來的那一側）
@@ -139,6 +157,7 @@ export class Ship {
       layouts[i](d, this);
       d.finalize();
       this.root.add(d.group);
+      if (d.hullDeck && this.quality.shadows >= 0) this.addHullLights(d);
     }
     // 電梯車廂
     this.car = new THREE.Group();
@@ -152,13 +171,9 @@ export class Ship {
   }
   /** 浮點層 i 的地板高度（含展開） */
   deckY(i) { return BASE_Y + i * (DH + this.explode); }
-  buildHullDetails() {
-    // 舷窗：兩側一排，夜間亮燈
-    const g = new THREE.BoxGeometry(0.6, 0.42, 0.06); const n = Math.floor(90 / 2.4);
-    const mesh = new THREE.InstancedMesh(g, this.env.windowMat, n * 2); const m = new THREE.Matrix4(); let k = 0;
-    for (let i = 0; i < n; i++) { const x = -44 + i * 2.4; const w = halfWidth(x, HULL); for (const s of [-1, 1]) { m.makeTranslation(x, 2.75, s * (w * 1.002 + 0.02)); mesh.setMatrixAt(k++, m); } }
-    mesh.count = k; this.root.add(mesh);
-    // 煙囪 + 艦橋塔裝飾（在 5F 上方後側）
+  addHullLights(d) {
+    const y = d.floorY() + 2.6;
+    for (const x of [-30, -6, 20, 40]) { const l = new THREE.PointLight(0xffd9a0, 0, 34, 1.4); l.position.set(x, y, 0); this.root.add(l); this.hullLights.push({ l, deck: d.index }); }
   }
   addElevatorShaft(d) {
     const b = d.b; const { x0, x1, z0, z1 } = ELEV; const h = DH - 0.5;
@@ -184,7 +199,7 @@ export class Ship {
     b.block(STAIR.x0 - 0.1, zc - STAIR.w / 2 - 0.15, STAIR.x1, zc + STAIR.w / 2 + 0.15);
     d.pois.misc['stairUp'] = { x: STAIR.bottom, z: zc, topX: STAIR.arrive, k };
   }
-  applyExplode(e) { this.explode = e; for (const d of this.decks) d.group.position.y = this.deckY(d.index); }
+  applyExplode(e) { this.explode = e; this.applyBands && this.hullBands && this.applyBands(); for (const d of this.decks) d.group.position.y = this.deckY(d.index); }
   setExplode(target) { this.explodeTarget = target; }
   /** 取得某層上的世界(船本地)位置 y */
   yAt(deckIndexF) { return this.deckY(0) + deckIndexF * (DH + this.explode); }
@@ -194,6 +209,7 @@ export class Ship {
     // 電梯車廂
     { const df = this.carTarget - this.carPos; const sp = Math.min(1.4, 0.35 + Math.abs(df) * 0.9); const st = Math.sign(df) * Math.min(Math.abs(df), sp * dt); this.carPos += st; if (Math.abs(this.carTarget - this.carPos) < 0.004) this.carPos = this.carTarget; }
     this.car.position.y = this.yAt(this.carPos) + 0.0;
+    { const nf = this.env.windowMat.emissiveIntensity / 1.6; for (const m of this.hullMats) m.emissiveIntensity = 1 - nf * 0.85; for (const h of this.hullLights) h.l.intensity = this.decks[h.deck].group.visible ? nf * 45 : 0; }
     // 搖晃（取四點波高估計橫搖縱搖）
     const hs = [waveHeight(-34, 0, time), waveHeight(34, 0, time), waveHeight(0, -10, time), waveHeight(0, 10, time)];
     const pitch = Math.atan2(hs[1] - hs[0], 68) * 0.55, roll = Math.atan2(hs[2] - hs[3], 20) * 0.45;
@@ -208,5 +224,6 @@ export class Ship {
       for (const f of d.dyn) f(dt, time);
     }
   }
-  setVisibleDecks(vis) { this.decks.forEach((d, i) => { d.group.visible = vis[i]; }); }
+  setVisibleDecks(vis, bandVis) { this.decks.forEach((d, i) => { d.group.visible = vis[i]; }); this.bandVis = bandVis || [true, true]; this.applyBands(); }
+  applyBands() { const ex = this.explode > 0.05; (this.hullBands || []).forEach((g, k) => { g.visible = !ex && (!this.bandVis || this.bandVis[k]); }); }
 }
