@@ -22,14 +22,17 @@ export class UI {
     r.innerHTML = '';
     this.top = $(`<div id="top"><div class="brand"><b>末日方舟</b><span>DOOMSDAY ARK</span></div><div class="chips"><span id="dataChip" class="chip">連線中…</span><span id="phaseChip" class="chip"></span><span id="fpsChip" class="chip dim"></span></div>
       <div class="tools"><select id="qsel" title="畫質"><option value="auto">畫質：自動</option><option value="high">畫質：高</option><option value="mid">畫質：中</option><option value="low">畫質：低</option></select><button id="helpBtn" title="操作說明 (H)">❓</button></div></div>`);
-    this.right = $(`<div id="right"><button id="camBtn" title="切換視角 (V)">🎥 追隨</button><div id="decks"></div><button id="exBtn" title="展開甲板">🗂 展開</button><button id="listBtn" title="成員 (L)">👥 成員</button></div>`);
+    this.right = $(`<div id="right"><button id="camBtn" title="切換視角 (V)">🎥 追隨</button><button id="panBtn" title="全景：顯示整艘船 (0)">🚢 全景</button><div id="decks"></div><button id="exBtn" title="展開甲板">🗂 展開</button><button id="listBtn" title="成員 (L)">👥 成員</button></div>`);
     this.crewPanel = $(`<div id="crew" class="hide"><div class="hd">👥 船員 <small>點選即可聚焦</small><button class="x">✕</button></div><div class="bd"></div></div>`);
-    this.timebar = $(`<div id="timebar"><div class="row1"><button data-t="0.27" title="日出">🌅</button><button data-t="0.5" title="正午">☀️</button><button data-t="0.745" title="日落">🌇</button><button data-t="0.96" title="星空">🌌</button>
-      <span class="sep"></span><button id="pp" title="暫停/繼續 (T)">⏸</button><button data-s="1" class="sp on">1×</button><button data-s="5" class="sp">5×</button><button data-s="20" class="sp">20×</button><span id="clock"></span></div>
-      <input id="slider" type="range" min="0" max="1000" step="1"></div>`);
+    this.timebar = $(`<div id="timebar" class="collapsed"><div class="row1"><button id="tbBtn" title="時間軸（點一下展開／收起）"><span id="clock"></span><span class="car">▴</span></button>
+      <span class="ex"><button data-t="0.27" title="日出">🌅</button><button data-t="0.5" title="正午">☀️</button><button data-t="0.745" title="日落">🌇</button><button data-t="0.96" title="星空">🌌</button>
+      <span class="sep"></span><button id="pp" title="暫停/繼續 (T)">⏸</button><button data-s="1" class="sp on">1×</button><button data-s="5" class="sp">5×</button><button data-s="20" class="sp">20×</button>
+      <button id="tbSize" title="縮放時間軸：小／中／大">⤢ 中</button></span></div>
+      <input id="slider" class="ex" type="range" min="0" max="1000" step="1"></div>`);
+    this.tbSize = localStorage.getItem('ark.tbsize') || 'm'; this.timebar.dataset.size = this.tbSize;
     this.elev = $(`<div id="elevPop" class="hide"><div class="t">🛗 電梯・選擇樓層</div><div class="b"></div></div>`);
     this.help = $(`<div id="help" class="hide"><div class="card"><h2>末日方舟 · 操作說明</h2>
-      <div class="cols"><div><h3>🖥 電腦</h3><p><b>W A S D / 方向鍵</b> 移動（Shift 跑步）</p><p><b>點擊地板</b> 自動尋路（可跨樓層）</p><p><b>左鍵拖曳</b> 轉動鏡頭　<b>滾輪</b> 縮放</p><p><b>右鍵拖曳</b> 平移（自由視角）</p><p><b>V</b> 切換 追隨/自由/全景　<b>T</b> 暫停時間</p><p><b>1–5</b> 顯示/隱藏樓層　<b>L</b> 成員　<b>H</b> 說明</p></div>
+      <div class="cols"><div><h3>🖥 電腦</h3><p><b>W A S D / 方向鍵</b> 移動（Shift 跑步）</p><p><b>點擊地板</b> 自動尋路（可跨樓層）</p><p><b>左鍵拖曳</b> 轉動鏡頭　<b>滾輪</b> 縮放</p><p><b>右鍵拖曳</b> 平移（自由視角）</p><p><b>V</b> 切換 追隨/自由/俯瞰　<b>T</b> 暫停時間</p><p><b>1–5</b> 只看某一層　<b>0</b> 全景　<b>L</b> 成員　<b>H</b> 說明</p></div>
       <div><h3>📱 手機</h3><p><b>左下搖桿</b> 移動</p><p><b>點一下地板</b> 走過去</p><p><b>單指拖曳</b> 轉鏡頭　<b>雙指捏合</b> 縮放</p><p>走到樓梯口自動上下樓；走進電梯會跳出樓層選單。</p></div></div>
       <p class="note">船員的上班/休息/下班狀態來自辦公室公開的 sessions.json（唯讀、每約 2.5 分鐘更新）。本遊戲不會對任何 bot 傳送任何東西。</p><button class="ok">開始航行</button></div></div>`);
     this.toastEl = $(`<div id="toast"></div>`);
@@ -38,17 +41,20 @@ export class UI {
     this.qsel.value = g.qLocked && new URLSearchParams(location.search).get('q') == null ? g.qLevel : 'auto'; if (!g.qLocked) this.qsel.value = 'auto';
     this.qsel.onchange = () => { const v = this.qsel.value; if (v === 'auto') { localStorage.removeItem('ark.quality'); g.qLocked = false; this.toast('畫質：自動（依 FPS 調整）'); } else { localStorage.setItem('ark.quality', v); g.qLocked = true; g.setQuality(v); this.toast('畫質：' + v); } };
     this.top.querySelector('#helpBtn').onclick = () => this.toggleHelp(); this.help.querySelector('.ok').onclick = () => { this.toggleHelp(false); localStorage.setItem('ark.helped', '1'); };
-    this.camBtn.onclick = () => g.controls.cycleMode();
+    this.camBtn.onclick = () => g.controls.cycleMode(); this.right.querySelector('#panBtn').onclick = () => g.showPanorama();
     this.right.querySelector('#exBtn').onclick = (e) => { const on = g.ship.explodeTarget < 1; g.ship.setExplode(on ? 5 : 0); e.target.classList.toggle('on', on); };
     this.right.querySelector('#listBtn').onclick = () => this.toggleCrew(); this.crewPanel.querySelector('.x').onclick = () => this.toggleCrew(false);
     this.timebar.querySelectorAll('[data-t]').forEach((b) => (b.onclick = () => g.setTime(+b.dataset.t)));
     this.timebar.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => { g.speed = +b.dataset.s; this.syncTime(); }));
     this.timebar.querySelector('#pp').onclick = () => g.togglePause();
+    const tbBtn = this.timebar.querySelector('#tbBtn'); tbBtn.onclick = () => { const c = this.timebar.classList.toggle('collapsed'); tbBtn.querySelector('.car').textContent = c ? '▴' : '▾'; };
+    const sz = this.timebar.querySelector('#tbSize'); const SZ = { s: '小', m: '中', l: '大' }; const applySz = () => { this.timebar.dataset.size = this.tbSize; sz.textContent = '⤢ ' + SZ[this.tbSize]; localStorage.setItem('ark.tbsize', this.tbSize); }; applySz();
+    sz.onclick = () => { this.tbSize = { s: 'm', m: 'l', l: 's' }[this.tbSize]; applySz(); };
     this.slider = this.timebar.querySelector('#slider'); this.sliding = false;
     this.slider.addEventListener('pointerdown', () => (this.sliding = true)); addEventListener('pointerup', () => (this.sliding = false));
     this.slider.addEventListener('input', () => g.setTime(this.slider.value / 1000));
     const dk = this.right.querySelector('#decks'); this.deckBtns = [];
-    for (let i = 4; i >= 0; i--) { const b = $(`<button class="deck" title="${TITLES[i]}"><i></i>${NAMES[i]}</button>`); b.onclick = () => this.toggleDeck(i); b.ondblclick = () => this.gotoDeck(i); dk.appendChild(b); this.deckBtns[i] = b; }
+    for (let i = 4; i >= 0; i--) { const b = $(`<button class="deck" title="${TITLES[i]}"><i></i>${NAMES[i]}</button>`); b.onclick = () => g.showDeck(i); dk.appendChild(b); this.deckBtns[i] = b; }
     this.syncTime();
     const eb = this.elev.querySelector('.b'); for (let i = 4; i >= 0; i--) { const b = $(`<button data-d="${i}">${NAMES[i]}<small>${TITLES[i]}</small></button>`); b.onclick = () => { g.player.useElevator(i); this.showElevator(null); }; eb.appendChild(b); }
     if (!localStorage.getItem('ark.helped')) setTimeout(() => this.toggleHelp(true), 1200);
@@ -56,9 +62,7 @@ export class UI {
   toast(t) { this.toastEl.textContent = t; this.toastEl.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => this.toastEl.classList.remove('show'), 2400); }
   toggleHelp(v) { this.help.classList.toggle('hide', v === undefined ? !this.help.classList.contains('hide') : !v); }
   toggleCrew(v) { this.crewPanel.classList.toggle('hide', v === undefined ? !this.crewPanel.classList.contains('hide') : !v); this.renderList(); }
-  toggleDeck(i) { const g = this.game; const cur = g.deckVis ? g.deckVis[i] : true; g.deckPref[i] = g.deckPref[i] == null ? !cur : null; this.refreshDeckBtns(); }
-  gotoDeck(i) { const g = this.game; if (g.controls.mode !== 'follow') g.controls.setMode('follow'); g.player.goTo(i, 12, 0, { elevator: true }); }
-  refreshDeckBtns() { const g = this.game; this.deckBtns.forEach((b, i) => { const pref = g.deckPref[i]; b.classList.toggle('pinned', pref != null); b.classList.toggle('off', g.deckVis && !g.deckVis[i]); b.classList.toggle('here', g.player.deck === i); }); }
+  refreshDeckBtns() { const g = this.game; this.deckBtns.forEach((b, i) => { b.classList.toggle('sel', g.soloDeck === i); b.classList.toggle('here', g.player.deck === i); }); this.right.querySelector('#panBtn').classList.toggle('sel', g.controls.mode === 'overview'); }
   showElevator(d) { if (d == null) { this.elev.classList.add('hide'); return; } this.elev.classList.remove('hide'); this.elev.querySelectorAll('button').forEach((b) => (b.disabled = +b.dataset.d === d)); }
   syncTime() { const g = this.game; this.timebar.querySelector('#pp').textContent = g.paused ? '▶' : '⏸'; this.timebar.querySelectorAll('.sp').forEach((b) => b.classList.toggle('on', +b.dataset.s === g.speed)); }
   renderList(light) {
@@ -72,7 +76,7 @@ export class UI {
   update() {
     const g = this.game; const es = g.envState;
     if (!this.sliding) this.slider.value = Math.round(g.dayT * 1000);
-    this.timebar.querySelector('#clock').textContent = fmtClock(g.dayT) + ' ' + PHASE[g.phaseKey]; this.phaseChip.textContent = PHASE[g.phaseKey] || '';
+    this.timebar.querySelector('#clock').textContent = '🕒 ' + fmtClock(g.dayT) + ' ' + PHASE[g.phaseKey]; this.phaseChip.textContent = PHASE[g.phaseKey] || '';
     this._fc = (this._fc || 0) + 1;
     if (this._fc % 20 === 0) {
       const d = g.dataInfo; if (d) { this.dataChip.textContent = d.offline ? '🟠 離線示範資料' : '🟢 即時連線 · ' + g.crew.bots.size + ' 位船員'; this.dataChip.className = 'chip ' + (d.offline ? 'warn' : 'ok'); }

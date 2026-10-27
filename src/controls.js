@@ -4,7 +4,7 @@ import { BASE_Y, DH } from './ship/ship.js';
 import { pointInPoly } from './ship/hull.js';
 
 const MODES = ['follow', 'free', 'overview'];
-export const MODE_NAMES = { follow: '追隨', free: '自由', overview: '全景' };
+export const MODE_NAMES = { follow: '追隨', free: '自由', overview: '俯瞰' };
 
 export class Controls {
   constructor(game, dom) {
@@ -21,19 +21,20 @@ export class Controls {
     if (m === 'overview') { this.yaw = 0.8; this.pitch = 0.5; this.dist = 175; this.tgtOver = new THREE.Vector3(0, 11, 0); this.game.ship.setExplode(0); }
     else if (m === 'follow') { if (s) { this.yaw = s.yaw; this.pitch = s.pitch; this.dist = s.dist; } else { this.dist = 17; this.pitch = 0.95; } }
     else { if (s) { this.yaw = s.yaw; this.pitch = s.pitch; this.dist = s.dist; this.target.copy(s.target); } else { this.dist = 45; this.pitch = 0.8; } }
-    this.focusBot = null; this.game.onModeChange && this.game.onModeChange(m);
+    if (m !== 'free') this.game.soloDeck = null; this.focusBot = null; this.game.onModeChange && this.game.onModeChange(m);
   }
   cycleMode() { this.setMode(MODES[(MODES.indexOf(this.mode) + 1) % 3]); }
   /** 自由視角聚焦到某位成員 */
   focusOn(bot) {
-    const p = bot.worldPos(new THREE.Vector3()); this.setMode('free'); this.target.copy(p); this.target.y += 1; this.dist = 16; this.pitch = 0.95; this.focusBot = bot;
+    const p = bot.worldPos(new THREE.Vector3()); this.setMode('free'); this.game.soloDeck = null; this.target.copy(p); this.target.y += 1; this.dist = 16; this.pitch = 0.95; this.focusBot = bot;
     this.game.setViewDeck(bot.actor.deck);
   }
   bind() {
     const d = this.dom;
     addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; const k = e.key.toLowerCase(); this.keys.add(k);
       if (k === 'v') this.cycleMode(); if (k === 't') this.game.togglePause(); if (k === 'h' || k === '?') this.game.ui && this.game.ui.toggleHelp(); if (k === 'l') this.game.ui && this.game.ui.toggleCrew();
-      if (k >= '1' && k <= '5' && !e.ctrlKey && !e.metaKey) this.game.ui && this.game.ui.toggleDeck(+k - 1);
+      if (k >= '1' && k <= '5' && !e.ctrlKey && !e.metaKey) this.game.showDeck(+k - 1);
+      if (k === '0' || k === 'p') this.game.showPanorama();
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault(); });
     addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase())); addEventListener('blur', () => this.keys.clear());
     d.addEventListener('contextmenu', (e) => e.preventDefault());

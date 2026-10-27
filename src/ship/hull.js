@@ -89,7 +89,7 @@ export function buildHull(hp, topY, keelY, M) {
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   g.setIndex(idx); g.computeVertexNormals();
-  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.1, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.0, emissive: 0x242c38, side: THREE.DoubleSide }));
   mesh.castShadow = true; mesh.receiveShadow = true;
   return mesh;
 }

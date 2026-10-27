@@ -74,13 +74,13 @@ void main(){
   vec3 col = mix(body, refl, F) + spec;
   // 泡沫：浪尖 + 船身周圍
   float fn = noise(wp*1.3 + vec2(t*0.1, -t*0.07)) * 0.6 + noise(wp*4.1 - t*0.2)*0.4;
-  float foam = smoothstep(0.94, 1.05, crest + (fn-0.5)*0.3) * 0.26;
+  float foam = smoothstep(0.94, 1.05, crest + (fn-0.5)*0.3) * 0.16;
   float dx = vWorld.x, dz = abs(vWorld.z);
   float hw = hullHW(dx);
   float dd = dz - hw;
   float outside = (hw > 0.0) ? dd : length(vec2(dx < 0.0 ? dx + 46.0 : dx - 60.0, dz));
-  float ring = smoothstep(3.2, 0.2, outside) * smoothstep(-8.0, 0.0, outside) * (0.45 + 0.75*fn);
-  foam = max(foam, ring*0.85);
+  float ring = smoothstep(1.7, 0.1, outside) * smoothstep(-8.0, 0.0, outside) * (0.25 + 0.6*fn);
+  foam = max(foam, ring*0.55);
   vec3 foamCol = mix(vec3(0.8,0.88,0.92), uHorizon*1.1+0.1, 0.25) * (0.06 + 0.94*uDay);
   col = mix(col, foamCol, clamp(foam,0.0,1.0));
   // 霧

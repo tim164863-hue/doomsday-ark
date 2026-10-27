@@ -57,6 +57,7 @@ export class Deck {
       const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2, ry = Math.atan2(-dz, dx);
       // 向內縮 0.12
       b.boxc('glass', mx, 0.55, mz, len, 0.95, 0.03, ry);
+      b.boxc('white', mx, -0.17, mz, len + 0.04, 0.3, 0.13, ry); b.boxc('hullBlue', mx, -0.4, mz, len + 0.04, 0.12, 0.14, ry); b.boxc('yellow', mx, 0.0, mz, len + 0.04, 0.03, 0.135, ry);
       b.boxc('rail', mx, 1.04, mz, len, 0.05, 0.07, ry);
       b.boxc('rail', mx, 0.08, mz, len, 0.12, 0.07, ry);
       const posts = Math.max(1, Math.round(len / 2.2));

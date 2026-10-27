@@ -1,10 +1,12 @@
 import './style.css';
 import { Game } from './game.js';
 import { UI } from './ui/ui.js';
+import { preloadAvatars } from './crew/avatar.js';
 
 const canvas = document.getElementById('gl');
 const P = new URLSearchParams(location.search);
 let game;
+await preloadAvatars();
 try {
   game = new Game(canvas);
 } catch (e) {

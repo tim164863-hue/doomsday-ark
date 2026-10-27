@@ -2,11 +2,12 @@ import * as THREE from 'three';
 import { xform } from './builder.js';
 import * as FN from './furniture.js';
 import { STAIR, ELEV, laneCenterZ, pairLane } from './ship.js';
+import { enrich } from './extras.js';
 
 const faceTo = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
 const PI = Math.PI;
 
-function plate(d, text, x, y, z, ry, w = 1.3, h = 0.34, tilt = 0) {
+export function plate(d, text, x, y, z, ry, w = 1.3, h = 0.34, tilt = 0) {
   const c = document.createElement('canvas'); c.width = 256; c.height = Math.round(256 * h / w);
   const g = c.getContext('2d'); g.fillStyle = '#1b2a3a'; g.fillRect(0, 0, c.width, c.height); g.strokeStyle = '#d8b25a'; g.lineWidth = 5; g.strokeRect(3, 3, c.width - 6, c.height - 6);
   g.fillStyle = '#ffe9b0'; g.font = `bold ${Math.round(c.height * 0.5)}px "Noto Sans TC","Microsoft JhengHei",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, c.width / 2, c.height / 2 + 2);
@@ -14,7 +15,7 @@ function plate(d, text, x, y, z, ry, w = 1.3, h = 0.34, tilt = 0) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, toneMapped: false }));
   m.position.set(x, y, z); m.rotation.set(tilt, ry, 0); m.rotation.order = 'YXZ'; d.group.add(m); return m;
 }
-function signBoard(d, text, x, y, z, ry, w, h, bg = '#12202e', fg = '#ffcf6a') {
+export function signBoard(d, text, x, y, z, ry, w, h, bg = '#12202e', fg = '#ffcf6a') {
   const c = document.createElement('canvas'); c.width = 512; c.height = Math.round(512 * h / w);
   const g = c.getContext('2d'); g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height);
   g.strokeStyle = fg; g.lineWidth = 6; g.strokeRect(5, 5, c.width - 10, c.height - 10);
@@ -23,9 +24,9 @@ function signBoard(d, text, x, y, z, ry, w, h, bg = '#12202e', fg = '#ffcf6a') {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, toneMapped: false }));
   m.position.set(x, y, z); m.rotation.y = ry; d.group.add(m); return m;
 }
-const floorRect = (d, mat, x0, z0, x1, z1, h = 0.02) => d.b.box(mat, (x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, h, 0);
-function wallG(d, x0, z0, x1, z1, doors = [], hs = 1.05, hg = 2.3) { d.b.wall(x0, z0, x1, z1, hs, 'white', 0.16, doors); d.b.wall(x0, z0, x1, z1, hg - hs, 'glass', 0.05, doors, hs); }
-const poi = (d, key, o) => { (d.pois.misc[key] ||= []).push(o); return o; };
+export const floorRect = (d, mat, x0, z0, x1, z1, h = 0.02) => d.b.box(mat, (x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z1 - z0, h, 0);
+export function wallG(d, x0, z0, x1, z1, doors = [], hs = 1.05, hg = 2.3) { d.b.wall(x0, z0, x1, z1, hs, 'white', 0.16, doors); d.b.wall(x0, z0, x1, z1, hg - hs, 'glass', 0.05, doors, hs); }
+export const poi = (d, key, o) => { (d.pois.misc[key] ||= []).push(o); return o; };
 
 function door(d, hx, hz, closedYaw, openYaw, w = 1.1, h = 2.1) {
   const pivot = new THREE.Group(); pivot.position.set(hx, 0, hz); pivot.rotation.y = openYaw; d.group.add(pivot);
@@ -285,7 +286,7 @@ function deck5(d, ship) {
   FN.sofa(b, 6.5, -4.8, -PI / 2, 2.4, 'sofa2'); FN.sofa(b, 6.5, 4.8, -PI / 2, 2.4, 'sofa2'); FN.coffeeTable(b, 4.9, 0, PI / 2, 1.4, 0.7);
   b.box('rug', 5.5, 0, 3.2, 8.4, 0.015, 0.02);
   FN.bookshelf(b, -2.0, -6.35, 0, 2.2, 2.1); FN.bookshelf(b, 1.2, -6.35, 0, 2.2, 2.1); FN.bookshelf(b, -2.0, 6.35, PI, 2.2, 2.1); FN.bookshelf(b, 1.2, 6.35, PI, 2.2, 2.1);
-  FN.plant(b, -4.6, -5.6, 1.2); FN.plant(b, -4.6, 5.0, 1.2); FN.plant(b, 8.0, -5.8, 1.1); FN.floorLamp(b, 8.2, 5.8);
+  FN.plant(b, -4.6, -5.6, 1.2); FN.plant(b, -4.6, 2.9, 1.2); FN.plant(b, 8.0, -5.8, 1.1); FN.floorLamp(b, 8.2, 5.8);
   b.sph('blue', 8.0, 1.1, 5.0, 0.0, 1, 1, 1, 4); // placeholder
   b.cyl('woodDark', 4.4, -5.6, 0.2, 0.9, 0, 10); b.sph('lightblue', 4.4, 1.3, -5.6, 0.34, 1, 1, 1, 14); b.block(4.1, -5.9, 4.7, -5.3);
   signBoard(d, 'T 董 辦 公 室', 9.12, 2.55, 0, PI / 2, 4.0, 0.5);
@@ -306,4 +307,4 @@ function deck5(d, ship) {
   b.cyl('funnel', -19, -4.6, 1.15, 3.0, 0, 16, 0.9); b.cyl('black', -19, -4.6, 1.17, 0.4, 2.8, 16, 0.92); b.blockC(-19, -4.6, 2.3, 2.3);
 }
 
-export const layouts = [deck1, deck2, deck3, deck4, deck5];
+export const layouts = [deck1, deck2, deck3, deck4, deck5].map((fn, i) => (d, ship) => { fn(d, ship); enrich(i, d, ship); });

@@ -89,19 +89,33 @@ export class SeaLife {
     }
   }
   buildDebris() {
-    const mats = [new THREE.MeshStandardMaterial({ color: 0x8b6b45, roughness: 0.9 }), new THREE.MeshStandardMaterial({ color: 0x9c3b2a, roughness: 0.8 }), new THREE.MeshStandardMaterial({ color: 0x2f5d7a, roughness: 0.8 }), new THREE.MeshStandardMaterial({ color: 0x6b6f70, roughness: 0.7, metalness: 0.4 }), new THREE.MeshStandardMaterial({ color: 0xd9d4c8, roughness: 0.9 })];
+    const mk = (c, r = 0.85, mt = 0) => new THREE.MeshStandardMaterial({ color: c, roughness: r, metalness: mt, flatShading: true, emissive: 0x2a241e, side: THREE.DoubleSide });
+    const W = { wood: mk(0x6e5236), woodL: mk(0x9a7a52), wet: mk(0x5a4a3c), rust: mk(0x8a4a2c, 0.8, 0.3), red: mk(0x9c2f25), blue: mk(0x2a5b86), cargo: mk(0x2d6a8c, 0.7, 0.2), cargoR: mk(0x8c3a2a, 0.7, 0.2), steel: mk(0x6b7276, 0.6, 0.5), white: mk(0xe6e1d4), orange: mk(0xe8602a, 0.7), black: mk(0x1c1e20, 0.9), hullW: mk(0xdedbd2, 0.7), hullN: mk(0x2c4a7a, 0.7) };
+    const add = (g, geo, mat, p = [0, 0, 0], r = [0, 0, 0]) => { const m = new THREE.Mesh(geo, mat); m.position.set(...p); m.rotation.set(...r); g.add(m); return m; };
+    const BX = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+    const makers = [
+      // 0 木板殘骸群
+      (rng) => { const g = new THREE.Group(); for (let i = 0; i < 6; i++) add(g, BX(2 + rng() * 2.2, 0.12 + rng() * 0.08, 0.28 + rng() * 0.2), rng() < 0.3 ? W.wet : W.wood, [(rng() - 0.5) * 2.6, (rng() - 0.5) * 0.1, (rng() - 0.5) * 2.2], [(rng() - 0.5) * 0.3, rng() * Math.PI, (rng() - 0.5) * 0.25]); add(g, BX(0.22, 0.22, 2.4), W.wood, [0, 0.1, 0], [0, 0.6, 0.1]); return g; },
+      // 1 油桶群
+      (rng) => { const g = new THREE.Group(); for (let i = 0; i < 3; i++) add(g, new THREE.CylinderGeometry(0.42, 0.42, 0.9, 10), [W.red, W.blue, W.rust][i], [(i - 1) * 0.95 + (rng() - 0.5) * 0.3, 0.05, (rng() - 0.5) * 1.0], [(rng() - 0.5) * 1.4, 0, Math.PI / 2 * (i % 2) + rng() * 0.4]); return g; },
+      // 2 半沉貨櫃
+      (rng) => { const g = new THREE.Group(); add(g, BX(6.0, 2.4, 2.4), W.cargo, [0, -0.5, 0]); for (let i = -2; i <= 2; i++) add(g, BX(0.08, 2.3, 2.5), W.steel, [i * 1.2, -0.5, 0]); add(g, BX(0.14, 2.2, 2.2), W.rust, [3.0, -0.5, 0]); g.rotation.set(0, 0, 0); g.userData.tilt = [0.12, 0.22]; return g; },
+      // 3 救生圈 + 救生筏
+      (rng) => { const g = new THREE.Group(); add(g, new THREE.TorusGeometry(0.5, 0.14, 8, 16), W.orange, [0, 0, 0], [Math.PI / 2, 0, 0]); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; add(g, BX(0.3, 0.16, 0.2), W.white, [Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5], [0, -a, 0]); } add(g, new THREE.TorusGeometry(1.2, 0.3, 8, 18), W.orange, [3, 0.1, 0.5], [Math.PI / 2, 0, 0]); add(g, new THREE.CircleGeometry(1.0, 14), W.hullN, [3, 0.0, 0.5], [-Math.PI / 2, 0, 0]); return g; },
+      // 4 斷裂的船殼板（白/藍分層）
+      (rng) => { const g = new THREE.Group(); add(g, new THREE.CylinderGeometry(3.2, 3.2, 4.5, 14, 1, true, 0, 1.6), W.hullN, [0, 0, 0], [Math.PI / 2, 0.4, 0]); add(g, new THREE.CylinderGeometry(3.25, 3.25, 1.0, 14, 1, true, 0, 1.6), W.hullW, [0, 0, 0.8], [Math.PI / 2, 0.4, 0]); for (let i = -1; i <= 1; i++) add(g, BX(0.12, 1.4, 0.12), W.rust, [i * 1.0, 0.7, i * 0.0 - 1.2], [0.4, 0, i * 0.3]); g.userData.tilt = [0.25, 0.5]; return g; },
+      // 5 木箱 + 輪胎
+      (rng) => { const g = new THREE.Group(); for (let i = 0; i < 3; i++) add(g, BX(0.9, 0.8, 0.9), W.woodL, [(i - 1) * 1.05, 0.05, (rng() - 0.5) * 0.6], [0, rng(), (rng() - 0.5) * 0.3]); add(g, new THREE.TorusGeometry(0.55, 0.22, 8, 14), W.black, [0.2, 0.15, 1.5], [Math.PI / 2, 0, 0]); return g; },
+      // 6 翻覆的小船 + 斷桅
+      (rng) => { const g = new THREE.Group(); const hull = add(g, new THREE.CylinderGeometry(1.0, 0.5, 5.0, 8, 1, false), W.wet, [0, 0.0, 0], [0, 0, Math.PI / 2]); hull.scale.set(1, 1, 0.7); add(g, BX(5.0, 0.12, 0.2), W.white, [0, 0.55, 0.0]); add(g, new THREE.CylinderGeometry(0.06, 0.08, 3.4, 6), W.wood, [0.5, 0.2, 1.2], [1.3, 0, 0.3]); add(g, BX(0.6, 0.04, 0.9), W.white, [1.0, 0.1, 2.5], [0, 0.4, 0]); g.userData.tilt = [0.1, 0.35]; return g; },
+    ];
     const n = this.q.debris;
     for (let i = 0; i < n; i++) {
-      const k = i % 7; let m;
-      if (k === 0) m = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.18, 0.5), mats[0]);
-      else if (k === 1) m = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.9, 10), mats[1]);
-      else if (k === 2) m = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.8, 1.1), mats[0]);
-      else if (k === 3) { m = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.12, 8, 14), mats[4]); }
-      else if (k === 4) m = new THREE.Mesh(new THREE.BoxGeometry(6, 1.2, 2.4), mats[2]);
-      else if (k === 5) m = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.12, 1.6), mats[3]);
-      else { m = new THREE.Group(); const hull = new THREE.Mesh(new THREE.BoxGeometry(5, 0.8, 1.8), mats[3]); m.add(hull); const cab = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 1.4), mats[4]); cab.position.set(-1.3, 0.8, 0); m.add(cab); m.rotation.z = 0.25; }
+      const k = i % 7; const m = makers[k](this.rng);
       const ang = this.rng() * TAU, r = 38 + this.rng() * 170; m.position.set(Math.cos(ang) * r, 0, Math.sin(ang) * r); m.rotation.y = this.rng() * TAU; m.castShadow = false;
-      this.group.add(m); this.debris.push({ m, ang, r, sp: (this.rng() - 0.5) * 0.002, bob: this.rng() * 6, k, spin: (this.rng() - 0.5) * 0.05, ty: k === 4 ? -0.2 : k === 6 ? 0.1 : 0.05 });
+      m.traverse((o) => { if (o.isMesh) o.castShadow = false; });
+      const tl = m.userData.tilt || [0, 0];
+      this.group.add(m); this.debris.push({ m, ang, r, sp: (this.rng() - 0.5) * 0.002, bob: this.rng() * 6, k, spin: (this.rng() - 0.5) * 0.03, ty: k === 2 ? -0.1 : k === 4 ? 0.2 : k === 6 ? 0.25 : 0.08, tz: tl[0] * (this.rng() < 0.5 ? -1 : 1), tx: tl[1] * (this.rng() < 0.5 ? -1 : 1) });
     }
   }
   buildRuins() {
@@ -202,7 +216,7 @@ export class SeaLife {
     for (const d of this.debris) {
       d.ang += d.sp * dt; const x = Math.cos(d.ang) * d.r, z = Math.sin(d.ang) * d.r; const wy = waveHeight(x, z, time);
       const hx = waveHeight(x + 1.5, z, time) - waveHeight(x - 1.5, z, time), hz = waveHeight(x, z + 1.5, time) - waveHeight(x, z - 1.5, time);
-      d.m.position.set(x, wy + d.ty, z); d.m.rotation.x = hz * 0.2; d.m.rotation.z = (d.k === 6 ? 0.25 : 0) - hx * 0.2; d.m.rotation.y += d.spin * dt;
+      d.m.position.set(x, wy + d.ty, z); d.m.rotation.x = (d.tx || 0) * 0.3 + hz * 0.2; d.m.rotation.z = (d.tz || 0) - hx * 0.2; d.m.rotation.y += d.spin * dt;
     }
   }
 }

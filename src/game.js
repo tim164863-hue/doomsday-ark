@@ -31,7 +31,7 @@ export class Game {
     this.scene.add(this.ship.root);
     this.dayT = 0.7; this.dayRate = 1 / 1800; this.speed = 1; this.paused = false;
     this.focus = new THREE.Vector3(0, 8, 0);
-    this.ctx = this; this.fps = 60; this.fpsAcc = 0; this.fpsN = 0; this.lowCount = 0; this.deckPref = [null, null, null, null, null]; this.viewDeck = 4; this.viewOverride = null;
+    this.ctx = this; this.fps = 60; this.fpsAcc = 0; this.fpsN = 0; this.lowCount = 0; this.soloDeck = null; this.viewDeck = 4; this.viewOverride = null;
     this.envState = this.env.update(this.dayT, 0, this.camera, this.focus); this.updatePhase();
     this.sealife = new SeaLife(this.scene, this.env, this.quality);
     this.player = new Player(this); this.crew = new Crew(this);
@@ -59,9 +59,18 @@ export class Game {
   deckAtY(y) { return Math.max(0, Math.min(4, Math.floor((y - BASE_Y + 0.9) / (DH + this.ship.explode)))); }
   updateDecks() {
     const c = this.controls; let vd;
-    if (c.mode === 'follow') vd = this.player.deck; else if (c.mode === 'free') vd = this.viewOverride != null && c.focusBot ? c.focusBot.actor.deck : this.deckAtY(c.target.y); else vd = 4;
-    this.viewDeck = vd; const vis = this.deckPref.map((p, i) => (p != null ? p : c.mode === 'overview' || i <= vd)); this.ship.setVisibleDecks(vis); this.deckVis = vis;
+    if (this.soloDeck != null && c.mode === 'free') vd = this.soloDeck;
+    else if (c.mode === 'follow') vd = this.player.deck; else if (c.mode === 'free') vd = this.viewOverride != null && c.focusBot ? c.focusBot.actor.deck : this.deckAtY(c.target.y); else vd = 4;
+    this.viewDeck = vd; const solo = this.soloDeck != null && c.mode === 'free';
+    const vis = [0, 1, 2, 3, 4].map((i) => (solo ? i === this.soloDeck : c.mode === 'overview' || i <= vd)); this.ship.setVisibleDecks(vis); this.deckVis = vis;
   }
+  /** 只顯示某一層並把鏡頭對準它（點右側樓層按鈕） */
+  showDeck(i) {
+    const c = this.controls; this.ship.setExplode(0); c.setMode('free'); this.soloDeck = i; this.viewOverride = null; c.focusBot = null;
+    c.target.set(8, this.ship.deckY(i) + 0.4, 0); const m = innerWidth < 700; c.pitch = m ? 1.15 : 1.02; c.yaw = 0.55; c.dist = m ? 78 : 66; this.updateDecks(); this.ui && this.ui.refreshDeckBtns();
+  }
+  /** 全景：回到整艘船 */
+  showPanorama() { this.soloDeck = null; this.controls.setMode('overview'); this.ship.setExplode(0); this.updateDecks(); this.ui && this.ui.refreshDeckBtns(); }
   onTap(x, y) {
     const r = this.controls.pickFloor(x, y); if (!r) return; this.player.goTo(r.deck, r.x, r.z);
   }
