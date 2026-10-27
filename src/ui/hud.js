@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { MOODS } from '../crew/mood.js';
 import * as S from '../sim/sim.js';
+import * as FL from '../sim/fleet.js';
+import { SHIPS, SHIP_ORDER, STARTERS, ZONES, ZONE_ORDER, FLAGSHIP, FLEET_MAX, LV_MAX } from '../sim/fleetdefs.js';
 import { RES, RES_KEYS, FAC, FAC_ORDER, SITES, TIERS, LV_MULT, MAX_LV, REPAIR_FAC_COST, REPAIR_HULL, STATUS_BONUS } from '../sim/defs.js';
 
 const $ = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstElementChild; };
@@ -20,7 +22,7 @@ const REASON = { focus: '專心工作中', happy: '心情不錯', tired: '有點
 export class HUD {
   constructor(game) {
     this.game = game; this.ui = game.ui; this.play = null; this.root = game.ui.root; this.tags = new Map(); this.log = []; this.modalKind = null; this.crewOpen = innerWidth > 700; this.rows = new Map(); this.moreOpen = false;
-    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">📋<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">🚣<span class="bdg hide"></span></button><button class="rb" id="btnCrewL" title="船員列表">👥</button></div></div>`);
+    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">📋<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">🚣<span class="bdg hide"></span></button><button class="rb" id="btnFleet" title="艦隊 (F)">⚓<span class="bdg hide"></span></button><button class="rb" id="btnCrewL" title="船員列表">👥</button></div></div>`);
     this.crewList = $(`<div id="crewmini"></div>`);
     this.prompt = $(`<div id="prompt" class="hide"></div>`);
     this.modal = $(`<div id="modal" class="hide"><div class="mcard"></div></div>`);
@@ -29,7 +31,7 @@ export class HUD {
     const rcs = this.bar.querySelector('.rcs');
     for (const k of RES_KEYS) rcs.append($(`<div class="rc" data-k="${k}" title="${RES[k].name}"><i>${RES[k].icon}</i><b>0</b><small></small></div>`));
     rcs.append($(`<div class="rc cond" data-k="cond" title="船體狀況"><i>🛠</i><b>0%</b><span class="bar"><u></u></span></div>`));
-    this.bar.querySelector('#btnTasks').onclick = () => this.openModal('tasks'); this.bar.querySelector('#btnTrips').onclick = () => this.openModal('trips');
+    this.bar.querySelector('#btnTasks').onclick = () => this.openModal('tasks'); this.bar.querySelector('#btnTrips').onclick = () => this.openModal('trips'); this.bar.querySelector('#btnFleet').onclick = () => this.openModal('fleet');
     this.bar.querySelector('#btnCrewL').onclick = () => { this.crewOpen = !this.crewOpen; this.renderCrew(true); };
     this.modal.addEventListener('pointerdown', (e) => { if (e.target === this.modal) this.closeModal(); });
     addEventListener('keydown', (e) => {
@@ -37,7 +39,7 @@ export class HUD {
       if (k === 'escape' && this.modalKind) this.closeModal();
       if (!this.play || this.modalKind || !this.ui.help.classList.contains('hide')) return;
       if (k === 'e') { const a = this.play.primary(); if (a) this.doPrimary(a); else if (this.play.target && this.play.target.type === 'bot') this.play.act('chat'); }
-      else if (k === 'j') this.openModal('tasks'); else if (k === 'b') this.openModal('trips');
+      else if (k === 'j') this.openModal('tasks'); else if (k === 'b') this.openModal('trips'); else if (k === 'f') this.openModal('fleet');
     });
     this.lastPromptKey = '';
   }
@@ -56,6 +58,7 @@ export class HUD {
     const ce = this.bar.querySelector('.rc.cond'); ce.querySelector('b').textContent = Math.round(s.cond) + '%'; const u = ce.querySelector('u'); u.style.width = s.cond + '%'; u.style.background = s.cond < 30 ? '#ff6b5e' : s.cond < 60 ? '#ffc65e' : '#6fd78f'; ce.classList.toggle('low', s.cond < 30);
     const done = s.daily.tasks.filter((t) => t.progress >= t.target && !t.claimed).length; const bt = this.bar.querySelector('#btnTasks .bdg'); bt.textContent = done; bt.classList.toggle('hide', !done);
     const nTr = s.trips.length; const bb = this.bar.querySelector('#btnTrips .bdg'); bb.textContent = nTr; bb.classList.toggle('hide', !nTr);
+    const fl = s.fleet; if (fl) { const bf = this.bar.querySelector('#btnFleet .bdg'); const idle = fl.ships.filter((x) => x.state === 'sail').length; bf.textContent = idle; bf.classList.toggle('hide', !idle); }
     this.renderCrew(force); this.refreshPrompt(force); this.updateTagStates(); if (this.modalKind) this.refreshModal(force);
   }
   renderCrew(force) {
@@ -131,9 +134,9 @@ export class HUD {
 
   // ------------------------------------------------------------ 彈窗
   openModal(kind, payload) { this.modalKind = kind; this.payload = payload || this.payload; this.modal.classList.remove('hide'); this.modal.dataset.kind = kind; this.renderModal(); }
-  closeModal() { this.modalKind = null; this.modal.classList.add('hide'); this.modalOpenedAt = 0; }
-  refreshModal(force) { if (this.modalKind === 'tasks') this.renderTasksLive(); else if (this.modalKind === 'trips') this.renderTripsLive(); }
-  renderModal() { const c = this.modal.querySelector('.mcard'); c.scrollTop = 0; if (this.modalKind === 'report') this.renderReport(); else if (this.modalKind === 'tasks') this.renderTasks(); else if (this.modalKind === 'trips') this.renderTrips(); }
+  closeModal() { if (this.modalKind === 'fleet' && !this.pvBar) this.play && this.play.clearPreview(); this.modalKind = null; this.modal.classList.add('hide'); this.modalOpenedAt = 0; }
+  refreshModal(force) { if (this.modalKind === 'fleet') this.renderFleetLive(force); else if (this.modalKind === 'tasks') this.renderTasksLive(); else if (this.modalKind === 'trips') this.renderTripsLive(); }
+  renderModal() { const c = this.modal.querySelector('.mcard'); c.scrollTop = 0; if (this.modalKind === 'report') this.renderReport(); else if (this.modalKind === 'tasks') this.renderTasks(); else if (this.modalKind === 'trips') this.renderTrips(); else if (this.modalKind === 'fleet') this.renderFleet(); else if (this.modalKind === 'pick') this.renderPick(); }
   logEvent(ev) { this.log.unshift(ev); if (this.log.length > 10) this.log.pop(); }
 
   // -- 離線報告
@@ -172,6 +175,71 @@ export class HUD {
       el.querySelector('button').onclick = () => { this.play.act('claim', i); list.dataset.sig = ''; this.renderTasksLive(); }; list.append(el);
     });
     const lg = c.querySelector('#tkLog'); const items = [...this.s.log].slice(-6).reverse(); lg.innerHTML = items.map((e) => `<li><span class="ei">${EV_ICON[e.type] || '•'}</span><span class="et">${hm(e.t)}</span>${esc(e.text)}</li>`).join('') || '<li class="dim">還沒有消息。</li>';
+  }
+
+
+  // -- 艦隊
+  statsRow(type, lv = 1) {
+    const st = FL.shipStats({ type, lv }); const B = SHIPS[type];
+    return `<span class="st" title="速度">💨 ${st.speed.toFixed(1)}</span><span class="st" title="載貨量（每趟收穫上限）">📦 ${st.cargo}</span><span class="st" title="耐久">🛡 ${st.hull}</span><span class="st" title="火力：降低遇襲風險、提高戰果">🎯 ${st.fp}</span><span class="st zn" title="可航行海域">${B.zones.map((z) => ZONES[z].icon).join('')}</span>`;
+  }
+  renderPick() {
+    const c = this.modal.querySelector('.mcard');
+    c.innerHTML = `<h2>⚓ 選擇你的第一艘船 <button class="x" data-x="close" title="稍後再選">✕</button></h2><p class="sub">每位船長都從一艘小船開始。它會在你離線時自動出海撈資源；賺到資源與稀有「藍圖」後，就能建造、升級更大的船，慢慢組成自己的艦隊。<b>選了就不能換</b>，但其他船型之後都能靠藍圖解鎖。</p>
+    <div class="pickgrid">${STARTERS.map((t) => { const B = SHIPS[t]; return `<div class="pk" data-t="${t}"><div class="pi">${B.icon}</div><b>${B.name}</b><small>${B.role}</small><div class="strow">${this.statsRow(t)}</div><div class="pb"><button data-a="view">👁 看模型</button><button class="pri" data-a="pick">選這艘</button></div></div>`; }).join('')}</div>
+    <p class="sub">之後在 ⚓ 艦隊 面板可建造更多船、升級、改變航向。</p>`;
+    c.querySelector('.x').onclick = () => this.closeModal();
+    c.querySelectorAll('.pk').forEach((el) => { const t = el.dataset.t; el.querySelector('[data-a=view]').onclick = () => this.preview(t, 1, 'pick'); el.querySelector('[data-a=pick]').onclick = () => { const r = this.play.fleetAct('pick', { type: t }); if (r && r.ok) { this.closeModal(); this.openModal('fleet'); } }; });
+  }
+  preview(type, lv, back) { this.showPvBar(type, back); this.play.viewType(type, lv); }
+  showPvBar(type, back) {
+    this.hidePvBar(); const B = SHIPS[type]; const f = this.s.fleet;
+    const el = $(`<div id="pvbar"><b>${B.icon} ${B.name}</b><small>${B.role}　拖曳旋轉 · 滾輪縮放</small><button data-a="back">⬅ 返回</button>${back === 'pick' && !f.pick ? '<button class="pri" data-a="pick">選這艘</button>' : ''}</div>`);
+    const done = () => { this.hidePvBar(); this.play.clearPreview(); };
+    el.querySelector('[data-a=back]').onclick = () => { done(); this.game.showPanorama(); this.openModal(back || 'fleet'); };
+    const pk = el.querySelector('[data-a=pick]'); if (pk) pk.onclick = () => { const r = this.play.fleetAct('pick', { type }); if (r && r.ok) { done(); this.game.showPanorama(); this.openModal('fleet'); } };
+    this.pvBar = el; this.root.append(el);
+  }
+  hidePvBar() { if (this.pvBar) { this.pvBar.remove(); this.pvBar = null; } }
+  fleetSig() { const f = this.s.fleet; return JSON.stringify([f.ships.map((x) => [x.id, x.name, x.lv, x.state, x.auto, x.zone, Math.round(x.hp), x.m && x.m.zone]), f.bp, RES_KEYS.map((k) => Math.floor(this.s.res[k] / 5)), f.pick]); }
+  renderFleet() {
+    const c = this.modal.querySelector('.mcard'); const s = this.s; const f = s.fleet; this.fleetSigV = this.fleetSig();
+    const flag = f.flagship ? `<div class="shipc flag"><div class="sh"><span class="ic">${FLAGSHIP.icon}</span><div><b>${FLAGSHIP.name}</b><em>旗艦</em><small>${FLAGSHIP.role}</small></div></div><div class="strow"><span class="st">💨 ${FLAGSHIP.speed}</span><span class="st">📦 ${FLAGSHIP.cargo}</span><span class="st">🛡 ${FLAGSHIP.hull}</span><span class="st">🎯 ${FLAGSHIP.fp}</span><span class="st zn">${ZONE_ORDER.map((z) => ZONES[z].icon).join('')}</span></div></div>` : '';
+    const ships = f.ships.map((sh) => this.shipCard(sh)).join('') || (f.pick ? '<p class="dim">還沒有船。到下方「船塢」建造第一艘吧。</p>' : `<p class="warn">你還沒選第一艘船。</p><div class="mb"><button class="pri" data-a="openpick">⚓ 選擇第一艘船</button></div>`);
+    const known = Object.keys(f.bp).filter((k) => f.bp[k]).length;
+    const dock = SHIP_ORDER.map((t) => { const B = SHIPS[t]; const have = B.free || f.bp[t]; const cb = FL.canBuild(s, t); const own = f.ships.filter((x) => x.type === t).length;
+      return `<div class="dk ${have ? '' : 'lock'}" data-t="${t}"><div class="dh"><span class="ic">${B.icon}</span><div><b>${B.name}</b><small>${B.role}</small></div><em class="${B.free ? 'st0' : have ? 'st1' : 'st2'}">${B.free ? '入門' : have ? '🗺️ 已有藍圖' : '🔒 需藍圖'}</em></div><div class="strow">${this.statsRow(t)}</div><div class="dc">${costHTML(B.cost, s)} · ⏱ ${B.build} 分${own ? ` · 已有 ${own}` : ''}</div><div class="pb"><button data-a="view">👁 看模型</button><button class="${cb.ok ? 'pri' : ''}" data-a="build" ${cb.ok ? '' : 'disabled'} title="${cb.ok ? '' : cb.why}">${have ? '建造' : '尚無藍圖'}</button></div></div>`; }).join('');
+    const zones = ZONE_ORDER.map((z) => { const Z = ZONES[z]; return `<span class="zc" style="border-color:${Z.color};color:${Z.color}" title="航程≈${Z.min} 分(速度1.0) · 危險 ${Math.round(Z.danger * 100)}% · 收穫×${Z.rich}">${Z.icon} ${Z.name}</span>`; }).join('');
+    c.innerHTML = `<h2>⚓ 艦隊 <button class="x" data-x="close">✕</button></h2>
+      <p class="sub">小船在你離線時也會自動出海（閒置任務）：依船的戰力挑海域，帶回資源，偶爾發現稀有藍圖。燃料至少會替方舟留 ${15}。艦隊上限 ${FLEET_MAX} 艘。</p>
+      ${flag}<div id="flShips">${ships}</div>
+      <h3>船塢・藍圖 <small class="dim">已取得 ${known}/5 張藍圖 — 出海探索與閒置任務都有機會找到</small></h3><div class="dockgrid" id="flDock">${dock}</div>
+      <h3>海域</h3><div class="zonebar">${zones}</div><p class="sub">更遠的海域收穫更多、也更危險；潛艇能下深淵，破冰船能闖冰海。未來會連成一張共享世界地圖。</p>`;
+    c.querySelector('.x').onclick = () => this.closeModal();
+    const op = c.querySelector('[data-a=openpick]'); if (op) op.onclick = () => this.openModal('pick');
+    c.querySelectorAll('.dk').forEach((el) => { const t = el.dataset.t; el.querySelector('[data-a=view]').onclick = () => this.preview(t, 1, 'fleet'); el.querySelector('[data-a=build]').onclick = () => { this.play.fleetAct('build', { type: t }); this.renderFleet(); }; });
+    c.querySelectorAll('.shipc[data-id]').forEach((el) => { const id = +el.dataset.id; const A = (n, fn) => { const b = el.querySelector(`[data-a=${n}]`); if (b) b.onclick = fn; };
+      A('view', () => { const sh = FL.findShip(this.s, id); if (sh.state === 'sail') { this.ui.toast('船在海上，返港後再看'); return; } this.showPvBar(el.dataset.type, 'fleet'); this.play.viewShip(id); }); A('up', () => { this.play.fleetAct('upgrade', { id }); this.renderFleet(); }); A('fix', () => { this.play.fleetAct('repair', { id }); this.renderFleet(); });
+      A('auto', () => { const sh = FL.findShip(this.s, id); this.play.fleetAct('auto', { id, on: !sh.auto }); this.renderFleet(); }); A('rename', () => { const sh = FL.findShip(this.s, id); const n = prompt('幫船取個名字（最多 12 字）', sh.name); if (n) { this.play.fleetAct('rename', { id, name: n }); this.renderFleet(); } });
+      const sel = el.querySelector('select'); if (sel) sel.onchange = () => { this.play.fleetAct('zone', { id, zone: sel.value }); this.renderFleet(); }; });
+    this.renderFleetLive(true);
+  }
+  shipCard(sh) {
+    const B = SHIPS[sh.type]; const s = this.s; const st = FL.shipStats(sh); const z = FL.zoneOf(sh); const uc = FL.upgradeCost(sh);
+    const stateTxt = { dock: sh.auto ? '停港待命（即將出航）' : '停港中（自動出航已關）', build: '建造中', wreck: '重創擱淺，需整修', sail: sh.m ? `航向 ${ZONES[sh.m.zone].icon}${ZONES[sh.m.zone].name}` : '航行中' }[sh.state];
+    const opts = `<option value="auto" ${sh.zone === 'auto' ? 'selected' : ''}>自動（推薦：${ZONES[FL.autoZone(sh)].name}）</option>` + B.zones.map((q) => `<option value="${q}" ${sh.zone === q ? 'selected' : ''}>${ZONES[q].icon} ${ZONES[q].name}（危險 ${Math.round(FL.missionRisk(sh, q) * 100)}% · ${FL.missionMinutes(sh, q)} 分 · ⛽${FL.missionFuel(sh, q)}）</option>`).join('');
+    return `<div class="shipc" data-id="${sh.id}" data-type="${sh.type}"><div class="sh"><span class="ic">${B.icon}</span><div><b>${esc(sh.name)} <button class="mini" data-a="rename" title="改名">✎</button></b><em>Lv${sh.lv}</em><small>${stateTxt}</small></div><button data-a="view" ${sh.state === 'sail' ? 'title="航行中，返港後才能檢視"' : ''}>👁 檢視</button></div>
+      <div class="strow">${this.statsRow(sh.type, sh.lv)}</div>
+      <div class="hpbar" title="船況 ${Math.round(sh.hp)}%"><u style="width:${sh.hp}%;background:${sh.hp < 35 ? '#ff6b5e' : sh.hp < 65 ? '#ffc65e' : '#6fd78f'}"></u></div>
+      ${sh.state === 'sail' || sh.state === 'build' ? `<div class="tb"><u data-prog></u><span data-eta></span></div>` : ''}
+      <div class="ctl"><label>目標海域 <select ${sh.state === 'build' ? 'disabled' : ''}>${opts}</select></label></div>
+      <div class="pb"><button data-a="auto" class="${sh.auto ? 'pri' : ''}">${sh.auto ? '⏵ 自動出航：開' : '⏸ 自動出航：關'}</button>${sh.hp < 99 && sh.state !== 'sail' && sh.state !== 'build' ? `<button data-a="fix" class="${sh.state === 'wreck' ? 'pri' : ''}">🔧 整修 ${costHTML(FL.repairCostShip(sh), s)}</button>` : ''}${uc ? `<button data-a="up" ${sh.state === 'dock' ? '' : 'disabled'}>⬆ 升到 Lv${sh.lv + 1} ${costHTML(uc, s)}</button>` : '<span class="maxed">已達最高等級 ✨</span>'}</div></div>`;
+  }
+  renderFleetLive(force) {
+    const c = this.modal.querySelector('.mcard'); if (!c.querySelector('#flShips')) return; const s = this.s; const now = nowSec();
+    if (!force && this.fleetSigV !== this.fleetSig() && !(document.activeElement && document.activeElement.tagName === 'SELECT')) { this.renderFleet(); return; }
+    c.querySelectorAll('.shipc[data-id]').forEach((el) => { const sh = FL.findShip(s, +el.dataset.id); if (!sh) return; const u = el.querySelector('[data-prog]'), e = el.querySelector('[data-eta]'); if (!u) return;
+      const a = sh.state === 'build' ? sh.done - SHIPS[sh.type].build * 60 : sh.m && sh.m.start, b = sh.state === 'build' ? sh.done : sh.m && sh.m.end; if (a == null) return; u.style.width = Math.max(0, Math.min(1, (now - a) / (b - a))) * 100 + '%'; e.textContent = (sh.state === 'build' ? '建造 ' : '返航 ') + '剩 ' + mmss(b - now); });
   }
 
   // -- 出海

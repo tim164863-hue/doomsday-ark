@@ -3,6 +3,8 @@
 // 因此「離線一次補算」與「線上逐格推進」結果完全相同。
 import { TICK, MAX_OFFLINE, SAVE_VERSION, RES, RES_KEYS, USE, SHIP_FUEL_USE, LV_MULT, MAX_LV, FAC, FAC_ORDER, REPAIR_FAC_COST, REPAIR_HULL, START, STATUS_BONUS, TIERS, SITES, TASKS } from './defs.js';
 import { hash, mulberry32 } from './rng.js';
+import { fleetTick, tripBlueprint, grantBlueprint } from './fleet.js';
+import { SHIPS } from './fleetdefs.js';
 
 const r2 = (x) => Math.round(x * 100) / 100;
 export const dayKey = (ts, tz) => Math.floor((ts + tz * 60) / 86400);
@@ -81,6 +83,7 @@ export function stepTick(s, t, rep) {
   // 1. 出海返航
   for (const tr of s.trips.filter((x) => x.end <= tEnd).sort((a, b) => a.end - b.end || a.id - b.id)) resolveTrip(s, tr, tEnd, rep);
   s.trips = s.trips.filter((x) => x.end > tEnd);
+  fleetTick(s, t, tEnd, rep);   // 艦隊：建造 / 返航 / 閒置自動出航（s.fleet 不存在時什麼都不做）
   // 2. 生產 / 消耗
   const r = rates(s, tEnd); const n = Object.keys(s.crew).length + 1;
   for (const k of RES_KEYS) if (r[k] > 0) { const d = addRes(s, k, r[k], rep); trackProd(s, k, d); }
@@ -131,7 +134,8 @@ export function tripPlan(s, siteId, crew, startSec) {
   for (const k in site.w) res[k] = Math.round(total * site.w[k] / wsum);
   let bonus = null; if (site.tier >= 1 && !fail && rnd() < (site.tier === 1 ? 0.15 : 0.35)) { const p = site.tier === 1 ? 20 : 55; res.parts += p; bonus = '意外找到一批完好的機械零件'; }
   const injured = []; for (const k of crew) if (rnd() < tier.risk * (fail ? 1.4 : 1)) injured.push(k);
-  return { id, site: siteId, tier: site.tier, crew: crew.slice(), start: startSec, end: startSec + tier.min * 60, res, injured, fail, bonus };
+  const bpFind = tripBlueprint(s, id, site.tier, fail);
+  return { id, site: siteId, tier: site.tier, crew: crew.slice(), start: startSec, end: startSec + tier.min * 60, res, injured, fail, bonus, bpFind };
 }
 function resolveTrip(s, tr, tEnd, rep) {
   const site = SITES.find((x) => x.id === tr.site);
@@ -139,7 +143,8 @@ function resolveTrip(s, tr, tEnd, rep) {
   for (const k of tr.crew) { const c = s.crew[k]; if (!c) continue; c.away = 0; }
   for (const k of tr.injured) { const c = s.crew[k]; if (!c) continue; c.inj = tEnd + injDur(s, TIERS[tr.tier].injMin * 60); if (rep) rep.injuries.push(k); }
   const gains = RES_KEYS.filter((k) => tr.res[k]).map((k) => `${RES[k].icon}${tr.res[k]}`).join(' ');
-  const text = (tr.fail ? `出海失利：${site.name}幾乎空手而歸（${gains}）` : `${site.name}探索完成：${gains}`) + (tr.bonus ? `，${tr.bonus}` : '') + (tr.injured.length ? `。${tr.injured.join('、')} 受傷了。` : '。');
+  const gotBp = tr.bpFind && grantBlueprint(s, tr.bpFind);
+  const text = (tr.fail ? `出海失利：${site.name}幾乎空手而歸（${gains}）` : `${site.name}探索完成：${gains}`) + (tr.bonus ? `，${tr.bonus}` : '') + (gotBp ? `，還發現「${SHIPS[tr.bpFind].name}」藍圖！` : '') + (tr.injured.length ? `。${tr.injured.join('、')} 受傷了。` : '。');
   const ev = { t: tEnd, type: 'trip', trip: tr.id, who: tr.crew[0], text, fail: tr.fail, injured: tr.injured.slice() };
   pushEvent(s, rep, ev); if (rep) rep.trips.push({ ...tr, text });
 }

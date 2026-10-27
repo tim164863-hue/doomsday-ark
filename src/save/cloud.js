@@ -4,6 +4,7 @@
 // 使用 firestore/lite（REST，無長連線），寫入節流（預設最短 30 秒一次）以留在免費額度內。
 import { clock } from '../clock.js';
 import { SAVE_VERSION } from '../sim/defs.js';
+import { sanitizeFleet } from '../sim/fleet.js';
 
 // 公開的 Web 用戶端設定（可公開，安全性靠 Firestore 規則與授權網域）。
 export const FIREBASE_CONFIG = {
@@ -42,6 +43,7 @@ export function validateState(s) {
   if (!s.fac || typeof s.fac !== 'object' || !s.crew || typeof s.crew !== 'object') return null;
   if (!Array.isArray(s.trips) || !Array.isArray(s.log)) return null;
   for (const k of ['food', 'water', 'fuel', 'parts']) s.res[k] = Math.max(0, Math.min(1e6, s.res[k]));
+  if (s.fleet != null) { const f = sanitizeFleet(s.fleet); if (f) s.fleet = f; else delete s.fleet; }   // 艦隊是可選欄位（舊存檔沒有）
   return s;
 }
 function parseDoc(data) {
