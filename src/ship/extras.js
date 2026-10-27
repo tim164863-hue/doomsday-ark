@@ -34,7 +34,7 @@ function pergola(b, x0, z0, x1, z1, h = 2.6) {
 function stringLights(b, x0, z0, x1, z1, y = 2.3, n = 10) { for (let i = 0; i <= n; i++) { const t = i / n; b.sph('lamp', x0 + (x1 - x0) * t, y - Math.sin(t * PI) * 0.22, z0 + (z1 - z0) * t, 0.045, 1, 1, 1, 5); } }
 
 // 救生艇：真正的尖頭艇身（放樣）+ 內艙 + 艇罩 + 舷窗 + 吊艇架
-function boatLoft(L, W, H, flip = false) {
+export function boatLoft(L, W, H, flip = false) {
   const N = 16, M = 9, pos = [], idx = [];
   for (let i = 0; i <= N; i++) {
     const t = (i / N) * 2 - 1; const w = W * Math.pow(Math.max(1 - Math.pow(Math.abs(t), 2.6), 0), 0.55); const top = H + 0.3 * t * t;

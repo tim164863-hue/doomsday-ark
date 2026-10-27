@@ -24,11 +24,11 @@ export class UI {
       <div class="tools"><select id="qsel" title="畫質"><option value="auto">畫質：自動</option><option value="high">畫質：高</option><option value="mid">畫質：中</option><option value="low">畫質：低</option></select><button id="helpBtn" title="操作說明 (H)">❓</button></div></div>`);
     this.right = $(`<div id="right"><button id="camBtn" title="切換視角 (V)">🎥 追隨</button><button id="panBtn" title="全景：顯示整艘船 (0)">🚢 全景</button><div id="decks"></div><button id="exBtn" title="展開甲板">🗂 展開</button><button id="listBtn" title="成員 (L)">👥 成員</button></div>`);
     this.crewPanel = $(`<div id="crew" class="hide"><div class="hd">👥 船員 <small>點選即可聚焦</small><button class="x">✕</button></div><div class="bd"></div></div>`);
-    this.timebar = $(`<div id="timebar" class="collapsed"><div class="row1"><button id="tbBtn" title="時間軸（點一下展開／收起）"><span id="clock"></span><span class="car">▴</span></button>
-      <span class="ex"><button data-t="0.27" title="日出">🌅</button><button data-t="0.5" title="正午">☀️</button><button data-t="0.745" title="日落">🌇</button><button data-t="0.96" title="星空">🌌</button>
-      <span class="sep"></span><button id="pp" title="暫停/繼續 (T)">⏸</button><button data-s="1" class="sp on">1×</button><button data-s="5" class="sp">5×</button><button data-s="20" class="sp">20×</button>
+    this.timebar = $(`<div id="timebar" class="collapsed"><div class="row1"><button id="tbBtn" title="攝影模式：只調整畫面光線與時段，不影響遊戲時間／進度"><span class="pm">📷</span><span id="clock"></span><span class="car">▴</span></button>
+      <span class="ex"><button data-t="0.27" title="拍攝：日出光線">🌅</button><button data-t="0.5" title="拍攝：正午光線">☀️</button><button data-t="0.745" title="拍攝：日落光線">🌇</button><button data-t="0.96" title="拍攝：星空光線">🌌</button>
+      <span class="sep"></span><button id="pp" title="暫停/繼續 (T)">⏸</button><span class="pmL">光線流速</span><button data-s="1" class="sp on">1×</button><button data-s="5" class="sp">5×</button><button data-s="20" class="sp">20×</button>
       <button id="tbSize" title="縮放時間軸：小／中／大">⤢ 中</button></span></div>
-      <input id="slider" class="ex" type="range" min="0" max="1000" step="1"></div>`);
+      <div class="pmNote ex">📷 攝影模式：只改變畫面光線，<b>不影響遊戲時間／進度</b>（遊戲進度以現實時間計算）</div><input id="slider" class="ex" type="range" min="0" max="1000" step="1"></div>`);
     this.tbSize = localStorage.getItem('ark.tbsize') || 'm'; this.timebar.dataset.size = this.tbSize;
     this.elev = $(`<div id="elevPop" class="hide"><div class="t">🛗 電梯・選擇樓層</div><div class="b"></div></div>`);
     this.help = $(`<div id="help" class="hide"><div class="card"><h2>末日方舟 · 操作說明</h2>
@@ -102,7 +102,7 @@ export class UI {
       L.el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W).toFixed(1)}px,${((-v.y * 0.5 + 0.5) * H).toFixed(1)}px) translate(-50%,-100%)`;
       const far = dist > 70, mid = dist > 36, xfar = dist > 150; L.el.classList.toggle('xfar', xfar); L.el.classList.toggle('far', far); L.el.classList.toggle('mid', mid && !far); L.el.style.zIndex = 1000 - Math.round(dist);
       if (isP) continue;
-      const m = MOODS[b.mood] || MOODS.focus; const icon = b.sleeping ? '💤' : m.icon; if (L.last.mi !== icon) { L.mi.textContent = icon; L.last.mi = icon; }
+      const m = MOODS[b.mood] || MOODS.focus; const icon = b.hurt ? '🤕' : b.sleeping ? '💤' : m.icon; if (L.last.mi !== icon) { L.mi.textContent = icon; L.last.mi = icon; }
       const sp = b.speech && b.speech.until > g.time ? b.speech : null; const spt = sp ? sp.text : ''; if (L.last.sp !== spt) { L.sp.textContent = spt; L.last.sp = spt; L.sp.className = 'sp' + (sp ? ' on ' + sp.kind : ''); }
       let st = ''; if (b.info.equity != null) { const p = b.info.pnl; st = `${b.info.equity.toFixed(1)}U <i class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '+' : ''}${p.toFixed(1)}%</i>${b.info.pos != null ? ' · ' + b.info.pos + '倉' : ''}`; }
       if (L.last.st !== st) { L.st.innerHTML = st; L.last.st = st; L.st.style.display = st ? '' : 'none'; }

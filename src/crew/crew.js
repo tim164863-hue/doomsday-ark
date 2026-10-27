@@ -67,7 +67,7 @@ class Bot {
   }
   get deckObj() { return this.game.ship.decks[this.actor.deck]; }
   say(text, dur = 3.4, kind = 'chat') { this.speech = { text, until: this.game.time + dur, kind }; }
-  setMoodNow() { const e = this.game.envState; this.mood = computeMood(this.info, { nightF: e.nightF, dayF: e.dayF, workedMin: this.info.cat === 'work' ? (Date.now() - this.workStart) / 60000 : 0, sleeping: this.sleeping, playing: this.playing }); }
+  setMoodNow() { const e = this.game.envState; this.mood = this.cheerUntil > Date.now() ? 'happy' : this.hurt ? 'tired' : computeMood(this.info, { nightF: e.nightF, dayF: e.dayF, workedMin: this.info.cat === 'work' ? (Date.now() - this.workStart) / 60000 : 0, sleeping: this.sleeping, playing: this.playing }); }
   worldPos(out = new THREE.Vector3()) { return this.avatar.group.getWorldPosition(out); }
 
   // ---- 佔位
@@ -93,7 +93,15 @@ class Bot {
     if (this.sleeping || this.avatar.robe.visible) { /* 起床：位置交給 wake 處理 */ }
     this.sleeping = false; this.actor.yOff = 0;
   }
-  restart() { this.cleanup(); this.gen = this.run(); }
+  restart() { if (this.away) return; this.cleanup(); this.gen = this.run(); }
+  /** 出海 / 返航（玩法層呼叫）：出海時從船上消失，返航時回到主甲板救生艇旁 */
+  setAway(on) {
+    if (!!on === !!this.away) return;
+    if (on) { this.cleanup(); this.away = true; this.state = 'away'; this.activity = '出海中'; this.convo = null; this.speech = null; this.gen = (function* () { while (true) yield; })(); this.avatar.group.visible = false; }
+    else {
+      this.away = false; this.cleanup(); const n = this.game.ship.decks[D.work].nav; const p = n.nearestFree(-19 + (rnd() - 0.5) * 6, 10.4) || [-19, 9]; this.actor.place(D.work, p[0], p[1], PI); this.avatar.group.visible = true; this.gen = this.run();
+    }
+  }
   *run() {
     const cat = this.info.cat; this.state = cat;
     if (cat !== 'off' && !this.wasSleeping) this.avatar.setRobe(false);
@@ -292,7 +300,7 @@ export class Crew {
     for (const info of data.crew) {
       seen.add(info.key); let b = this.bots.get(info.key);
       if (!b) { b = new Bot(this, info); this.bots.set(info.key, b); this.spawn(b); }
-      else { const changed = b.info.cat !== info.cat; b.info = info; if (changed) { b.restart(); } }
+      else { const changed = b.info.cat !== info.cat; b.info = info; if (changed && !b.away) { b.restart(); } }
     }
     for (const [k, b] of this.bots) if (!seen.has(k)) { b.cleanup(); b.avatar.group.removeFromParent(); this.bots.delete(k); }
     emit('crew', [...this.bots.values()]);
@@ -329,7 +337,7 @@ export class Crew {
   // ---- 閒聊
   updateChat(dt, time) {
     this.chatT -= dt; if (this.chatT > 0) return; this.chatT = 1.2;
-    const bots = [...this.bots.values()].filter((b) => !b.sleeping && !b.inBath && b.actor.speed < 0.3 && !b.convo && b.state !== 'init' && !(b.actor.cur && b.actor.cur.t === 'stair') && !b.actor.inCar);
+    const bots = [...this.bots.values()].filter((b) => !b.away && !b.sleeping && !b.inBath && b.actor.speed < 0.3 && !b.convo && b.state !== 'init' && !(b.actor.cur && b.actor.cur.t === 'stair') && !b.actor.inCar);
     for (let i = 0; i < bots.length; i++) for (let j = i + 1; j < bots.length; j++) {
       const a = bots[i], b = bots[j]; if (a.actor.deck !== b.actor.deck) continue;
       const dist = Math.hypot(a.actor.x - b.actor.x, a.actor.z - b.actor.z); const maxD = a.info.cat === 'work' && b.info.cat === 'work' ? 6.8 : 4.2; if (dist > maxD) continue;
@@ -359,7 +367,7 @@ export class Crew {
   updateGreet(time) {
     const pl = this.game.player; if (!pl) return;
     for (const b of this.bots.values()) {
-      if (b.actor.deck !== pl.actor.deck || b.greetCd > 0 || b.sleeping || b.inBath || b.convo) continue;
+      if (b.away || b.actor.deck !== pl.actor.deck || b.greetCd > 0 || b.sleeping || b.inBath || b.convo) continue;
       const d = Math.hypot(b.actor.x - pl.actor.x, b.actor.z - pl.actor.z);
       if (d < 2.6 && pl.actor.speed < 3) {
         b.greetCd = 90 + rnd() * 60; b.say(greeting(this.game.phaseKey), 3.4, 'greet');

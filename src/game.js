@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { runSelfTest } from './sim/selftest.js';
 import { QUALITY, ORDER, detectQuality } from './config.js';
 import { Environment } from './world/environment.js';
 import { Ocean } from './world/ocean.js';
@@ -112,7 +113,10 @@ export class Game {
       (d.pois.desks || []).forEach((o) => add('desk' + o.key, o)); for (const t in (d.pois.cabins || {})) { const c = d.pois.cabins[t]; add('cabin.' + t + '.corridor', c.corridor); add('cabin.' + t + '.bathIn', c.bathIn); add('cabin.' + t + '.bathOut', c.bathOut); }
       const s0 = starts[0][1]; for (const [n, o] of pts) { const p = nav.findPath(s0.x, s0.z, o.x, o.z); const last = p && p[p.length - 1]; const miss = !p || Math.hypot(last[0] - o.x, last[1] - o.z) > 1.3; if (miss) out.push(`${d.name}:${n} (${o.x.toFixed(1)},${o.z.toFixed(1)}) ${!p ? '無路徑' : '終點偏差'}`); }
       for (const [n, o] of starts) { const f = nav.free(nav.ix(o.x), nav.iz(o.z)); if (!f) out.push(`${d.name}:${n} 入口不可走 (${o.x},${o.z})`); }
-    }); return out;
+    });
+    out.push(...runSelfTest());
+    if (this.play) for (const f in this.play.fac) { const v = this.play.fac[f]; const nav = this.ship.decks[v.deck].nav; const st = this.play.standPos(f); const s0 = v.deck < 4 ? stairEntry(v.deck, 1) : ELEV_PORTAL; const p = nav.findPath(s0.x, s0.z, st[0], st[1]); const last = p && p[p.length - 1]; if (!p || Math.hypot(last[0] - st[0], last[1] - st[1]) > 1.3) out.push(`設施 ${f} 的站位走不到`); }
+    return out;
   }
   render() { this.renderer.render(this.scene, this.camera); }
 }

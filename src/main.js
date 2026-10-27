@@ -2,6 +2,8 @@ import './style.css';
 import { Game } from './game.js';
 import { UI } from './ui/ui.js';
 import { preloadAvatars } from './crew/avatar.js';
+import { Play } from './play/play.js';
+import { HUD } from './ui/hud.js';
 
 const canvas = document.getElementById('gl');
 const P = new URLSearchParams(location.search);
@@ -16,6 +18,8 @@ try {
 if (P.get('help') === '0') localStorage.setItem('ark.helped', '1');
 window.ark = game;
 const ui = new UI(game);
+const play = new Play(game); const hud = new HUD(game); game.play = play; game.hud = hud;
+await play.init(hud);
 game.ds.start();
 
 // 偵錯 / 截圖用的網址參數：?t=0.74 &cam=yaw,pitch,dist,x,y,z &mode=free|overview|follow &explode=1 &deck=2 &q=low|mid|high &demo=cycle|1
