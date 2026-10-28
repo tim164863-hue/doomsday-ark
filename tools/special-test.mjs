@@ -81,7 +81,7 @@ const base4 = mk({ x: 1000, y: 1000 }); simulateTo(base4, T0 + 4 * H); const bas
   const mats = (id) => run(id, 0.8, 30).fleet.mat || {}; const o = {}; for (const id of SZ_ORDER) { const m = mats(id); o[id] = m[SPECIAL_ZONES[id].mat] | 0; }
   ok(SZ_ORDER.every((id) => o[id] > 0) && SZ_ORDER.every((id) => Object.keys(mats(id)).every((k) => k === SPECIAL_ZONES[id].mat)), `每個海域只掉自己的材料（${JSON.stringify(o)}）`);
   const edge = run('fire', 0.99, 30); ok((edge.fleet.mat ? edge.fleet.mat.ember | 0 : 0) <= (run('fire', 0.5, 30).fleet.mat.ember | 0), '邊緣（深度小）掉得比深處少或相同');
-  const out = mk({ x: 1000, y: 1000 }); simulateTo(out, T0 + 30 * H); ok(!out.fleet.mat && !out.fleet.world.sz, '一般海面：沒有材料、沒有 sz 欄位（舊存檔形狀不變）'); }
+  const out = mk({ x: 1000, y: 300 }); simulateTo(out, T0 + 30 * H); ok(!out.fleet.mat && !out.fleet.world.sz, '一般海面：沒有材料、沒有 sz 欄位（舊存檔形狀不變）'); }
 // ---- 存檔：選填欄位 + 清洗
 { const s = run('hell', 0.8, 20); const j = JSON.parse(serialize(s)); ok(j.v === SAVE_VERSION && SAVE_VERSION === 1, 'SAVE_VERSION 仍是 1'); const v = validateState(j); ok(v && JSON.stringify(v.fleet.mat) === JSON.stringify(s.fleet.mat) && JSON.stringify(v.fleet.world.sz) === JSON.stringify(s.fleet.world.sz), '材料 / 統計 存讀一致');
   const bad = JSON.parse(serialize(s)); bad.fleet.mat = { rune: -4, vortex: 'x', ember: 1e9, hellstone: 5.9, junk: 3 }; bad.fleet.world.sz = { in: 'nope', mo: 1e9, n: { hell: -1, fog: 'a' }, d: { bp: 99999 }, pz: 'x' }; bad.fleet.bp = { bp_war3: 1, bp_fake: 1, speedboat: 1 };

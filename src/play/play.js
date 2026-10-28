@@ -335,7 +335,7 @@ export class Play {
     else if (name === 'home') r = F.setHome(s, a.id);
     if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg)) r.msg += SZM.rescueHint(s, now);
     if (r && r.msg && name !== 'battleEngage') this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
-    else if (r && r.ok && r.text && name.startsWith('battle') && name !== 'battleSubmit') this.game.ui.toast(r.text);
+    else if (r && r.ok && r.text && name.startsWith('battle') && name !== 'battleSubmit' && name !== 'battleRetreat') this.game.ui.toast(r.text);
     if (r && r.ok) { this.updateFleet(this.game.time); }
     // 小船家：選船／換旗艦／升級旗艦 → 存檔後重新載入，場景換成新的船
     if (r && r.ok && this.game.small && !r.same && (name === 'pick' || name === 'home' || (name === 'upgrade' && a.id === this.homeId()))) { this.reloadHome(); return r; }
@@ -412,6 +412,7 @@ export class Play {
     else if (name === 'puzzle') r = SZM.puzzleResolve(s, now, a.seq);
     else if (name === 'battleEngage') r = BTL.battleEngage(s, now);
     else if (name === 'battleAuto') r = BTL.battleAuto(s, now, F.combatOf(s));
+    else if (name === 'battleRetreat') r = BTL.battleRetreat(s, now, F.combatOf(s), a.id);
     else if (name === 'battleSubmit') r = BTL.battleSubmit(s, now, a.rep, F.combatOf(s));
     else if (name === 'rescue') { const w = s.fleet.world; if (this.game.helm.on) this.game.helm.stop(); r = SZM.rescueDo(s, now); }
     if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg)) r.msg += SZM.rescueHint(s, now);   // 海圖出航燃料不足：在漩渦裡要提示拖船救援

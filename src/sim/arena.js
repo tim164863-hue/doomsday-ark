@@ -1,25 +1,27 @@
 // 末日方舟 · 階段④：即時砲戰場（純邏輯、固定步長、無 DOM / three.js）。畫面在 ui/battleui.js，這裡只管「規則」。
 // 場地 100×100（上方是敵人、下方是玩家）。玩家：搖桿 / WASD 走位閃避、瞄準後開砲（砲彈有飛行時間，要預判）、普通彈 / 燃燒彈。
-// 這個戰場只產生「命中率 / 閃避率」：結算一律交給 battle.js 的決定性對戰函式（手動加成有上限），所以畫面上的輸贏只是臨場感，
-// 結算頁以 battle.js 為準。敵人的行動全部由 hash(seed,'arena',場次) 決定，測試可以用機器人重播。
+// 沒有瞄準點時預設朝船頭正前方開砲（手機按「開砲」就會打；見 defaultAim）。
+// 結算（選項 A，見 battle.js 檔頭）：打倒敵人 = 勝利，損失 = 這裡實際受到的傷害；輸 / 時間到才照 battle.js 的決定性公式。
+//敵人的行動全部由 hash(seed,'arena',場次) 決定，測試可以用機器人重播。
 import { hash, mulberry32 } from './rng.js';
 import { clamp } from '../util.js';
 import { SZ } from './szdata.js';
-import { BT, ownPower, BOT } from './battle.js';
+import { BT, BOT, arenaFoeHp } from './battle.js';
 
 export const AR = { size: 100, dt: 1 / 30, time: 75, pr: 2.4, shellV: 46, splash: 4.5, cd: 1.0, cdInc: 2.2, incN: 5, aimMin: 8 };
 const FOE_R = { serpent: 5, kraken: 12, leviathan: 15, pirate: 7 };
 
 /** foe = battle.foeStats(cur)；own = fleet.combatOf(s)。 */
 export function createArena(seed, n, foe, own) {
-  const rnd = mulberry32(hash(seed, 'arena', n)); const kill = foe.hp / (ownPower(own) * BOT.acc);
-  const maxHp = clamp(Math.round(kill * 1.7), 6, 60);
+  const rnd = mulberry32(hash(seed, 'arena', n)); const maxHp = arenaFoeHp(foe, own);
   return { seed, n, rnd, foe: { id: foe.id, name: foe.name, icon: foe.icon, x: 50, y: foe.id === 'pirate' ? 20 : 24, r: FOE_R[foe.id] || 6, hp: maxHp, max: maxHp, vis: true, st: 'idle', tt: 1.5, cool: 1.5, phase: 1, burn: 0, dive: 0, ang: Math.PI / 2, dir: 1, lane: null, boss: !!foe.boss },
-    hullPct: own.cond, floor: SZ.floor, hit: clamp(foe.atk * 0.9 / Math.max(1, own.hull) * 100, 0.6, 14), spd: 16 * clamp(own.spd || 1, 0.8, 1.2),
+    hullPct: own.cond, hull0: own.cond, floor: SZ.floor, hit: clamp(foe.atk * 0.9 / Math.max(1, own.hull) * 100, 0.6, 14), spd: 16 * clamp(own.spd || 1, 0.8, 1.2),
     p: { x: 50, y: 82, vx: 0, vy: 0, ang: -Math.PI / 2, cd: 0.4, inc: AR.incN }, shells: [], proj: [], tele: [], fx: [], t: 0, over: null, st: { shots: 0, hits: 0, atk: 0, taken: 0, inc: 0 }, acc: 0 };
 }
-export const arenaMetrics = (a) => ({ shots: a.st.shots, hits: a.st.hits, acc: a.st.shots ? a.st.hits / a.st.shots : 0, dodge: a.st.atk ? clamp(1 - a.st.taken / a.st.atk, 0, 1) : 1, won: a.over === 'win', t: +a.t.toFixed(1) });
+export const arenaMetrics = (a) => ({ shots: a.st.shots, hits: a.st.hits, acc: a.st.shots ? a.st.hits / a.st.shots : 0, dodge: a.st.atk ? clamp(1 - a.st.taken / a.st.atk, 0, 1) : 1, won: a.over === 'win', t: +a.t.toFixed(1), loss: +(a.hull0 - a.hullPct).toFixed(2), hp: a.foe.max });
 
+/** 沒點瞄準點時的預設：船頭正前方（船頭朝上半圈就照船頭，朝側面 / 後面就當作正前方＝敵人那一邊）。 */
+export function defaultAim(a) { const P = a.p; const up = Math.sin(P.ang) < -0.5; const g = up ? P.ang : -Math.PI / 2; return { x: clamp(P.x + Math.cos(g) * 45, 0, 100), y: clamp(P.y + Math.sin(g) * 45, 0, 100) }; }
 const dist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 function hitPlayer(a, ev, what) { a.st.taken++; a.hullPct = Math.max(a.floor, a.hullPct - a.hit); ev.push({ k: 'hurt', what, x: a.p.x, y: a.p.y }); if (a.hullPct <= a.floor + 1e-9) { a.over = 'lose'; ev.push({ k: 'lose' }); } }
 const launch = (a, x, y, tx, ty, v, r = 2.6) => { const d = dist(x, y, tx, ty) || 1; a.proj.push({ x, y, vx: (tx - x) / d * v, vy: (ty - y) / d * v, r }); a.st.atk++; };
@@ -64,8 +66,9 @@ export function stepArena(a, inp, dt = AR.dt) {
   let mx = inp && Number.isFinite(inp.mx) ? inp.mx : 0, my = inp && Number.isFinite(inp.my) ? inp.my : 0; const m = Math.hypot(mx, my); if (m > 1) { mx /= m; my /= m; }
   const k = 1 - Math.exp(-7 * dt); P.vx += (mx * a.spd - P.vx) * k; P.vy += (my * a.spd - P.vy) * k; P.x = clamp(P.x + P.vx * dt, 4, 96); P.y = clamp(P.y + P.vy * dt, 46, 96); if (Math.hypot(P.vx, P.vy) > 1) P.ang = Math.atan2(P.vy, P.vx);
   // 開砲
-  P.cd -= dt; if (inp && inp.aim && inp.fire && P.cd <= 0) {
-    const inc = inp.ammo === 1 && P.inc > 0; let tx = clamp(inp.aim.x, 0, 100), ty = clamp(inp.aim.y, 0, 100); const d0 = dist(P.x, P.y, tx, ty); if (d0 < AR.aimMin) { const g = Math.atan2(ty - P.y, tx - P.x); tx = P.x + Math.cos(g) * AR.aimMin; ty = P.y + Math.sin(g) * AR.aimMin; }
+  P.cd -= dt; if (inp && inp.fire && P.cd <= 0) {
+    const aim = inp.aim && Number.isFinite(inp.aim.x) && Number.isFinite(inp.aim.y) ? inp.aim : defaultAim(a);
+    const inc = inp.ammo === 1 && P.inc > 0; let tx = clamp(aim.x, 0, 100), ty = clamp(aim.y, 0, 100); const d0 = dist(P.x, P.y, tx, ty); if (d0 < AR.aimMin) { const g = Math.atan2(ty - P.y, tx - P.x); tx = P.x + Math.cos(g) * AR.aimMin; ty = P.y + Math.sin(g) * AR.aimMin; }
     const d = dist(P.x, P.y, tx, ty), T = clamp(d / AR.shellV, 0.4, 1.5); a.shells.push({ x0: P.x, y0: P.y, x1: tx, y1: ty, t: 0, T, inc }); a.st.shots++; P.cd = inc ? AR.cdInc : AR.cd; if (inc) { P.inc--; a.st.inc++; } ev.push({ k: 'fire', inc });
   }
   // 砲彈落水

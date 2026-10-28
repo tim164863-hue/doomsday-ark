@@ -161,7 +161,7 @@ export class SeaChart {
     this.panel.innerHTML = `${evHtml}<div class="pk"><h4>⚓ 方舟 ${w.route ? `<small data-arketa></small>` : '<small>停泊中</small>'}</h4><p>${w.route ? `航向 (${Math.round(w.route.x1)}, ${Math.round(w.route.y1)}) ${(() => { const [gx, gy] = W.cellOf(w.route.x1, w.route.y1); return W.fogHas(w, gx, gy) ? W.zoneLabel(W.zoneAt(w.route.x1, w.route.y1)) : '❓未知海域'; })()}` : '點地圖任意位置，決定下一個目的地。'}</p><p class="dim">航速 ${WORLD.arkSpeed}/分 · 每 ${Math.round(1 / WORLD.fuelPerUnit)} 單位耗 ⛽1 · 目前 ⛽${Math.floor(s.res.fuel)}</p>${w.route ? '<div class="mb"><button data-a="stop">⏹ 就地停泊（燃料不退）</button></div>' : ''}</div>
       ${btHtml(s, now)}${this.wxHtml(w, ark, now)}${this.szPanel(w, ark, now)}<div class="pk"><h4>🚢 海上任務</h4>${ms}${done}</div><div class="pk"><h4>🗺 已發現海域</h4><div class="zonebar">${seen}</div><p class="dim">方舟停在遠海域旁，該海域的任務會更快、收穫更多。船出任務時會順便揭開目的地附近的迷霧。</p></div>`;
     this.panel.querySelectorAll('[data-a=ev]').forEach((b) => { b.onclick = () => { const id = +b.closest('.evc').dataset.id; this.hud.play.worldAct('decide', { id, i: +b.dataset.i }); this.refresh(true); }; });
-    const btk = this.panel.querySelector('[data-a=btTake]'); if (btk) btk.onclick = () => this.hud.battle.open();
+    const btk = this.panel.querySelector('[data-a=btTake]'); if (btk) btk.onclick = () => this.hud.battle.take();
     const btc = this.panel.querySelector('[data-a=btCrew]'); if (btc) btc.onclick = () => { this.hud.play.worldAct('battleAuto', {}); this.refresh(true); };
     const rsb = this.panel.querySelector('[data-a=rescue]'); if (rsb) rsb.onclick = () => { this.hud.play.worldAct('rescue', {}); this.refresh(true); };
     const pzb = this.panel.querySelector('[data-a=pz]'); if (pzb) pzb.onclick = () => this.hud.openPuzzle();

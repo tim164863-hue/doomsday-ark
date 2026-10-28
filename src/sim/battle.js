@@ -1,9 +1,14 @@
 // 末日方舟 · 階段④：海怪與海盜海戰（純函式、決定性）。設計見 DESIGN-expansion.md §4。
 // 遭遇 = f(seed, 遊戲時鐘, 方舟地圖位置)：每個 30 分鐘「槽」在槽邊界擲一次（出生點附近的近海永遠安全）。
 // 遭遇出現後有 10 分鐘（BT.grace）讓玩家決定；沒人接管 = 時間到由船員「自動戰鬥」結算（離線 / 閒置一律如此）。
-// 玩家上線接管 → 即時砲戰（arena.js，畫面 / 操作），結果只回報「命中率 / 閃避率」，結算仍用同一個決定性對戰函式，
-// 手動加成上限 +25%（命中）/ +0.1（閃避），而且絕不會比自動差。所以不玩 = 一樣有結果，玩了只是略好。
-// 存檔欄位（全部選填、可加）：fleet.world.bt = { n, cur, ls, lv, st, k, h, last }。獎勵進 s.res / fleet.mat / fleet.bp。
+// 玩家上線接管 → 即時砲戰（arena.js，畫面 / 操作）。選項 A 結算：
+//   · 在砲戰場把敵人打倒 = 這場「勝利」，船體損失 = 砲戰場裡實際受到的傷害（照舊不會低於 SZ.floor）。
+//   · 砲戰場輸了 / 時間到 → 改用決定性公式結算（手動加成上限：命中 ×1.25、閃避 +0.1）。
+//   · 撤退 → 機率逃脫（fleeChance），失敗被追著打。
+//   · 每個遭遇 id 只能結算一次；戰報必須帶這場的 id（免費方案沒有伺服端驗證，所以只做合理性檢查，不是防作弊）。
+// 接管 ≠ 一定比自動好：船員打不贏會逃，接管一定開打（硬拚），所以畫面顯示勝率 / 預期船體損失，風險高要二次確認。
+// 自動戰鬥（含離線）完全不受砲戰場影響，仍是同一個決定性公式。
+// 存檔欄位（全部選填、可加）：fleet.world.bt = { n, cur, ls, lv（上次利維坦結算的時間，秒）, st, k, h, last }。獎勵進 s.res / fleet.mat / fleet.bp。
 import { hash, mulberry32 } from './rng.js';
 import { clamp, tbl } from '../util.js';
 import { arkPos, zoneAt } from './world.js';
@@ -13,6 +18,9 @@ import { resCap, refitting } from './promo.js';
 import { RES_KEYS } from './defs.js';
 
 const U32 = 4294967296;
+const ARENA_TIME = 75, ARENA_CD = 1.0;   // = arena.js 的 AR.time / AR.cd（這裡不能反過來 import arena.js，會循環）
+/** 砲戰場裡敵人的血量（arena.js 用同一個式子）。 */
+export const arenaFoeHp = (foe, own) => clamp(Math.round(foe.hp / (ownPower(own) * BOT.acc) * 1.7), 6, 60);
 export const BT = {
   slot: 1800,          // 遭遇判定槽（秒）
   grace: 600,          // 遭遇出現後多久沒人接管就由船員自動戰鬥
@@ -21,7 +29,9 @@ export const BT = {
   fpK: 3,              // 每點火力每回合的基本傷害
   botAcc: 0.55, botDodge: 0.35,       // 船員（自動戰鬥）的命中 / 閃避
   accCap: 1.25, dodgeCap: 0.1,        // 手動加成上限：命中 ×1.25、閃避 +0.1
-  lvDays: 3,           // 利維坦最短每 3 個遊戲日才會再出現
+  lvDays: 3,           // 利維坦：距離「上一隻利維坦結算」至少 3 個遊戲日（3×86400 秒）才會再出現
+  confirmWin: 0.5, confirmLoss: 40,   // 接管時勝率 < 50% 或預期船體損失 > 40% → 要二次確認
+  engCap: 2,           // 接管只在第一次延長倒數（最多再 1 個 grace）；cur.end 一律不超過 t0 + engCap×grace
   logCap: 40,
 };
 const BRANCH_FP = { war: 0.2, mer: 0, sci: 0.1 };   // 旗艦分支的火力加成（戰艦最強、科研有弱點分析）
@@ -44,7 +54,7 @@ const T1 = ['bp_war1', 'bp_mer1', 'bp_sci1'], T3 = ['bp_war3', 'bp_mer3', 'bp_sc
 
 // 區域縮放（hp、atk 的 lv 倍率）與遭遇機率 / 對手權重（一般海域 by world.zoneAt；特殊海域 by szdata.zoneAtPoint）
 const LV_ZONE = { reef: 1, ruins: 1.15, ice: 1.3, abyss: 1.5, fog: 1.2, whirlpool: 1.3, fire: 1.4, hell: 1.6, stonehenge: 1.3 };
-const P_ZONE = { reef: 0.03, ruins: 0.04, ice: 0.04, abyss: 0.055, fog: 0.07, whirlpool: 0.075, fire: 0.075, hell: 0.09, stonehenge: 0.065 };
+const P_ZONE = { reef: 0.024, ruins: 0.03, ice: 0.03, abyss: 0.034, fog: 0.032, whirlpool: 0.036, fire: 0.036, hell: 0.04, stonehenge: 0.033 };
 const W_ZONE = {
   reef: { serpent: 6, pirate: 4 }, ruins: { serpent: 3.5, pirate: 5, kraken: 1.5 }, ice: { serpent: 5, kraken: 3.5, pirate: 1.5 }, abyss: { serpent: 2.5, kraken: 5.5, pirate: 2 },
   fog: { kraken: 4.5, serpent: 3.5, pirate: 2 }, whirlpool: { kraken: 6, serpent: 4, leviathan: 2 }, fire: { serpent: 5.5, pirate: 2.5, kraken: 2, leviathan: 1.5 },
@@ -57,14 +67,14 @@ export const emptyBt = () => ({ n: 0, cur: null, ls: -99, lv: -99, st: { w: 0, l
 const num = (x) => typeof x === 'number' && Number.isFinite(x);
 export function sanBt(b) {
   if (!b || typeof b !== 'object') return null; const o = emptyBt();
-  o.n = num(b.n) ? clamp(b.n | 0, 0, 1e7) : 0; o.ls = num(b.ls) ? clamp(b.ls | 0, -99, 1e9) : -99; o.lv = num(b.lv) ? clamp(b.lv | 0, -99, 1e9) : -99; o.h = num(b.h) ? clamp(b.h, 0, 1e7) : 0;
+  o.n = num(b.n) ? clamp(b.n | 0, 0, 1e7) : 0; o.ls = num(b.ls) ? clamp(b.ls | 0, -99, 1e9) : -99; o.lv = num(b.lv) ? (b.lv > -99 && b.lv < 1e7 ? (Math.floor(b.lv) + 1) * 86400 : clamp(Math.floor(b.lv), -99, 1e11)) : -99; o.h = num(b.h) ? clamp(b.h, 0, 1e7) : 0;
   if (b.st && typeof b.st === 'object') for (const k of ['w', 'l', 'd', 'f']) o.st[k] = num(b.st[k]) ? clamp(b.st[k] | 0, 0, 1e7) : 0;
   if (b.k && typeof b.k === 'object') for (const k of FOE_ORDER) if (num(b.k[k]) && b.k[k] > 0) o.k[k] = clamp(b.k[k] | 0, 0, 1e7);
-  const c = b.cur; if (c && typeof c === 'object' && Object.prototype.hasOwnProperty.call(FOES, c.k) && num(c.t0) && num(c.end) && num(c.id) && num(c.lv)) {
+  const c = b.cur; if (c && typeof c === 'object' && typeof c.k === 'string' && Object.prototype.hasOwnProperty.call(FOES, c.k) && num(c.t0) && num(c.end) && num(c.id) && num(c.lv)) {
     o.cur = { id: clamp(c.id | 0, 0, 1e7), k: c.k, lv: clamp(c.lv, 0.5, 4), z: typeof c.z === 'string' && (c.z === '' || Object.prototype.hasOwnProperty.call(SPECIAL_ZONES, c.z)) ? c.z : '', rz: ['reef', 'ruins', 'ice', 'abyss', 'near'].includes(c.rz) ? c.rz : 'reef',
-      dep: num(c.dep) ? clamp(c.dep, 0, 1) : 0, x: num(c.x) ? clamp(c.x, 0, 2000) : 1000, y: num(c.y) ? clamp(c.y, 0, 2000) : 1000, wx: c.wx === 'storm' ? 'storm' : '', t0: c.t0, end: c.end, eng: c.eng ? 1 : 0, nm: typeof c.nm === 'string' ? c.nm.slice(0, 12) : '' };
+      dep: num(c.dep) ? clamp(c.dep, 0, 1) : 0, x: num(c.x) ? clamp(c.x, 0, 2000) : 1000, y: num(c.y) ? clamp(c.y, 0, 2000) : 1000, wx: c.wx === 'storm' ? 'storm' : '', t0: c.t0, end: clamp(c.end, c.t0, c.t0 + BT.grace * BT.engCap), eng: c.eng ? 1 : 0, nm: typeof c.nm === 'string' ? c.nm.slice(0, 12) : '' };
   }
-  if (b.last && typeof b.last === 'object' && typeof b.last.text === 'string') o.last = { t: num(b.last.t) ? b.last.t : 0, k: Object.prototype.hasOwnProperty.call(FOES, b.last.k) ? b.last.k : 'serpent', r: ['win', 'lose', 'draw', 'fled', 'caught'].includes(b.last.r) ? b.last.r : 'draw', text: b.last.text.slice(0, 160), man: b.last.man ? 1 : 0 };
+  if (b.last && typeof b.last === 'object' && typeof b.last.text === 'string') o.last = { t: num(b.last.t) ? b.last.t : 0, id: num(b.last.id) ? clamp(b.last.id | 0, 0, 1e7) : 0, k: typeof b.last.k === 'string' && Object.prototype.hasOwnProperty.call(FOES, b.last.k) ? b.last.k : 'serpent', r: ['win', 'lose', 'draw', 'fled', 'caught'].includes(b.last.r) ? b.last.r : 'draw', text: b.last.text.slice(0, 160), man: b.last.man ? 1 : 0 };
   return o;
 }
 const ensureBt = (w) => w.bt || (w.bt = emptyBt());
@@ -98,6 +108,10 @@ export function estimate(own, foe) {
 export function winChance(own, foe, manual = false) {
   const sk = manual ? { acc: BOT.acc * BT.accCap, dodge: BOT.dodge + BT.dodgeCap } : BOT; let w = 0; for (let i = 0; i < 40; i++) if (duel(7, i, own, foe, sk).res === 'win') w++; return w / 40;
 }
+/** 硬拚的預期船體損失 %（40 個虛擬種子平均；含輸掉的場次）。只給畫面顯示。 */
+export function lossChance(own, foe, manual = false) {
+  const sk = manual ? { acc: BOT.acc * BT.accCap, dodge: BOT.dodge + BT.dodgeCap } : BOT; let l = 0; for (let i = 0; i < 40; i++) l += duel(7, i, own, foe, sk).loss; return l / 40;
+}
 /** 逃跑成功率：快、偵察強有利；Boss 更難甩開 */
 export const fleeChance = (own, foe) => clamp((0.45 + ((own.spd || 1) - 1) * 0.6 + ((own.scoutK || 1) - 1) * 0.3) * (foe.boss ? 0.6 : 1), 0.2, 0.9);
 
@@ -108,12 +122,27 @@ export function autoBattle(seed, own, foe, n) {
   if (e.fight) { const d = duel(seed, n, own, foe, BOT); return { kind: d.res, loss: d.loss, rounds: d.rounds, act: 'fight' }; }
   const u = hash(seed, 'btf', n) / U32;
   if (u < fleeChance(own, foe)) return { kind: 'fled', loss: 0, rounds: 0, act: 'flee' };
-  const hit = Math.min(margin(own), foe.atk * 4 * (1 - BOT.dodge) * guardOf(own)); return { kind: 'caught', loss: +(hit / own.hull * 100).toFixed(2), rounds: 4, act: 'flee' };
+  return { kind: 'caught', loss: caughtLoss(own, foe), rounds: 4, act: 'flee' };
 }
-/** 玩家接管：rep = { acc, dodge, shots }（即時砲戰的命中率 / 閃避率）。加成有上限、而且不會比船員差。 */
+/** 逃失敗：被追著打 4 回合的船體損失 % */
+export function caughtLoss(own, foe) { const hit = Math.min(margin(own), foe.atk * 4 * (1 - BOT.dodge) * guardOf(own)); return own.hull > 0 ? +(hit / own.hull * 100).toFixed(2) : 0; }
+/** 撤退（玩家在砲戰場中途按撤退）：逃脫機率同 fleeChance（擲 hash(seed,'btr',場次)），失敗 = 被追著打。 */
+export function retreatBattle(seed, own, foe, n) {
+  const u = hash(seed, 'btr', n) / U32; if (u < fleeChance(own, foe)) return { kind: 'fled', loss: 0, rounds: 0, act: 'retreat' };
+  return { kind: 'caught', loss: caughtLoss(own, foe), rounds: 4, act: 'retreat' };
+}
+/** 公式結算用的手動技巧：rep = { acc, dodge, shots }（砲戰場沒打贏時才用）。加成有上限（命中 ×1.25、閃避 +0.1）。 */
 export function effSkill(rep) {
   const acc = rep && num(rep.acc) && (rep.shots | 0) >= 3 ? clamp(rep.acc, 0, 1) : 0, dodge = rep && num(rep.dodge) ? clamp(rep.dodge, 0, 1) : 0;
   return { acc: Math.max(BOT.acc, Math.min(acc, BOT.acc * BT.accCap)), dodge: Math.max(BOT.dodge, Math.min(dodge, BOT.dodge + BT.dodgeCap)) };
+}
+/** 砲戰場戰報 rep = { id, won, loss, hits, shots, t, acc, dodge }：只有「打倒敵人」的宣稱要過合理性檢查，通過才算勝利。
+ *  合理性：用的時間 ≤ 場上時限；發數受冷卻限制；命中 ≤ 發數；命中數（+ 燃燒彈最多 4 點）要夠打掉敵人血量。 */
+export function arenaWin(rep, foe, own) {
+  if (!rep || rep.won !== true || !num(rep.t) || !num(rep.shots) || !num(rep.hits) || !num(rep.loss)) return null;
+  const maxHp = arenaFoeHp(foe, own), shots = rep.shots | 0, hits = rep.hits | 0;
+  if (rep.t < 2 || rep.t > ARENA_TIME + 0.5 || shots < 1 || hits > shots || shots > Math.floor(rep.t / ARENA_CD) + 1 || hits + 4 < maxHp) return null;
+  return { loss: clamp(rep.loss, 0, 100) };
 }
 export function manualBattle(seed, own, foe, n, rep) { const d = duel(seed, n, own, foe, effSkill(rep)); return { kind: d.res, loss: d.loss, rounds: d.rounds, act: 'manual' }; }
 
@@ -146,7 +175,7 @@ export const resText = (o, sign = '+') => Object.keys(o).filter((k) => o[k] > 0)
 const matText = (m) => Object.keys(m).map((k) => `${MATERIALS[k].icon}${MATERIALS[k].name}×${m[k]}`).join(' ');
 
 /** 套用結果到存檔（決定性）；回傳 { text, loot, loss } 並更新統計。 */
-function settle(s, cur, out, own, tEnd, man) {
+function settle(s, cur, out, own, tEnd, man) {   // man = 玩家接管過（撤退也算）
   const f = s.fleet, w = f.world, bt = ensureBt(w), B = FOES[cur.k], nm = cur.nm || B.name; let text = '', loot = null, lost = {};
   const b0 = s.cond; if (out.loss > 0) s.cond = Math.max(Math.min(b0, SZ.floor), b0 - out.loss); const hull = +(b0 - s.cond).toFixed(1); bt.h += hull;
   if (out.kind === 'win' || out.kind === 'draw') {
@@ -158,22 +187,22 @@ function settle(s, cur, out, own, tEnd, man) {
   if (out.kind === 'win') { bt.st.w++; bt.k[cur.k] = (bt.k[cur.k] | 0) + 1; const bits = [resText(loot.res), matText(loot.mat), loot.bp ? `🗺️藍圖「${(PROMO_BP[loot.bp] || { name: loot.bp }).name}」` : ''].filter(Boolean).join('　');
     text = `⚔️ ${man ? '指揮擊退' : '船員擊退'}${B.icon}${nm}${bits ? '！戰利品：' + bits : '！'}${hl}`; }
   else if (out.kind === 'draw') { bt.st.d++; text = `⚔️ 與${B.icon}${nm}僵持不下，雙方退開${loot && Object.keys(loot.res).length ? '（撿到 ' + resText(loot.res) + '）' : ''}${hl}`; }
-  else if (out.kind === 'fled') { bt.st.f++; text = `💨 船員發現${B.icon}${nm}打不贏，全速甩開了牠，毫髮無傷。`; }
-  else if (out.kind === 'caught') { bt.st.l++; text = `💥 想逃卻被${B.icon}${nm}追上咬了幾口${hl}${Object.keys(lost).length ? '，' + resText(lost, '−') : ''}。`; }
+  else if (out.kind === 'fled') { bt.st.f++; text = out.act === 'retreat' ? `🏳️ 指揮下令撤退，成功甩開${B.icon}${nm}，毫髮無傷。` : `💨 船員發現${B.icon}${nm}打不贏，全速甩開了牠，毫髮無傷。`; }
+  else if (out.kind === 'caught') { bt.st.l++; text = `💥 ${out.act === 'retreat' ? '撤退失敗，' : '想逃卻'}被${B.icon}${nm}追上咬了幾口${hl}${Object.keys(lost).length ? '，' + resText(lost, '−') : ''}。`; }
   else { bt.st.l++; text = `💥 被${B.icon}${nm}打得節節敗退${hl}${Object.keys(lost).length ? '，' + resText(lost, '−') : ''}。船體穩住在 ${SZ.floor}% 以上。`; }
-  bt.last = { t: tEnd, k: cur.k, r: out.kind, text, man: man ? 1 : 0 }; bt.cur = null; if (cur.k === 'leviathan') bt.lv = Math.floor(tEnd / 86400);
+  bt.last = { t: tEnd, id: cur.id, k: cur.k, r: out.kind, text, man: man ? 1 : 0 }; bt.cur = null; if (cur.k === 'leviathan') bt.lv = Math.floor(tEnd);
   return { text, loot, lost, hull };
 }
 
 // ---------------------------------------------------------------- 遭遇產生 / 結算（tick 內）
 /** 一場遭遇的決定性產生：回傳 cur 或 null（不寫存檔）。 */
-export function rollEncounter(seed, sl, p, lvDay, scoutK, tEnd) {
+export function rollEncounter(seed, sl, p, lvAt, scoutK, tEnd) {
   const h = zoneAtPoint(p.x, p.y), rz = zoneAt(p.x, p.y); const zid = h ? h.id : '', zk = zid || rz; if (!h && rz === 'near') return null;
   const wx = weatherAt(tEnd, p.x, p.y).kind === 'storm' ? 'storm' : ''; const scout = clamp(((scoutK || 1) - 1) / 0.45, 0, 1);
   const chance = (P_ZONE[zk] || 0.05) * (h ? 0.7 + 0.5 * h.depth : 1) * (wx ? 1.4 : 1) * (1 - 0.4 * scout);
   if (hash(seed, 'bts', sl) / U32 >= chance) return null;
-  const rnd = mulberry32(hash(seed, 'btk', sl)); const W0 = { ...W_ZONE[zk] }; const dayNow = Math.floor(tEnd / 86400);
-  if (W0.leviathan && !(h && h.depth >= (LEVI_DEPTH[zid] || 2) && dayNow - lvDay >= BT.lvDays)) { W0.kraken = (W0.kraken || 0) + W0.leviathan; delete W0.leviathan; }
+  const rnd = mulberry32(hash(seed, 'btk', sl)); const W0 = { ...W_ZONE[zk] };
+  if (W0.leviathan && !(h && h.depth >= (LEVI_DEPTH[zid] || 2) && tEnd - lvAt >= BT.lvDays * 86400)) { W0.kraken = (W0.kraken || 0) + W0.leviathan; delete W0.leviathan; }
   let tot = 0; for (const k in W0) tot += W0[k]; let r = rnd() * tot, k = 'serpent'; for (const kk of FOE_ORDER) if (W0[kk]) { r -= W0[kk]; if (r <= 0) { k = kk; break; } }
   const lv = +((LV_ZONE[zk] || 1) * (wx ? 1.15 : 1) * (0.92 + rnd() * 0.16)).toFixed(2); const nm = k === 'pirate' ? PIRATE_NAMES[Math.floor(rnd() * PIRATE_NAMES.length)] : '';
   return { k, lv, z: zid, rz, dep: h ? +h.depth.toFixed(2) : 0, x: Math.round(p.x), y: Math.round(p.y), wx, nm };
@@ -190,8 +219,11 @@ export function battleTick(s, t, tEnd, ev, own) {
 }
 function resolveCur(s, tEnd, ev, own, rep, man) {
   const bt = s.fleet.world.bt, cur = bt.cur, foe = foeStats(cur);
-  const out = man ? manualBattle(s.seed, own, foe, cur.id, rep) : autoBattle(s.seed, own, foe, cur.id);
-  const r = settle(s, cur, out, own, tEnd, man); ev && ev({ t: tEnd, type: 'battle', sub: out.kind, foe: cur.k, text: r.text }); return { ok: true, kind: out.kind, ...r };
+  let out, arena = false;
+  if (man === 'retreat') out = retreatBattle(s.seed, own, foe, cur.id);
+  else if (man) { const w = arenaWin(rep, foe, own); if (w) { out = { kind: 'win', loss: w.loss, rounds: 0, act: 'arena' }; arena = true; } else out = manualBattle(s.seed, own, foe, cur.id, rep); }
+  else out = autoBattle(s.seed, own, foe, cur.id);
+  const r = settle(s, cur, out, own, tEnd, man); ev && ev({ t: tEnd, type: 'battle', sub: out.kind, foe: cur.k, text: r.text }); return { ok: true, kind: out.kind, arena, ...r };
 }
 
 // ---------------------------------------------------------------- 玩家動作
@@ -199,11 +231,21 @@ export const curOf = (s) => { const b = s.fleet && s.fleet.world && s.fleet.worl
 export const btStats = (s) => (s.fleet && s.fleet.world && s.fleet.world.bt) || null;
 /** 有「還沒結算」的遭遇（時間還沒到）才能接管 */
 export function battleCan(s, nowSec) { const c = curOf(s); if (!c) return { ok: false, why: '現在沒有遭遇戰' }; if (nowSec >= c.end) return { ok: false, why: '來不及了，船員已經處理' }; return { ok: true, cur: c }; }
-/** 接管：延長倒數（即時砲戰最多 75 秒），避免打到一半被自動結算。 */
-export function battleEngage(s, nowSec) { const c = battleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; c.cur.eng = 1; c.cur.end = Math.max(c.cur.end, nowSec + BT.grace); return { ok: true, cur: c.cur }; }
+/** 接管：只有「第一次」會延長倒數（即時砲戰最多 75 秒；上限 t0 + engCap×grace），重複呼叫不會再拉長，避免卡住新遭遇。 */
+export function battleEngage(s, nowSec) { const c = battleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; if (!c.cur.eng) { c.cur.eng = 1; c.cur.end = Math.min(Math.max(c.cur.end, nowSec + BT.grace), c.cur.t0 + BT.grace * BT.engCap); } return { ok: true, cur: c.cur }; }
 /** 交給船員：立刻用自動戰鬥結算 */
 export function battleAuto(s, nowSec, own) { const c = battleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; return resolveCur(s, Math.max(s.simT, nowSec), (e) => s.log.push(e), own, null, false); }
-/** 即時砲戰結束：結算（rep 只影響手動加成，上限見 effSkill；沒接管 / 時間到就不會進來） */
-export function battleSubmit(s, nowSec, rep, own) { const c = battleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; return resolveCur(s, Math.max(s.simT, nowSec), (e) => s.log.push(e), own, rep, true); }
+/** 即時砲戰結束：結算。打倒敵人（過合理性檢查）= 勝利、損失 = 砲戰場實際傷害；否則走公式（rep 只影響手動加成，上限見 effSkill）。rep.id 必須等於目前遭遇。 */
+export function battleSubmit(s, nowSec, rep, own) { const c = battleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why };
+  if (!rep || rep.id !== c.cur.id) return { ok: false, msg: '這份戰報不屬於目前這場遭遇，已忽略' }; return resolveCur(s, Math.max(s.simT, nowSec), (e) => s.log.push(e), own, rep, true); }
+/** 撤退：砲戰場中途按撤退 → 機率逃脫（fleeChance），失敗被追著打；不看砲戰表現。 */
+export function battleRetreat(s, nowSec, own, id) { const c = battleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; if (id !== c.cur.id) return { ok: false, msg: '這個撤退指令不屬於目前這場遭遇，已忽略' }; return resolveCur(s, Math.max(s.simT, nowSec), (e) => s.log.push(e), own, null, 'retreat'); }
 /** 給海圖 / 提示：這場遭遇的預估（船員會打還是逃） */
-export function battlePreview(s, own) { const c = curOf(s); if (!c) return null; const foe = foeStats(c), e = estimate(own, foe); return { foe, fight: e.fight, win: winChance(own, foe), winMax: winChance(own, foe, true), flee: fleeChance(own, foe), power: ownPower(own), margin: e.mg }; }
+export function battlePreview(s, own) {
+  const c = curOf(s); if (!c) return null; const foe = foeStats(c), e = estimate(own, foe), fl = fleeChance(own, foe), cl = caughtLoss(own, foe);
+  const win = winChance(own, foe), lossTake = lossChance(own, foe);
+  // 這裡的 win / lossTake / lossBest / winMax 是「砲戰沒打贏時改走公式」的數字；接管的實際風險（砲戰機器人試打）見 btrisk.js
+  return { foe, fight: e.fight, win, winMax: winChance(own, foe, true), flee: fl, power: ownPower(own), margin: e.mg, lossTake, lossBest: lossChance(own, foe, true),
+    lossAuto: e.fight ? lossTake : (1 - fl) * cl,   // 船員：打得贏才打（= 同樣開打的期望損失），否則逃（逃不掉才受傷）
+    lossRetreat: (1 - fl) * cl };
+}
