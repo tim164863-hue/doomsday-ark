@@ -20,7 +20,7 @@ export class Controls {
     this.saved[this.mode] = { yaw: this.yaw, pitch: this.pitch, dist: this.dist, target: this.target.clone() };
     this.mode = m; const s = this.saved[m];
     if (m === 'overview' && this.game.small) { const f = this.game.ship.frame, r = this.game.ship.root.position; this.yaw = f.yaw; this.pitch = f.pitch; this.dist = f.dist * (innerWidth < 700 ? 1.25 : 1); this.tgtOver = new THREE.Vector3(r.x + f.target[0], f.target[1], r.z + 0); }
-    else if (m === 'overview') { this.yaw = 0.8; this.pitch = 0.5; this.dist = 175; this.tgtOver = new THREE.Vector3(SHIP_CX, 9, 0); this.game.ship.setExplode(0); }
+    else if (m === 'overview') { this.yaw = 0.8; this.pitch = 0.5; this.dist = 175; { const h = this.game.helm; this.tgtOver = new THREE.Vector3(h ? h.x : SHIP_CX, 9, h ? h.z : 0); } this.game.ship.setExplode(0); }
     else if (m === 'follow') { if (s) { this.yaw = s.yaw; this.pitch = s.pitch; this.dist = s.dist; } else { this.dist = 17; this.pitch = 0.95; } }
     else { if (s) { this.yaw = s.yaw; this.pitch = s.pitch; this.dist = s.dist; this.target.copy(s.target); } else { this.dist = 45; this.pitch = 0.8; } }
     if (m !== 'free') this.game.soloDeck = null; this.focusBot = null; this.game.onModeChange && this.game.onModeChange(m);
@@ -34,8 +34,8 @@ export class Controls {
   bind() {
     const d = this.dom;
     addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; const k = e.key.toLowerCase(); this.keys.add(k);
-      if (k === 'v' && !this.game.pilot) this.cycleMode(); if (k === 't') this.game.togglePause(); if (k === 'h' || k === '?') this.game.ui && this.game.ui.toggleHelp(); if (k === 'l') this.game.ui && this.game.ui.toggleCrew();
-      if (k >= '1' && k <= '5' && !e.ctrlKey && !e.metaKey && !this.game.pilot && !this.game.small) this.game.showDeck(+k - 1);
+      if (k === 'v' && !this.game.pilot && !(this.game.helm && this.game.helm.on)) this.cycleMode(); if (k === 't') this.game.togglePause(); if (k === 'h' || k === '?') this.game.ui && this.game.ui.toggleHelp(); if (k === 'l') this.game.ui && this.game.ui.toggleCrew();
+      if (k >= '1' && k <= '5' && !e.ctrlKey && !e.metaKey && !this.game.pilot && !(this.game.helm && this.game.helm.on) && !this.game.small) this.game.showDeck(+k - 1);
       if (k === '0' || k === 'p') this.game.showPanorama();
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault(); });
     addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase())); addEventListener('blur', () => this.keys.clear());
@@ -69,7 +69,7 @@ export class Controls {
     }
   }
   pdist() { const [a, b] = [...this.pointers.values()]; return Math.hypot(a.x - b.x, a.y - b.y) || 1; }
-  zoom(f) { const [lo, hi] = this.mode === 'overview' ? (this.game.small ? this.game.ship.frame.zoom : [60, 340]) : this.mode === 'follow' ? [5.5, 48] : [4, 340]; this.dist = clamp(this.dist * f, lo, hi); }
+  zoom(f) { const [lo, hi] = this.mode === 'overview' ? (this.game.small ? this.game.ship.frame.zoom : [60, 340]) : this.mode === 'follow' ? (this.game.helm && this.game.helm.on ? [14, 320] : [5.5, 48]) : [4, 340]; this.dist = clamp(this.dist * f, lo, hi); }
   pan(dx, dy) { const k = this.dist * 0.0016; const s = Math.sin(this.yaw), c = Math.cos(this.yaw); this.target.x += (-c * dx - s * dy) * k; this.target.z += (s * dx - c * dy) * k; this.focusBot = null; }
   /** 鍵盤 + 搖桿 → 移動向量 */
   get move() {
@@ -93,7 +93,7 @@ export class Controls {
   update(dt) {
     const g = this.game; const cam = g.camera;
     if (this.mode === 'follow') {
-      const p = g.pilot ? this.tmp.copy(g.pilot.cam) : g.player.avatar.group.getWorldPosition(this.tmp); if (!g.pilot) p.y += 1.25; this.target.lerp(p, 1 - Math.exp(-(g.pilot ? 6 : 9) * dt));
+      const hm = g.helm && g.helm.on; const p = g.pilot ? this.tmp.copy(g.pilot.cam) : hm ? this.tmp.copy(g.helm.cam) : g.player.avatar.group.getWorldPosition(this.tmp); if (!g.pilot && !hm) p.y += 1.25; this.target.lerp(p, 1 - Math.exp(-(g.pilot ? 6 : hm ? 7 : 9) * dt));
     } else if (this.mode === 'overview') { if (g.small && this.tgtOver) { const r = g.ship.root.position, f = g.ship.frame; this.tgtOver.set(r.x + f.target[0], r.y + f.target[1], r.z); } this.target.lerp(this.tgtOver, 1 - Math.exp(-4 * dt)); }
     else if (this.focusBot) { const p = this.focusBot.worldPos(this.tmp); p.y += 1; this.target.lerp(p, 1 - Math.exp(-6 * dt)); }
     const cp = Math.cos(this.pitch);

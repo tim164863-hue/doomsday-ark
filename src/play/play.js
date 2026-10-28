@@ -20,6 +20,7 @@ import { SHIP_CX } from '../ship/config.js';
 import { dampAngle } from '../util.js';
 import { Games } from './games.js';
 import { Social } from '../crew/social.js';
+import { Helm } from './helm.js';
 
 // 各設施的樓層與偏好位置（x,z）；實際位置會在附近找一塊四周留空的地方
 const ANCHOR = { purifier: [35, -5.5], generator: [35.5, 5.5], workshop: [22, 8], infirmary: [29.5, -6.6], greenhouse: [37.6, 8.2] };
@@ -31,7 +32,7 @@ export class Play {
   constructor(game) {
     this.game = game; this.adapter = null; this.boot = null; this.state = null; this.fac = {}; this.target = null; this.hud = null;
     this.acc = 0; this.saveAcc = 0; this.hudAcc = 0; this.lastFrameWall = performance.now(); this.pendingReport = null; this.boats = new Map(); this.flags = new Map(); this.fleetViews = new Map(); this.preview = null;
-    this.ready = false; this.pilot = null; this.crates = [];
+    this.ready = false; this.pilot = null; this.crates = []; this.helm = new Helm(game, this);
   }
   async init(hud, boot) {
     this.hud = hud; this.boot = boot; this.adapter = boot.adapter;
@@ -223,12 +224,12 @@ export class Play {
   }
   boatPose(tr, t) {
     const site = SITES.find((x) => x.id === tr.site); const R = 70 + tr.tier * 55; const dx = Math.cos(site.angle), dz = Math.sin(site.angle);
-    const side = Math.sin(site.angle) >= 0 ? 1 : -1; let sx = -19, sz = 14 * side; if (this.game.small) { const R = this.game.ship.root, hs = this.game.ship; sx = R.position.x - 2; sz = R.position.z + side * (hs.spec.W * hs.k * 0.5 + 3); } const tx = dx * R, tz = dz * R;
+    const side = Math.sin(site.angle) >= 0 ? 1 : -1; let sx = -19, sz = 14 * side; if (this.game.small) { const hs = this.game.ship; sx = -2; sz = side * (hs.spec.W * hs.k * 0.5 + 3); } const tx = dx * R, tz = dz * R;
     const p = Math.max(0, Math.min(1, (t - tr.start) / (tr.end - tr.start))); let k, head;
     if (p < 0.42) { k = p / 0.42; head = 1; } else if (p < 0.58) { k = 1; head = 0; } else { k = 1 - (p - 0.58) / 0.42; head = -1; }
     const e = k * k * (3 - 2 * k); let x = sx + (tx - sx) * e, z = sz + (tz - sz) * e;
     let yaw = Math.atan2(-(tz - sz) * head, (tx - sx) * head); if (head === 0) yaw = Math.atan2(-(tz - sz), tx - sx) + Math.sin(t * 0.3) * 0.5;
-    return { x, z, yaw, p, arrived: p >= 0.42 && p <= 0.58 };
+    return { ...this.helm.world({ x, z, yaw }), p, arrived: p >= 0.42 && p <= 0.58 };
   }
   updateBoats(time) {
     const s = this.state; const t = nowSec(); const live = new Set(s.trips.map((x) => x.id));
@@ -268,10 +269,10 @@ export class Play {
       live.add(ship.id); let V = this.fleetViews.get(ship.id);
       if (ship.id === this.homeId()) { // 家 = 場景裡的 SmallShip；只移動它的根節點（搖晃由 SmallShip 自己做）
         const R = this.game.ship.root; if (!V) { V = { mesh: R, lv: ship.lv, type: ship.type, id: ship.id, home: true }; this.fleetViews.set(ship.id, V); }
-        const p = this.fleetPose(ship, i, t); R.position.set(p.x, 0, p.z); R.rotation.y = p.yaw; V.pos = p; return;
+        let p = this.fleetPose(ship, i, t); if (!p.piloted) p = this.helm.world(p); R.position.set(p.x, 0, p.z); R.rotation.y = p.yaw; V.pos = p; return;
       }
       if (!V || V.lv !== ship.lv || V.type !== ship.type) { if (V) V.mesh.removeFromParent(); V = { mesh: buildShipModel(ship.type, ship.lv), lv: ship.lv, type: ship.type, id: ship.id }; V.mesh.userData.shipId = ship.id; this.game.scene.add(V.mesh); this.fleetViews.set(ship.id, V); }
-      const p = this.fleetPose(ship, i, t); const y = waveHeight(p.x, p.z, time) * 0.7 + 0.05;
+      let p = this.fleetPose(ship, i, t); if (!p.piloted) p = this.helm.world(p); const y = waveHeight(p.x, p.z, time) * 0.7 + 0.05;
       V.mesh.position.set(p.x, y, p.z); V.mesh.rotation.set(Math.sin(time * 1.2 + ship.id) * 0.03, p.yaw, Math.sin(time * 0.9 + ship.id * 2) * 0.04);
       let sc = 1; if (ship.state === 'build') { const pr = Math.max(0, Math.min(1, 1 - (ship.done - t) / (SHIPS[ship.type].build * 60))); sc = 0.35 + 0.65 * pr; V.mesh.position.y -= 0.4 * (1 - pr); }
       if (ship.state === 'wreck') { V.mesh.rotation.z += 0.22; V.mesh.position.y -= 0.5; }
@@ -287,7 +288,7 @@ export class Play {
   viewShip(id) { const V = this.fleetViews.get(id); const ship = F.findShip(this.state, id); if (!V || !ship) return; if (V.pos && V.pos.away) { this.game.ui.toast('船在海上，返港後再看'); return; } if (V.home) { this.game.controls.setMode('overview'); this.hud.closeModal(); return; } this.focusModel(V.mesh, SHIPS[ship.type].len); this.hud.closeModal(); }
   /** 展示台：看任何船型（含尚未擁有的）。放在方舟旁的海面上，旋轉展示。 */
   viewType(type, lv = 1) {
-    this.clearPreview(); const mesh = buildShipModel(type, lv); if (this.game.homeless) mesh.position.set(0, 0, 0); else if (this.game.small) mesh.position.set(-46, 0, -62); else mesh.position.set(-6, 0, -52); this.game.scene.add(mesh); this.preview = { mesh, type, lv };
+    this.clearPreview(); const mesh = buildShipModel(type, lv); if (this.game.homeless) mesh.position.set(0, 0, 0); else if (this.game.small) mesh.position.set(-46, 0, -62); else mesh.position.set(-6, 0, -52); if (!this.game.homeless) { const hw = this.helm.world({ x: mesh.position.x, z: mesh.position.z, yaw: 0 }); mesh.position.set(hw.x, 0, hw.z); } this.game.scene.add(mesh); this.preview = { mesh, type, lv };
     this.focusModel(mesh, SHIPS[type].len); this.hud.closeModal();
   }
   clearPreview() { if (this.preview) { this.preview.mesh.removeFromParent(); this.preview = null; } }
@@ -314,7 +315,7 @@ export class Play {
   // ------------------------------------------------------------ 駕駛小船（T董親自開）
   HELM = { skiff: [0.35, 0.66, 0], speedboat: [-3.55, 1.28, 0], tug: [4.6, 1.6, 0], sub: [0.8, 3.2, 0], patrol: [4.1, 1.6, 1.4], icebreaker: [0.4, 9.0, 1.5] };
   startPilot(id) {
-    if (this.pilot) return; const ship = F.findShip(this.state, id); if (!ship) return; const i = this.state.fleet.ships.indexOf(ship); const r = F.startPilot(this.state, id, nowSec());
+    if (this.pilot) return; if (this.helm.on) { this.helm.stop(); } const ship = F.findShip(this.state, id); if (!ship) return; const i = this.state.fleet.ships.indexOf(ship); const r = F.startPilot(this.state, id, nowSec());
     if (!r.ok) { this.game.ui.toast('⚠️ ' + r.msg); return r; }
     const b = this.berthOf(ship); const g = this.game; const av = new Avatar('T董'); av.setPose('stand'); const V = this.fleetViews.get(id); const h = this.HELM[ship.type] || [0, 1, 0]; av.group.position.set(h[0], h[1], h[2]); av.group.rotation.y = Math.PI / 2;
     if (V && V.home) { const sh = g.ship; av.group.position.set(h[0] * sh.k, h[1] * sh.k, h[2] * sh.k); sh.body.add(av.group); } else V && V.mesh.add(av.group);
@@ -330,19 +331,22 @@ export class Play {
   }
   spawnCrates() {
     const f = this.state.fleet; if (f.pilot && f.pilot.got >= 80) return;
-    while (this.crates.length < 4) { const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 170; const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 1.4), new THREE.MeshStandardMaterial({ color: 0xffa21f, roughness: 0.5, emissive: 0x552a00 })); const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.15, 0.4), new THREE.MeshStandardMaterial({ color: 0xffffff })); m.add(bar); m.castShadow = true; this.game.scene.add(m); this.crates.push({ mesh: m, x: Math.cos(a) * r + (this.game.small ? 0 : SHIP_CX), z: Math.sin(a) * r * 0.8, ph: Math.random() * 6 }); }
+    while (this.crates.length < 4) { const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 170; const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 1.4), new THREE.MeshStandardMaterial({ color: 0xffa21f, roughness: 0.5, emissive: 0x552a00 })); const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.15, 0.4), new THREE.MeshStandardMaterial({ color: 0xffffff })); m.add(bar); m.castShadow = true; this.game.scene.add(m); const cw = this.helm.world({ x: Math.cos(a) * r + (this.game.small ? 0 : SHIP_CX), z: Math.sin(a) * r * 0.8, yaw: 0 }); this.crates.push({ mesh: m, x: cw.x, z: cw.z, ph: Math.random() * 6 }); }
   }
   updatePilot(dt, time) {
     const P = this.pilot; if (!P) return; const g = this.game; const input = g.controls.move; const sdt = Math.min(dt, 0.1);
     let mag = Math.hypot(input.x, input.y); let desired = null;
-    if (P.homing) { const b = this.berthOf(F.findShip(this.state, P.id)); const dx = b.x - P.x, dz = b.z - P.z; const d = Math.hypot(dx, dz); if (d < 3 || time - P.homeT > 120) { P.x = b.x; P.z = b.z; this.stopPilot(false); return; } desired = Math.atan2(-dz, dx); mag = Math.min(1, 0.25 + d / 60); }
+    if (P.homing) { const b = this.helm.world(this.berthOf(F.findShip(this.state, P.id))); const dx = b.x - P.x, dz = b.z - P.z; const d = Math.hypot(dx, dz); if (d < 3 || time - P.homeT > 120) { P.x = b.x; P.z = b.z; this.stopPilot(false); return; } desired = Math.atan2(-dz, dx); mag = Math.min(1, 0.25 + d / 60); }
     else if (mag > 0.08) { const s = Math.sin(g.controls.yaw), c = Math.cos(g.controls.yaw); let dx = (-s) * input.y + c * input.x, dz = (-c) * input.y + (-s) * input.x; desired = Math.atan2(-dz, dx); }
     let target = 0;
     if (desired != null) { const diff = Math.abs(Math.atan2(Math.sin(desired - P.yaw), Math.cos(desired - P.yaw))); P.yaw = dampAngle(P.yaw, desired, 2.6, sdt); target = P.max * Math.min(1, mag) * (input.run && !P.homing ? 1.7 : 1) * Math.max(0.25, Math.cos(Math.min(diff, 1.4))); }
     P.v += (target - P.v) * Math.min(1, sdt * (target > P.v ? 0.9 : 1.6)); P.x += Math.cos(P.yaw) * P.v * sdt; P.z += -Math.sin(P.yaw) * P.v * sdt;
     // 方舟船體（橢圓）擋住；外圍 260 單位為邊界
-    const a = 91.2 / 2 + 3, bb = 13.6 + 3; const ex = (P.x - SHIP_CX) / a, ez = P.z / bb; const r = Math.hypot(ex, ez); if (r < 1 && !g.small) { const k = 1.002 / Math.max(r, 0.05); P.x = SHIP_CX + ex * k * a; P.z = ez * k * bb; P.v *= 0.9; }
-    const R = Math.hypot(P.x, P.z); if (R > 270) { P.x *= 270 / R; P.z *= 270 / R; P.v *= 0.9; }
+    // （母船被駕駛離開原位時，碰撞與邊界都在母船座標系裡算）
+    const H = this.helm, hd = H.displaced; let lx = P.x, lz = P.z; if (hd) { const L = H.local(P.x, P.z); lx = L.x; lz = L.z; }
+    const a = 91.2 / 2 + 3, bb = 13.6 + 3; const ex = (lx - SHIP_CX) / a, ez = lz / bb; const r = Math.hypot(ex, ez); if (r < 1 && !g.small) { const k = 1.002 / Math.max(r, 0.05); lx = SHIP_CX + ex * k * a; lz = ez * k * bb; P.v *= 0.9; }
+    const R = Math.hypot(lx, lz); if (R > 270) { lx *= 270 / R; lz *= 270 / R; P.v *= 0.9; }
+    if (hd) { const Wd = H.world({ x: lx, z: lz, yaw: 0 }); P.x = Wd.x; P.z = Wd.z; } else { P.x = lx; P.z = lz; }
     P.cam.set(P.x, waveHeight(P.x, P.z, time) * 0.7 + 1.8, P.z); P.av.update(sdt, time);
     P.keepT += dt; if (P.keepT > 20) { P.keepT = 0; F.keepPilot(this.state, P.id, nowSec()); }
     g.player.avatar.group.visible = false;

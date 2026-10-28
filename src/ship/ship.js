@@ -213,8 +213,7 @@ export class Ship {
     const pitch = Math.atan2(hs[1] - hs[0], 68) * 0.55, roll = Math.atan2(hs[2] - hs[3], 20) * 0.45;
     const heave = (hs[0] + hs[1] + hs[2] + hs[3]) / 4 * 0.5;
     const r = this.rockState; r.roll += (roll - r.roll) * (1 - Math.exp(-2 * dt)); r.pitch += (pitch - r.pitch) * (1 - Math.exp(-2 * dt)); r.heave += (heave - r.heave) * (1 - Math.exp(-2 * dt));
-    this.root.rotation.set(r.pitch * 0 + 0, 0, 0);
-    this.root.rotation.z = r.pitch; this.root.rotation.x = r.roll;
+    this.root.rotation.order = 'YXZ'; this.root.rotation.set(r.roll + (this.lean || 0), this.yawOff || 0, r.pitch);  // 駕駛母船時 yawOff / lean 由 play/helm.js 給
     this.root.position.y = r.heave + 0.1;
     for (const d of this.decks) {
       for (const ro of d.rotors) ro.obj.rotation[ro.axis] += ro.speed * dt;

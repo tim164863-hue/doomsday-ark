@@ -68,15 +68,15 @@ export class Game {
     const c = this.controls; let vd;
     if (this.small) { this.viewDeck = 0; this.deckVis = [true]; this.ship.setVisibleDecks([true]); return; }
     if (this.soloDeck != null && c.mode === 'free') vd = this.soloDeck;
-    else if (c.mode === 'follow') vd = this.pilot ? 4 : this.player.deck; else if (c.mode === 'free') vd = this.viewOverride != null && c.focusBot ? c.focusBot.actor.deck : this.deckAtY(c.target.y); else vd = 4;
+    else if (c.mode === 'follow') vd = this.pilot || (this.helm && this.helm.on) ? 4 : this.player.deck; else if (c.mode === 'free') vd = this.viewOverride != null && c.focusBot ? c.focusBot.actor.deck : this.deckAtY(c.target.y); else vd = 4;
     this.viewDeck = vd; const solo = this.soloDeck != null && c.mode === 'free';
-    const vis = [0, 1, 2, 3, 4].map((i) => (solo ? i === this.soloDeck : c.mode === 'overview' || i <= vd)); const bandVis = [0, 1].map((k) => (c.mode === 'overview' && !solo) || (solo ? k < this.soloDeck : k < vd)); this.ship.setVisibleDecks(vis, bandVis); this.deckVis = vis;
+    const vis = [0, 1, 2, 3, 4].map((i) => (c.mode === 'overview' && !solo) || i <= vd); const bandVis = [0, 1].map((k) => (c.mode === 'overview' && !solo) || k < vd); this.ship.setVisibleDecks(vis, bandVis); this.deckVis = vis;
   }
   /** 只顯示某一層並把鏡頭對準它（點右側樓層按鈕） */
   showDeck(i) {
     if (this.small) return;
     const c = this.controls; this.ship.setExplode(0); c.setMode('free'); this.soloDeck = i; this.viewOverride = null; c.focusBot = null;
-    c.target.set(8, this.ship.deckY(i) + 0.4, 0); const m = innerWidth < 700; c.pitch = m ? 1.15 : 1.02; c.yaw = 0.55; c.dist = (m ? 78 : 66) * (i <= 2 ? 1.2 : 1); this.updateDecks(); this.ui && this.ui.refreshDeckBtns();
+    { const q = this.helm ? this.helm.world({ x: 8, z: 0, yaw: 0 }) : { x: 8, z: 0 }; c.target.set(q.x, this.ship.deckY(i) + 0.4, q.z); } const m = innerWidth < 700; c.pitch = m ? 1.15 : 1.02; c.yaw = 0.55; c.dist = (m ? 78 : 66) * (i <= 2 ? 1.2 : 1); this.updateDecks(); this.ui && this.ui.refreshDeckBtns();
   }
   /** 全景：回到整艘船 */
   showPanorama() { this.soloDeck = null; this.controls.setMode('overview'); this.ship.setExplode(0); this.updateDecks(); this.ui && this.ui.refreshDeckBtns(); }
@@ -93,9 +93,11 @@ export class Game {
     this.time += dt;
     const sdt = Math.min(dt, 0.1);
     this.ocean.update(this.time, 1);
+    if (this.helm) this.helm.update(sdt, this.time);
     this.ship.update(sdt, this.time);
+    if (this.helm) this.helm.apply();
     if (this.small) this.syncSmallFoam();
-    this.player.update(sdt, this.pilot || (this.play && this.play.gaming) ? { x: 0, y: 0, run: false } : this.controls.move, this.controls.yaw);
+    this.player.update(sdt, this.pilot || (this.helm && this.helm.on) || (this.play && this.play.gaming) ? { x: 0, y: 0, run: false } : this.controls.move, this.controls.yaw);
     this.crew.update(sdt, this.time);
     this.updateDecks();
     this.controls.update(sdt);

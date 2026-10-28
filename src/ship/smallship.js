@@ -85,7 +85,7 @@ export class SmallShip {
     const hb = w(hl, 0), hs = w(-hl, 0), hp = w(0, -hw), hq = w(0, hw);
     const pitch = Math.atan2(hb - hs, hl * 2) * 0.9, roll = Math.atan2(hp - hq, hw * 2) * 0.8, heave = (hb + hs + hp + hq) / 4 * 0.75 + 0.05;
     const r = this.rockState; const a = 1 - Math.exp(-2.4 * dt); r.roll += (roll - r.roll) * a; r.pitch += (pitch - r.pitch) * a; r.heave += (heave - r.heave) * a;
-    this.body.rotation.z = r.pitch; this.body.rotation.x = r.roll; this.body.position.y = r.heave;
+    this.body.rotation.z = r.pitch; this.body.rotation.x = r.roll + (this.lean || 0); this.body.position.y = r.heave;
     const nf = this.env.windowMat.emissiveIntensity / 1.6; for (const l of this.lights) l.intensity = nf * 26;
     for (const f of this.deck.dyn) f(dt, time);
   }

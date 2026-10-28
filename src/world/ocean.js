@@ -8,12 +8,13 @@ uniform float uTime, uAmp;
 uniform vec4 uW[${N}]; // dirx, dirz, k, A
 uniform float uWs[${N}]; // omega
 varying vec3 vWorld; varying float vH; varying float vDist; varying vec2 vGrad;
+uniform vec2 uOrg;
 void main(){
   vec3 p = position;
   float h = 0.0; vec2 g = vec2(0.0);
   for(int i=0;i<${N};i++){
     vec4 w = uW[i];
-    float ph = w.z*(w.x*p.x + w.y*p.z) - uWs[i]*uTime;
+    float ph = w.z*(w.x*(p.x + uOrg.x) + w.y*(p.z + uOrg.y)) - uWs[i]*uTime;
     h += w.w*sin(ph);
     float c = w.w*w.z*cos(ph);
     g += c*w.xy;
@@ -32,7 +33,7 @@ precision highp float;
 uniform float uTime, uAmp, uDetail;
 uniform vec3 uDeep, uShallow, uZenith, uHorizon, uGlow, uSunDir, uSunCol, uMoonDir, uFog;
 uniform float uFogD, uDay, uMoonVis, uSunVis, uShipHL, uShipHW, uHullOn, uSmallOn;
-uniform vec4 uSmall;
+uniform vec4 uSmall; uniform vec4 uArk;
 varying vec3 vWorld; varying float vH; varying float vDist; varying vec2 vGrad;
 float hash2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
@@ -77,7 +78,7 @@ void main(){
   // 泡沫：浪尖 + 船身周圍
   float fn = noise(wp*1.3 + vec2(t*0.1, -t*0.07)) * 0.6 + noise(wp*4.1 - t*0.2)*0.4;
   float foam = smoothstep(0.94, 1.05, crest + (fn-0.5)*0.3) * 0.16;
-  float dx = vWorld.x, dz = abs(vWorld.z);
+  vec2 aq = vWorld.xz - uArk.xy; float ac = cos(uArk.z), as_ = sin(uArk.z); float dx = uArk.w + aq.x*ac - aq.y*as_, dz = abs(aq.x*as_ + aq.y*ac);
   float hw = hullHW(dx);
   float dd = dz - hw;
   float outside = (hw > 0.0) ? dd : length(vec2(dx < ${SHIP_CX.toFixed(2)} ? dx - ${HULL_XS.toFixed(2)} : dx - ${HULL_TIP.toFixed(2)}, dz));
@@ -130,7 +131,7 @@ export class Ocean {
       uZenith: U.uZenith, uHorizon: U.uHorizon, uGlow: U.uGlow, uSunDir: U.uSunDir, uSunCol: U.uSunCol, uMoonDir: U.uMoonDir,
       uFog: { value: scene.fog.color }, uFogD: { value: 0.0005 }, uDay: U.uDay, uMoonVis: U.uMoonVis, uSunVis: U.uSunVis,
       uShipHL: { value: (HULL_XB - HULL_XS) / 2 }, uShipHW: { value: 12.3 },
-      uHullOn: { value: 1 }, uSmallOn: { value: 0 }, uSmall: { value: new THREE.Vector4(0, 0, 0, 12) },
+      uHullOn: { value: 1 }, uOrg: { value: new THREE.Vector2(0, 0) }, uArk: { value: new THREE.Vector4(SHIP_CX, 0, 0, SHIP_CX) }, uSmallOn: { value: 0 }, uSmall: { value: new THREE.Vector4(0, 0, 0, 12) },
     };
     this.mat = new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: vert, fragmentShader: frag, fog: false });
     this.scene = scene; this.build(quality);
@@ -138,9 +139,11 @@ export class Ocean {
   build(q) {
     if (this.mesh) { this.scene.remove(this.mesh); this.mesh.geometry.dispose(); }
     const g = buildPolarGrid(q.oceanRings, q.oceanSegs, 5200, 170);
-    this.mesh = new THREE.Mesh(g, this.mat); this.mesh.frustumCulled = false; this.mesh.renderOrder = -1;
+    this.mesh = new THREE.Mesh(g, this.mat); this.mesh.position.set(this.uniforms.uOrg.value.x, 0, this.uniforms.uOrg.value.y); this.mesh.frustumCulled = false; this.mesh.renderOrder = -1;
     this.scene.add(this.mesh); this.uniforms.uDetail.value = q.waterDetail;
   }
+  /** 海面網格跟著鏡頭走（波浪以世界座標計算，所以看不出來）；母船駕駛時才會離開原點。 */
+  follow(x, z) { this.mesh.position.set(x, 0, z); this.uniforms.uOrg.value.set(x, z); }
   update(time, waveAmp) {
     this.uniforms.uTime.value = time; this.uniforms.uAmp.value = waveAmp;
     this.uniforms.uFogD.value = this.env.scene.fog.density;
