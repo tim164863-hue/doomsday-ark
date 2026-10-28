@@ -9,6 +9,7 @@ import * as R from './rel.js';
 import { HOME_TYPES } from '../ship/homespec.js';
 import { sanSz, sanMat } from './seazones.js';
 import { sanBt } from './battle.js';
+import { sanPv } from './pvp.js';
 import { PROMO_BP_IDS } from './szdata.js';
 import { resCap, sanFlag, promoTick, tradeMul, flagStats } from './promo.js';
 import { planEvent, decide as decideEvent, pending as evPending, EVENTS } from './seaevents.js';
@@ -185,6 +186,7 @@ function sanWorld(w) {
   if (w.wx && typeof w.wx === 'object') { const c = (v) => (n(v) ? Math.max(0, Math.min(1e7, v | 0)) : 0); o.wx = { k: ['clear', 'storm', 'blizzard', 'snow', 'aurora'].includes(w.wx.k) ? w.wx.k : 'clear', hits: c(w.wx.hits), storm: c(w.wx.storm), snow: c(w.wx.snow), aur: c(w.wx.aur), polar: c(w.wx.polar) & 3 }; }
   { const sz = sanSz(w.sz); if (sz) o.sz = sz; }
   { const bt = sanBt(w.bt); if (bt) o.bt = bt; }
+  { const pv = sanPv(w.pv); if (pv) o.pv = pv; }
   const r = w.route; if (r && n(r.x0) && n(r.y0) && n(r.x1) && n(r.y1) && n(r.t0) && n(r.t1)) o.route = { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, t0: r.t0, t1: r.t1, fuel: n(r.fuel) ? r.fuel : 0 };
   return o;
 }
