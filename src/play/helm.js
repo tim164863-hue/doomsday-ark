@@ -40,6 +40,8 @@ export class Helm {
     const sp = this._spd || 1, len = g.ship.spec.L * g.ship.k, hw = g.ship.spec.W * g.ship.k * 0.5;
     return { vmax: 7 + sp * 4, turn: 0.55 + 0.1 / Math.max(0.6, len / 14), acc: 0.7, dec: 0.9, rudderLag: 2.0, len, hw, cam: Math.max(28, len * 2.5), pitch: 0.5, y: 1.6 };
   }
+  /** 特殊海域裡，地圖座標的前進倍率（畫面速度 / 碰撞 / 耗油不變） */
+  get zmul() { const z = this.g.szFx; return z && z.z ? SZ.helmMul : 1; }
   get displaced() { return Math.hypot(this.x - this.piv, this.z) > 0.01 || Math.abs(this.yaw) > 1e-4; }
   get speed() { return this.v; }
   // ------------------------------------------------------------ 座標轉換（母船座標系 ↔ 世界）
@@ -131,7 +133,7 @@ export class Helm {
   /** 世界邊界：地圖位置推出世界外就停船 */
   limit(st) {
     const w = this.p.state && this.p.state.fleet && this.p.state.fleet.world; if (!w || !w.pos) return;
-    const k = HELM_K; const b = this.base; const nx = w.pos.x + (st.x - b.x) * k, ny = w.pos.y + (st.z - b.z) * k;
+    const k = HELM_K * this.zmul; const b = this.base; const nx = w.pos.x + (st.x - b.x) * k, ny = w.pos.y + (st.z - b.z) * k;
     if (!WD.insideWorld(nx, ny)) { st.x = this.x; st.z = this.z; st.v *= 0.5; if (this.on && performance.now() - (this._edgeToast || 0) > 4000) { this._edgeToast = performance.now(); this.g.ui && this.g.ui.toast('🌐 那裡已經是世界的盡頭'); } }
   }
   /** 把本地位移累積推到地圖位置（1 Hz；停車 / 退出時 force） */
@@ -139,7 +141,7 @@ export class Helm {
     const p = this.p, s = p.state, w = s && s.fleet && s.fleet.world; if (!w || !w.pos || w.route) { return; }
     const b = this.base; // base = 上次推送到地圖時的船位；增量 × K
     const dx = this.x - b.x, dz = this.z - b.z; const d = Math.hypot(dx, dz); if (d < 0.5 && !force) return; if (d < 1e-6) return;
-    const nx = w.pos.x + dx * HELM_K, ny = w.pos.y + dz * HELM_K; if (!WD.insideWorld(nx, ny)) { b.x = this.x; b.z = this.z; return; }
+    const zm = this.zmul, nx = w.pos.x + dx * HELM_K * zm, ny = w.pos.y + dz * HELM_K * zm; if (!WD.insideWorld(nx, ny)) { b.x = this.x; b.z = this.z; return; }
     w.pos = { x: nx, y: ny }; b.x = this.x; b.z = this.z; const n = WD.reveal(w, nx, ny, WORLD.revealArk); if (n) w.explored = (w.explored || 0) + n;
     this.burn(d * HELM_K * WORLD.fuelPerUnit);
     if (this.on && this.g.small === false) { /* 擁有者：無額外處理 */ }

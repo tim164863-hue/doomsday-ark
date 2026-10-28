@@ -309,3 +309,4 @@ body.touch kbd { display: none; } body.touch .nt { display: none; } body:not(.to
 .mcard .ok { color: #6fe39b; } .mcard .warn { color: #f0a040; }
 /* 360 寬：特殊海域圖示出現時，頂欄不能超出螢幕 */
 @media (max-width: 380px) { #top { gap: 4px; } #tlpill { padding: 5px 6px; gap: 3px; font-size: 10.5px; } #tlpill .pv { gap: 3px; } #top .tools { gap: 3px; } #top .tools button { padding: 5px 5px; min-width: 28px; } #tlpill, #top .tools { min-width: 0; } }
+@media (max-width: 340px) { #top { gap: 3px; } #tlpill { padding: 5px 4px; gap: 2px; font-size: 10px; } #tlpill i, #tlpill .wxi, #tlpill .szi { font-size: 12px; } #tlpill .pv { gap: 2px; } #top .tools { gap: 2px; } #top .tools button { padding: 5px 3px; min-width: 25px; } }

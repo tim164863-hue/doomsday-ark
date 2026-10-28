@@ -107,6 +107,10 @@ export function rescueCan(s, nowSec) {
   const g = rescueGeo(s, nowSec); if (!g) return { ok: false, why: '只有在漩渦海域裡才需要救援' };
   if (s.res.fuel >= g.need) return { ok: false, why: '燃料夠，直接在海圖重新出航（或手動駕駛）就能開出去' }; return { ok: true, need: g.need };
 }
+/** 在漩渦裡出航失敗（燃料不足）時附加的提示；不在漩渦裡回傳 ''。 */
+export function rescueHint(s, nowSec) {
+  const g = rescueGeo(s, nowSec); if (!g) return ''; return rescueCan(s, nowSec).ok ? `——你在漩渦裡：可以呼叫拖船救援（🔩${RESCUE.parts}，海圖側欄），把方舟拖到外緣` : `——你在漩渦裡：燃料夠開出外緣（需要 ⛽${Math.ceil(g.need)}），先手動駕駛出去再補給；真的開不出去才能呼叫拖船救援`;
+}
 export function rescueDo(s, nowSec) {
   const c = rescueCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; const g = rescueGeo(s, nowSec), f = s.fleet, w = f.world;
   const pay = Math.min(RESCUE.parts, Math.floor(s.res.parts)); s.res.parts -= pay; w.route = null; w.pos = { x: g.q.x, y: g.q.y }; w.hm = 0;

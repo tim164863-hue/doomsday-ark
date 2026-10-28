@@ -324,7 +324,7 @@ export class Play {
     else if (name === 'auto') r = F.setAuto(s, a.id, a.on);
     else if (name === 'rename') r = F.renameShip(s, a.id, a.name);
     else if (name === 'home') r = F.setHome(s, a.id);
-    if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg) && SZM.rescueCan(s, now).ok) r.msg += '——在漩渦裡可以呼叫拖船救援（海圖側欄）';
+    if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg)) r.msg += SZM.rescueHint(s, now);
     if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
     if (r && r.ok) { this.updateFleet(this.game.time); }
     // 小船家：選船／換旗艦／升級旗艦 → 存檔後重新載入，場景換成新的船

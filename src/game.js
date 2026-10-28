@@ -134,7 +134,7 @@ export class Game {
     return e;
   }
   /** 手動駕駛時的「即時」地圖位置（世界座標 + 還沒推送的位移）；其他情況 = mapPos() */
-  mapPosLive() { const p = this.mapPos(), h = this.helm, w = this.play && this.play.state && this.play.state.fleet && this.play.state.fleet.world; if (!p || !h || !w || w.route || !(h.on || h.displaced)) return p; return { x: w.pos.x + (h.x - h.base.x) * HELM_KU, y: w.pos.y + (h.z - h.base.z) * HELM_KU, moving: false }; }
+  mapPosLive() { const p = this.mapPos(), h = this.helm, w = this.play && this.play.state && this.play.state.fleet && this.play.state.fleet.world; if (!p || !h || !w || w.route || !(h.on || h.displaced)) return p; return { x: w.pos.x + (h.x - h.base.x) * HELM_KU * h.zmul, y: w.pos.y + (h.z - h.base.z) * HELM_KU * h.zmul, moving: false }; }
   /** 視覺用海域覆寫（截圖 / 試玩）：'fog' | 'whirlpool' | 'fire' | 'hell' | 'stonehenge'，可加 ,0.8（深度）；null 取消。不影響存檔與模擬。 */
   setSz(spec) {
     if (!import.meta.env.DEV) return;   // 只有開發模式（vite dev）才有；正式版整段會被拿掉

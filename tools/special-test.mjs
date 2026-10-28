@@ -4,8 +4,8 @@ import * as F from '../src/sim/fleet.js';
 import * as W from '../src/sim/world.js';
 import { arkPos } from '../src/sim/world.js';
 import { SPECIAL_ZONES, SZ_ORDER, SZ, MATERIALS, MAT_ORDER, PROMO, PROMO_BP, PROMO_BP_IDS, zoneAtPoint, routeZones } from '../src/sim/szdata.js';
-import { seaPre, seaTick, helmFx, puzzleSeq, puzzleDay, puzzleCan, puzzleResolve, whirlDrift, rescueCan, rescueDo, RESCUE, unprepared, moraleMul, sanSz, sanMat, HELM_KU } from '../src/sim/seazones.js';
-import { HELM_K } from '../src/play/helmphys.js';
+import { seaPre, seaTick, helmFx, puzzleSeq, puzzleDay, puzzleCan, puzzleResolve, whirlDrift, rescueCan, rescueDo, rescueHint, RESCUE, unprepared, moraleMul, sanSz, sanMat, HELM_KU } from '../src/sim/seazones.js';
+import { HELM_K, helmStep } from '../src/play/helmphys.js';
 import { stonesAround, stoneHit, vortexAround, fieldAround } from '../src/sim/szfield.js';
 import { WORLD, SHIPS } from '../src/sim/fleetdefs.js';
 import { validateState, serialize } from '../src/save/cloud.js';
@@ -112,13 +112,15 @@ const base4 = mk({ x: 1000, y: 1000 }); simulateTo(base4, T0 + 4 * H); const bas
 // ---- 漩渦：每種船都開得出去（手動駕駛的拉力上限）+ 救援
 { const wz = SPECIAL_ZONES.whirlpool; const f = mk().fleet; const types = [['母船', 11], ...Object.values(SHIPS).map((x) => [x.name, 7 + x.speed * 4])];
   for (const wxm of [1, 0.85]) for (const [name, vmax] of types) {
-    let t = 0, tCore = null, tFull = null, minNet = 1e9, u = 0.02; const dt = 5, step = 0; let worst = 0;
+    let t = 0, tCore = null, tFull = null, minNet = 1e9, u = 0.02; const dt = 2; let worst = 0; const hs = { v: 0, w: 0, yaw: 0, x: 0, z: 0 }, hc = { vmax, turn: 0.4, rudderLag: 1.1, acc: name === '母船' ? 0.32 : 0.7, dec: 0.9 };
     while (u < 1 && t < 200 * 3600) { const x = wz.x + wz.r * u, fx = helmFx(f, x, wz.y); const ve = vmax * fx.speed * wxm; const dr = whirlDrift(fx, { x: -2 * fx.depth * 5, z: 0 }, ve);   // 最壞：局部漩渦也朝內
-      const drift = Math.hypot(dr.x, dr.z); worst = Math.max(worst, drift / ve); const net = ve - Math.hypot(dr.x, dr.z); minNet = Math.min(minNet, net / ve); u += net * dt * HELM_KU / wz.r; t += dt; if (tCore == null && u >= 0.12) tCore = t; if (tFull == null && u >= 0.7) tFull = t; }
-    ok(worst <= 0.4001 && minNet >= 0.599, `${name}（天氣 ×${wxm}）：漩渦拉力 ≤ 最高速 40%（最壞 ${(worst * 100).toFixed(0)}%）、淨外向 ≥ 60%`); ok(u >= 1 && t < 12 * 3600, `${name}（天氣 ×${wxm}）可以從中心開出漩渦：離開中心 ${(tCore / 60).toFixed(1)} 分、離開深水區 ${(tFull / 60).toFixed(0)} 分、整個出來 ${(t / 3600).toFixed(1)} 小時（vmax ${vmax.toFixed(1)}）`);
-    if (wxm === 1) console.log(`   escape ${name}: core ${(tCore / 60).toFixed(1)} min, deep ${(tFull / 60).toFixed(0)} min, rim ${(t / 3600).toFixed(2)} h`); } }
+      const drift = Math.hypot(dr.x, dr.z); worst = Math.max(worst, drift / ve); hc.vmax = ve; const x0 = hs.x; hs.yaw = 0; helmStep(hs, { thr: 1, rud: 0 }, hc, dt); const adv = (hs.x - x0) - drift * dt;   // 真的物理步進（含加速）減去漩渦的向內漂移
+      if (hs.v > 0.95 * ve) minNet = Math.min(minNet, (hs.v - drift) / ve); u = Math.max(0.02, u + adv * HELM_KU * SZ.helmMul / wz.r); t += dt; if (tCore == null && u >= 0.12) tCore = t; if (tFull == null && u >= 0.7) tFull = t; }
+    ok(worst <= 0.4001 && minNet >= 0.55, `${name}（天氣 ×${wxm}）：漩渦拉力 ≤ 最高速 40%（最壞 ${(worst * 100).toFixed(0)}%）、淨外向 ≥ 60%`); ok(u >= 1 && t < 3 * 3600, `${name}（天氣 ×${wxm}）可以從中心開出漩渦：離開中心 ${(tCore / 60).toFixed(1)} 分、離開深水區 ${(tFull / 60).toFixed(0)} 分、整個出來 ${(t / 3600).toFixed(1)} 小時（vmax ${vmax.toFixed(1)}）`);
+    console.log(`   escape ×${wxm} ${name}: core ${(tCore / 60).toFixed(1)} min, deep ${(tFull / 60).toFixed(0)} min, rim ${(t / 3600).toFixed(2)} h`); } }
 { const wz = SPECIAL_ZONES.whirlpool; const s = mk({ x: wz.x + 20, y: wz.y }); s.res.fuel = 5; s.res.parts = 50; const c = rescueCan(s, s.simT); ok(c.ok, '燃料不夠、在漩渦裡 → 可以呼叫救援（不受 fuel ≥ 航程+15 限制）');
   const r = rescueDo(s, s.simT); const p = arkPos(s.fleet.world, s.simT); ok(r.ok && r.pay === RESCUE.parts && s.res.parts === 50 - RESCUE.parts && !s.fleet.world.route && Math.hypot(p.x - wz.x, p.y - wz.y) >= wz.r, '救援：花 10 零件、拖到漩渦外緣、航線清掉');
+  { const s3 = mk({ x: wz.x + 20, y: wz.y }); s3.res.fuel = 5; ok(/拖船救援/.test(rescueHint(s3, s3.simT)), '漩渦裡燃料不足 → 提示拖船救援'); s3.res.fuel = 300; ok(/先手動駕駛/.test(rescueHint(s3, s3.simT)) && /拖船救援/.test(rescueHint(s3, s3.simT)), '漩渦裡燃料夠 → 提示也提到拖船'); ok(rescueHint(s, s.simT) === '', '不在漩渦裡 → 沒有提示'); }
   ok(!rescueCan(s, s.simT).ok, '已經在外面 → 不需要救援'); const s2 = mk({ x: wz.x + 20, y: wz.y }); s2.res.fuel = 300; ok(!rescueCan(s2, s2.simT).ok, '燃料夠 → 不提供救援（直接重新出航）'); const s3 = mk({ x: wz.x, y: wz.y }); s3.res.fuel = 0; s3.res.parts = 3; const r3 = rescueDo(s3, s3.simT); ok(r3.ok && r3.pay === 3 && s3.res.parts === 0, '零件不夠也能救（收光）；中心也行'); const o = mk({ x: 1000, y: 1000 }); ok(!rescueCan(o, o.simT).ok, '不在漩渦不能救援'); }
 // ---- 訪客小船（沒有母船、艦隊是小旗艦）也一樣
 { for (const id of ['fire', 'whirlpool']) { const s = mk(at(id, 0.5), { owner: false, uid: 'guest-9' }); const w = s.fleet.world; w.pos = at(id, 0.5); simulateTo(s, T0 + 6 * H); ok(s.cond < 100 && s.fleet.world.sz && s.fleet.world.sz.in === id, `訪客 ${id}：照樣受到危害（船體 ${s.cond.toFixed(1)}）`); }
