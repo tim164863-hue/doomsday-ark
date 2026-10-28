@@ -11,8 +11,8 @@ let pass = 0, fail = 0; const bad = [];
 const t = async (name, p, want = true) => { try { await (want ? assertSucceeds(p) : assertFails(p)); pass++; console.log('  ✓', (want ? 'ALLOW ' : 'DENY  ') + name); } catch (e) { fail++; bad.push(name); console.log('  ✗', (want ? 'ALLOW ' : 'DENY  ') + name, '→', String(e.message || e).slice(0, 160)); } };
 const ok = (n, p) => t(n, p, true), no = (n, p) => t(n, p, false);
 const now = () => Math.floor(Date.now() / 1000);
-const BUCKET = 21600;
-const pub = (o = {}) => { const n = now(); return { v: 1, h: '船#A1B2', x: 500, y: 500, fp: 8, hl: 400, cd: 100, res: { food: 300, water: 300, fuel: 300, parts: 300 }, cap: 30, sh: 0, ls: n, t: n, cells: ['5_5'], ...o }; };
+const BUCKET = 43200;   // 第 14 輪：12 小時桶
+const pub = (o = {}) => { const n = now(); return { v: 1, h: '船#A1B2', x: 500, y: 500, fp: 8, res: { food: 300, water: 300, fuel: 300, parts: 300 }, cap: 30, sh: 0, ls: n, t: n, ut: SV(), cells: ['5_5'], ...o }; };
 const raid = (att, o = {}) => { const n = now(); return { v: 1, attacker: att, defender: 'dd', b: Math.floor(n / BUCKET), t: n, ah: '船#C3D4', loot: { food: 24, water: 24, fuel: 24, parts: 24 }, ap: { x: 480, y: 490 }, ...o }; };
 const ctx = (u) => env.authenticatedContext(u).firestore(); const anon = () => env.unauthenticatedContext().firestore();
 const seed = (fn) => env.withSecurityRulesDisabled(async (c) => fn(c.firestore()));
@@ -20,6 +20,7 @@ const reset = async () => { await env.clearFirestore(); };
 const P = (db, u) => db.collection('presence').doc(u);
 const R = (db, def, id) => db.collection('raids').doc(def).collection('in').doc(id);
 const SV = () => firebase.firestore.FieldValue.serverTimestamp();
+const TS = (sec) => firebase.firestore.Timestamp.fromMillis(sec * 1000);   // 種子文件用：指定 ut（模擬「上一次寫入是 N 秒前」）
 const idOf = (att, b) => `${att}_${b ?? Math.floor(now() / BUCKET)}`;
 const withBig = (n) => 'x'.repeat(n);
 
@@ -27,9 +28,9 @@ console.log('\n[1] presence — 建立 / 更新（第 1 項：create 時 resourc
 await reset();
 await ok('第一次建立 presence（本人、合法文件）成功', P(ctx('aa'), 'aa').set(pub()));
 await ok('第一次建立（帶合法 rt 航線）成功', P(ctx('rt1'), 'rt1').set(pub({ rt: { x0: 100, y0: 100, x1: 300, y1: 200, t0: now(), t1: now() + 600 }, cells: ['1_1', '2_1', '3_2'] })));
-await seed((db) => P(db, 'old').set(pub({ t: now() - 60, ls: now() - 60 })));
+await seed((db) => P(db, 'old').set(pub({ t: now() - 60, ls: now() - 60, ut: TS(now() - 60) })));
 await ok('更新自己的 presence（距離上次寫入 ≥ 10 秒）成功', P(ctx('old'), 'old').set(pub({ x: 520 })));
-await seed((db) => P(db, 'fresh').set(pub({ t: now() - 1, ls: now() - 1 })));
+await seed((db) => P(db, 'fresh').set(pub({ t: now() - 1, ls: now() - 1, ut: TS(now() - 1) })));
 await no('更新太頻繁（< 10 秒）被擋', P(ctx('fresh'), 'fresh').set(pub({ x: 520 })));
 await no('寫別人的 presence 被擋', P(ctx('bb'), 'aa').set(pub()));
 await no('未登入寫 presence 被擋', P(anon(), 'zz').set(pub()));
@@ -37,15 +38,42 @@ await no('船東 uid 不得建立 presence（船東不公開）', P(ctx(OWNER), 
 await ok('本人可以刪自己的 presence', P(ctx('aa'), 'aa').delete());
 await no('別人不能刪我的 presence', (async () => { await seed((db) => P(db, 'keep').set(pub())); return P(ctx('bb'), 'keep').delete(); })());
 
+console.log('\n[1b] presence — 第 14 輪必修：10 秒頻率限制不能靠客戶端自填的 t 繞過（ut = 伺服器時間）');
+await reset();
+await ok('ut = serverTimestamp()：第一次 create 成功', P(ctx('r1'), 'r1').set(pub()));
+await no('緊接著第二次寫入（t 改成 now − 100 想騙過舊規則）被擋', P(ctx('r1'), 'r1').set(pub({ t: now() - 100, ls: now() - 100 })));
+await no('緊接著第三次寫入（t 改成 now − 119）也被擋', P(ctx('r1'), 'r1').set(pub({ t: now() - 119, ls: now() - 119 })));
+await no('緊接著第四次寫入（t 正常）也被擋', P(ctx('r1'), 'r1').set(pub({ x: 530 })));
+await ok('同一個 batch 對同一份文件寫兩次 = 只算一次提交（最終只有一份文件，ut = request.time）', (async () => { const db = ctx('r2'), b = db.batch(); b.set(P(db, 'r2'), pub()); b.set(P(db, 'r2'), pub({ t: now() - 100, ls: now() - 100 })); return b.commit(); })());
+await no('…而 batch 之後立刻再寫一次被擋', P(ctx('r2'), 'r2').set(pub()));
+await seed((db) => P(db, 'r3').set(pub({ t: now(), ls: now(), ut: TS(now() - 60) })));
+await ok('上一次 ut 是 60 秒前（即使 t 很新）→ 更新成功（頻率只看 ut）', P(ctx('r3'), 'r3').set(pub({ x: 540 })));
+await seed((db) => P(db, 'r4').set(pub({ t: now() - 5000, ls: now() - 5000, ut: TS(now() - 3) })));
+await no('上一次 t 很舊、但 ut 才 3 秒前 → 更新被擋（舊規則看 t 會放行）', P(ctx('r4'), 'r4').set(pub()));
+await seed((db) => P(db, 'r5').set(pub({ ut: TS(now() - 9) })));
+await no('上一次 ut 是 9 秒前 → 被擋', P(ctx('r5'), 'r5').set(pub()));
+await seed((db) => P(db, 'r6').set(pub({ ut: TS(now() - 11) })));
+await ok('上一次 ut 是 11 秒前 → 成功', P(ctx('r6'), 'r6').set(pub()));
+await no('ut 是客戶端填的過去時間（Timestamp）被擋', P(ctx('u1'), 'u1').set(pub({ ut: TS(now() - 1000) })));
+await no('ut 是客戶端填的「現在」Timestamp（不是 request.time）被擋', P(ctx('u2'), 'u2').set(pub({ ut: TS(now()) })));
+await no('ut 是數字被擋', P(ctx('u3'), 'u3').set(pub({ ut: now() })));
+await no('ut 缺少被擋', P(ctx('u4'), 'u4').set((() => { const d = pub(); delete d.ut; return d; })()));
+await no('ut 是 1MB 字串被擋', P(ctx('u5'), 'u5').set(pub({ ut: withBig(900000) })));
+await no('update 時 ut 填舊值（想讓下一次比較變寬鬆）被擋', (async () => { await seed((db) => P(db, 'u6').set(pub({ ut: TS(now() - 60) }))); return P(ctx('u6'), 'u6').set(pub({ ut: TS(now() - 60) })); })());
+await ok('ls = t + 600（客戶端進位到 10 分鐘的上限）成功', P(ctx('l1'), 'l1').set(pub({ ls: now() + 600 })));
+await no('ls = t + 601 被擋', P(ctx('l2'), 'l2').set(pub({ ls: now() + 601 })));
+await no('hl 欄位（已移除）被擋', P(ctx('l3'), 'l3').set(pub({ hl: 400 })));
+await no('cd 欄位（已移除）被擋', P(ctx('l4'), 'l4').set(pub({ cd: 100 })));
+
 console.log('\n[2] presence — 欄位驗證（第 3 項：不能存 1MB 字串）');
 await reset();
 const bads = {
   'h = 1MB 字串': pub({ h: withBig(900000) }), 'h 超過 12 字': pub({ h: withBig(13) }), 'h 空字串': pub({ h: '' }), 'h 不是字串': pub({ h: 5 }),
-  'x 是字串': pub({ x: '500' }), 'x 超出地圖 (>2000)': pub({ x: 5000 }), 'y 負數': pub({ y: -1 }), 'fp 超過 200': pub({ fp: 999 }), 'hl 超過 5000': pub({ hl: 1e9 }), 'hl 是字串': pub({ hl: withBig(1000) }),
-  'cd 超過 100': pub({ cd: 101 }), 'cd 負數': pub({ cd: -5 }), 'cap 超過 1000': pub({ cap: 1001 }), 'v = 2': pub({ v: 2 }), 'v 缺少': (() => { const d = pub(); delete d.v; return d; })(),
+  'x 是字串': pub({ x: '500' }), 'x 超出地圖 (>2000)': pub({ x: 5000 }), 'y 負數': pub({ y: -1 }), 'fp 超過 200': pub({ fp: 999 }), 'hl 欄位（第 14 輪已移除）': pub({ hl: 400 }), 'hl 1MB 字串（已移除的欄位）': pub({ hl: withBig(900000) }),
+  'cd 欄位（第 14 輪已移除）': pub({ cd: 100 }), 'cap 超過 1000': pub({ cap: 1001 }), 'v = 2': pub({ v: 2 }), 'v 缺少': (() => { const d = pub(); delete d.v; return d; })(),
   '多餘欄位 (junk)': pub({ junk: 1 }), '多餘欄位 (1MB junk)': pub({ junk: withBig(900000) }), '缺少 res': (() => { const d = pub(); delete d.res; return d; })(),
   'res.food 是字串': pub({ res: { food: 'a', water: 1, fuel: 1, parts: 1 } }), 'res.food = 5000': pub({ res: { food: 5000, water: 1, fuel: 1, parts: 1 } }), 'res 多一種 (gold)': pub({ res: { food: 1, water: 1, fuel: 1, parts: 1, gold: 1 } }), 'res 缺 parts': pub({ res: { food: 1, water: 1, fuel: 1 } }), 'res.fuel 負數': pub({ res: { food: 1, water: 1, fuel: -1, parts: 1 } }),
-  't 太舊（現在 − 1000 秒）': pub({ t: now() - 1000, ls: now() - 1000 }), 't 在未來（+1000 秒）': pub({ t: now() + 1000 }), 'ls 超過 t（未來）': pub({ ls: now() + 500 }), 'ls 比 t 早超過一天': pub({ ls: now() - 200000 }), 'ls 是字串': pub({ ls: 'now' }), 't 是字串': pub({ t: withBig(500) }),
+  't 太舊（現在 − 1000 秒）': pub({ t: now() - 1000, ls: now() - 1000 }), 't 在未來（+1000 秒）': pub({ t: now() + 1000 }), 'ls 超過 t + 600（未來）': pub({ ls: now() + 700 }), 'ls 比 t 早超過一天': pub({ ls: now() - 200000 }), 'ls 是字串': pub({ ls: 'now' }), 't 是字串': pub({ t: withBig(500) }),
   'cells 17 個': pub({ cells: Array.from({ length: 17 }, (_, i) => `${i}_1`) }), 'cells 空陣列': pub({ cells: [] }), 'cells 元素是數字': pub({ cells: [5] }), 'cells 元素 1MB 字串': pub({ cells: [withBig(900000)] }), 'cells 元素格式錯': pub({ cells: ['abc'] }), 'cells 後段元素壞掉': pub({ cells: ['1_1', '2_2', 3, '4_4'] }), 'cells 不是陣列': pub({ cells: '5_5' }),
 };
 for (const [n, d] of Object.entries(bads)) await no('create 被擋：' + n, P(ctx('bad'), 'bad').set(d));
@@ -60,7 +88,7 @@ await no('sh = 現在 + 13 小時 被擋', P(ctx('s3'), 's3').set(pub({ sh: now(
 await no('永久護盾 sh = 1e11 被擋', P(ctx('s4'), 's4').set(pub({ sh: 1e11 })));
 await no('sh 是字串 被擋', P(ctx('s5'), 's5').set(pub({ sh: 'forever' })));
 await no('sh 負數 被擋', P(ctx('s6'), 's6').set(pub({ sh: -1 })));
-await seed((db) => P(db, 's7').set(pub({ t: now() - 60 })));
+await seed((db) => P(db, 's7').set(pub({ t: now() - 60, ut: TS(now() - 60) })));
 await no('更新成永久護盾 被擋', P(ctx('s7'), 's7').set(pub({ sh: 4e9 })));
 
 console.log('\n[4] presence — 讀取（第 4 項：get / list 分開，list limit ≤ 24）');
@@ -74,6 +102,9 @@ await no('list limit 25 被擋', q(ctx('aa'), 25));
 await no('list limit 1000 被擋', q(ctx('aa'), 1000));
 await no('list 沒帶 limit 被擋', q(ctx('aa'), null));
 await no('list（未登入）被擋', q(anon(), 24));
+await seed((db) => Promise.all([P(db, 'old6').set(pub({ ls: now() - 6 * 86400, t: now() - 6 * 86400 })), P(db, 'old8').set(pub({ ls: now() - 8 * 86400, t: now() - 8 * 86400 }))]));
+await ok('get：ls 6 天前（< 7 天）成功', P(ctx('aa'), 'old6').get());
+await no('get：ls 8 天前（> 7 天，幽靈船）被擋', P(ctx('aa'), 'old8').get());
 
 console.log('\n[5] raids — 合法建立與基本防護');
 const mk = async (o = {}) => { await reset(); await seed(async (db) => { await P(db, 'dd').set(pub({ x: 500, y: 500, ls: now() - 3600, t: now() - 3600, sh: 0, ...(o.def || {}) })); if (o.att !== null) await P(db, 'aa').set(pub({ x: 470, y: 480, ...(o.att || {}) })); }); };
@@ -143,6 +174,11 @@ await mk({ def: { sh: now() + 3000 } }); await no('防守者有護盾 被擋', R
 await mk(); await no('防守者沒有 presence（例如船東 / 訪客）被擋', R(A, 'ghost', idOf('aa')).set(raid('aa', { defender: 'ghost' })));
 await mk(); await no('防守者是船東 uid（沒有 presence）被擋', R(A, OWNER, idOf('aa')).set(raid('aa', { defender: OWNER })));
 
+await mk({ def: { ls: now() - 6 * 86400, t: now() - 6 * 86400 } }); await ok('防守者 ls 6 天前（< 7 天）仍可被突襲', R(A, 'dd', idOf('aa')).set(raid('aa')));
+await mk({ def: { ls: now() - 8 * 86400, t: now() - 8 * 86400 } }); await no('防守者 ls 8 天前（> 7 天，幽靈船）被擋', R(A, 'dd', idOf('aa')).set(raid('aa')));
+await mk(); await no('12 小時桶：用舊的 6 小時桶算 b 被擋', R(A, 'dd', `aa_${Math.floor(now() / 21600)}`).set(raid('aa', { b: Math.floor(now() / 21600) })));
+await mk(); await ok('12 小時桶：b = floor(t / 43200) 成功', R(A, 'dd', idOf('aa')).set(raid('aa', { b: Math.floor(now() / 43200) })));
+
 console.log('\n[10] raids — 讀取');
 await mk(); await seed((db) => R(db, 'dd', 'aa_1').set(raid('aa')));
 const inbox = (db, def, n) => { let x = db.collection('raids').doc(def).collection('in').where('t', '>=', 0); if (n != null) x = x.limit(n); return x.get(); };
@@ -163,7 +199,7 @@ await no('別人寫 arks/{uid} 被擋', ctx('bb').collection('arks').doc('aa').s
 await no('別人讀 arks/{uid} 被擋', ctx('bb').collection('arks').doc('aa').get());
 await no('別人刪 arks/{uid} 被擋', ctx('bb').collection('arks').doc('aa').delete());
 await no('別人寫 presence/{uid} 被擋', P(ctx('bb'), 'aa').set(pub()));
-await no('別人 update presence/{uid} 被擋', (async () => { await seed((db) => P(db, 'aa').set(pub({ t: now() - 60 }))); return P(ctx('bb'), 'aa').update({ sh: 0 }); })());
+await no('別人 update presence/{uid} 被擋', (async () => { await seed((db) => P(db, 'aa').set(pub({ t: now() - 60, ut: TS(now() - 60) }))); return P(ctx('bb'), 'aa').update({ sh: 0 }); })());
 await no('攻擊者不能把突襲文件寫進自己以外的路徑（寫到別人的 arks 子集合）', ctx('aa').collection('arks').doc('dd').collection('x').doc('y').set({ a: 1 }));
 await no('其他集合一律拒絕（junk/anything）', ctx('aa').collection('junk').doc('x').set({ a: 1 }));
 await no('presence 底下子集合一律拒絕', ctx('aa').collection('presence').doc('aa').collection('sub').doc('x').set({ a: 1 }));

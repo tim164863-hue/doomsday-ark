@@ -40,26 +40,27 @@ service cloud.firestore {
         && rng(r.t0, 0, nowS() + 2592000) && rng(r.t1, r.t0, nowS() + 2592000);
     }
     function presOk(d) {
-      return d.keys().hasAll(['v', 'h', 'x', 'y', 'fp', 'hl', 'cd', 'res', 'cap', 'sh', 'ls', 't', 'cells'])
-        && d.keys().hasOnly(['v', 'h', 'x', 'y', 'fp', 'hl', 'cd', 'res', 'cap', 'sh', 'ls', 't', 'cells', 'rt'])
+      return d.keys().hasAll(['v', 'h', 'x', 'y', 'fp', 'res', 'cap', 'sh', 'ls', 't', 'ut', 'cells'])
+        && d.keys().hasOnly(['v', 'h', 'x', 'y', 'fp', 'res', 'cap', 'sh', 'ls', 't', 'ut', 'cells', 'rt'])   // 第 14 輪：hl / cd 移除（隱私）、新增 ut（伺服器寫入時間）
         && d.v == 1
         && d.h is string && d.h.size() >= 1 && d.h.size() <= 12
-        && rng(d.x, 0, 2000) && rng(d.y, 0, 2000) && rng(d.fp, 0, 200) && rng(d.hl, 0, 5000) && rng(d.cd, 0, 100) && rng(d.cap, 0, 1000)
+        && rng(d.x, 0, 2000) && rng(d.y, 0, 2000) && rng(d.fp, 0, 200) && rng(d.cap, 0, 1000)
         && resOk(d.res)
         && rng(d.t, nowS() - 120, nowS() + 120)                     // t 必須接近伺服器時間
-        && rng(d.ls, d.t - 86400, d.t + 5)                          // 最後上線時間不能超過 t，也不能無限久以前
+        && d.ut == request.time                                      // ut 一定是伺服器時間（客戶端寫 serverTimestamp()）；頻率限制比的是它，不是客戶端自己填的 t
+        && rng(d.ls, d.t - 86400, d.t + 600)                        // ls 在客戶端被「進位」到 10 分鐘 ⇒ 最多比 t 晚 600 秒；也不能無限久以前
         && rng(d.sh, 0, nowS() + 43200 + 120)                       // 護盾最多再 12 小時（+ 時鐘誤差 120 秒）→ 沒有永久護盾
         && d.cells is list && d.cells.size() >= 1 && d.cells.size() <= 16
         && cellOk(d.cells, 0) && cellOk(d.cells, 1) && cellOk(d.cells, 2) && cellOk(d.cells, 3) && cellOk(d.cells, 4) && cellOk(d.cells, 5) && cellOk(d.cells, 6) && cellOk(d.cells, 7) && cellOk(d.cells, 8) && cellOk(d.cells, 9) && cellOk(d.cells, 10) && cellOk(d.cells, 11) && cellOk(d.cells, 12) && cellOk(d.cells, 13) && cellOk(d.cells, 14) && cellOk(d.cells, 15)
         && (!('rt' in d) || rtOk(d.rt));
     }
     match /presence/{uid} {
-      allow get: if request.auth != null;
-      allow list: if request.auth != null && request.query.limit <= 24;          // 掃描附近：array-contains-any(cells) limit ≤ 24（沒帶 limit = 拒絕）
+      allow get: if request.auth != null && (resource == null || resource.data.ls > nowS() - 604800);     // 超過 7 天沒上線的幽靈船讀不到
+      allow list: if request.auth != null && request.query.limit <= 24;          // 掃描附近：array-contains-any(cells) limit ≤ 24（沒帶 limit = 拒絕）。list 沒辦法用 ls 過濾（需要複合索引 = 要動專案設定），所以 7 天的過濾由客戶端掃描做，並由 raid 規則強制
       allow create: if request.auth != null && request.auth.uid == uid && !isOwner(uid) && presOk(request.resource.data);
       allow update: if request.auth != null && request.auth.uid == uid && !isOwner(uid) && presOk(request.resource.data)
-                    && nowS() - resource.data.t >= 10;                           // 寫入頻率下限（create 時 resource 是 null，所以不能放在 create）
-      allow delete: if request.auth != null && request.auth.uid == uid;
+                    && request.time - resource.data.ut >= duration.value(10, 's');   // 寫入頻率下限：比對「上一次的伺服器時間 ut」；create 時 resource 是 null，所以不能放在 create
+      allow delete: if request.auth != null && request.auth.uid == uid;           // 隱身 / 登出 / 刪帳號時本人刪除
     }
 
     // ---------------------------------------------------------------- raids/{defender}/in/{attacker}_{bucket}：唯一的跨使用者寫入（只能 create）
@@ -79,13 +80,13 @@ service cloud.firestore {
         && d.v == 1
         && d.attacker == request.auth.uid && d.defender == defender && defender != request.auth.uid
         && d.ah is string && d.ah.size() <= 12
-        && d.t is number && d.b is int && d.b == int(d.t / 21600)                 // 6 小時桶
-        && rid == request.auth.uid + '_' + string(d.b)                             // 每個「攻擊者×6 小時桶」一份（create-only ⇒ 不能重複）
+        && d.t is number && d.b is int && d.b == int(d.t / 43200)                 // 12 小時桶
+        && rid == request.auth.uid + '_' + string(d.b)                             // 每個「攻擊者×12 小時桶」一份（create-only ⇒ 不能重複）
         && rng(d.t, nowS() - 120, nowS() + 120)
         && d.ap is map && d.ap.keys().hasOnly(['x', 'y']) && d.ap.keys().size() == 2 && rng(d.ap.x, 0, 2000) && rng(d.ap.y, 0, 2000)
         // 防守者的 presence：存在、已離線 ≥ 10 分鐘、沒有護盾、戰利品不超過它自己公開的 8% / cap、宣稱座標在範圍內
         && exists(/databases/$(database)/documents/presence/$(defender))
-        && pres(defender).ls <= d.t - 600 && pres(defender).sh <= d.t
+        && pres(defender).ls <= d.t - 600 && pres(defender).ls >= d.t - 604800 && pres(defender).sh <= d.t   // 離線 ≥ 10 分鐘、但不是超過 7 天的幽靈船；沒有護盾
         && lootOk(d.loot, pres(defender))
         && near(d.ap.x, d.ap.y, pres(defender))
         // 攻擊者自己的 presence：存在、最近有發佈（≤ 15 分鐘）、位置與宣稱座標 / 目標座標都一致（防止在別處亂報座標）
