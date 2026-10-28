@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { waveHeight } from './waves.js';
 import { mulberry32, clamp, smoothstep } from '../util.js';
+import { ruinLayout, debrisCircles } from '../sim/seaprops.js';
 
 const PI = Math.PI;
 const TAU = PI * 2;
@@ -121,19 +122,15 @@ export class SeaLife {
   buildRuins() {
     if (!this.q.ruins) return;
     const g = new THREE.Group(); const mat = new THREE.MeshStandardMaterial({ color: 0x4a5258, roughness: 0.9 }); const mat2 = new THREE.MeshStandardMaterial({ color: 0x3a4146, roughness: 0.95 });
-    const rng = mulberry32(7);
-    const clusters = [[-760, -380, 0.9], [620, -640, 1.0], [880, 330, 0.7], [-300, 860, 0.8], [140, -980, 1.1], [-980, 220, 0.8]];
-    for (const [cx, cz, sc] of clusters) {
-      const n = 9 + Math.floor(rng() * 9);
-      for (let i = 0; i < n; i++) {
-        const w = (10 + rng() * 22) * sc, d = (10 + rng() * 22) * sc, h = (24 + rng() * 120) * sc * (0.4 + (1 - i / n)); const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), rng() < 0.5 ? mat : mat2);
-        b.position.set(cx + (rng() - 0.5) * 220 * sc, h / 2 - 12 - rng() * 14, cz + (rng() - 0.5) * 160 * sc); b.rotation.set((rng() - 0.5) * 0.25, rng() * 3, (rng() - 0.5) * 0.3); g.add(b);
-        // 缺口：斜切的頂
-        if (rng() < 0.6) { const cut = new THREE.Mesh(new THREE.BoxGeometry(w * 0.7, h * 0.15, d * 0.7), mat2); cut.position.copy(b.position); cut.position.y += h * 0.46; cut.rotation.copy(b.rotation); cut.rotation.z += 0.5; g.add(cut); }
-      }
+    const L = ruinLayout();
+    for (const k of L.blocks) {
+      const { w, h, d } = k; const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), k.mat ? mat2 : mat);
+      b.position.set(k.x, k.y, k.z); b.rotation.set(k.rx, k.ry, k.rz); g.add(b);
+      // 缺口：斜切的頂
+      if (k.cut) { const cut = new THREE.Mesh(new THREE.BoxGeometry(w * 0.7, h * 0.15, d * 0.7), mat2); cut.position.copy(b.position); cut.position.y += h * 0.46; cut.rotation.copy(b.rotation); cut.rotation.z += 0.5; g.add(cut); }
     }
     // 半沉橋塔
-    for (const [x, z] of [[360, 760], [-620, -760]]) { for (const s of [0, 1]) { const t = new THREE.Mesh(new THREE.BoxGeometry(10, 140, 10), mat); t.position.set(x + s * 80, 50, z); t.rotation.z = (s - 0.5) * 0.12; g.add(t); } const deck = new THREE.Mesh(new THREE.BoxGeometry(110, 3, 7), mat2); deck.position.set(x + 40, 12, z); deck.rotation.z = 0.08; g.add(deck); }
+    for (const { x, z } of L.bridges) { for (const s of [0, 1]) { const t = new THREE.Mesh(new THREE.BoxGeometry(10, 140, 10), mat); t.position.set(x + s * 80, 50, z); t.rotation.z = (s - 0.5) * 0.12; g.add(t); } const deck = new THREE.Mesh(new THREE.BoxGeometry(110, 3, 7), mat2); deck.position.set(x + 40, 12, z); deck.rotation.z = 0.08; g.add(deck); }
     this.ruins = g; this.scene.add(g); this.ruinsMat = [mat, mat2];
   }
 
@@ -212,11 +209,15 @@ export class SeaLife {
       }
     }
   }
+  /** 漂流殘骸的碰撞圓（世界座標；每幀更新） */
+  debrisSolids() { return this.dSolid || []; }
   updateDebris(dt, time) {
+    const L = this._dl || (this._dl = []); L.length = 0;
     for (const d of this.debris) {
       d.ang += d.sp * dt; const x = Math.cos(d.ang) * d.r, z = Math.sin(d.ang) * d.r; const wy = waveHeight(x, z, time);
       const hx = waveHeight(x + 1.5, z, time) - waveHeight(x - 1.5, z, time), hz = waveHeight(x, z + 1.5, time) - waveHeight(x, z - 1.5, time);
-      d.m.position.set(x, wy + d.ty, z); d.m.rotation.x = (d.tx || 0) * 0.3 + hz * 0.2; d.m.rotation.z = (d.tz || 0) - hx * 0.2; d.m.rotation.y += d.spin * dt;
+      d.m.position.set(x, wy + d.ty, z); d.m.rotation.x = (d.tx || 0) * 0.3 + hz * 0.2; d.m.rotation.z = (d.tz || 0) - hx * 0.2; d.m.rotation.y += d.spin * dt; L.push({ x, z, yaw: d.m.rotation.y, k: d.k });
     }
+    this.dSolid = debrisCircles(L, this.dSolid || []);
   }
 }

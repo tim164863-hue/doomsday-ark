@@ -23,6 +23,8 @@ import { dampAngle } from '../util.js';
 import { Games } from './games.js';
 import { Social } from '../crew/social.js';
 import { Helm } from './helm.js';
+import { sweepShip, steerAround, pushOut, impactDamage, IMPACT_MIN } from '../sim/seaprops.js';
+import { SZ } from '../sim/szdata.js';
 
 // 各設施的樓層與偏好位置（x,z）；實際位置會在附近找一塊四周留空的地方
 const ANCHOR = { purifier: [35, -5.5], generator: [35.5, 5.5], workshop: [22, 8], infirmary: [29.5, -6.6], greenhouse: [37.6, 8.2] };
@@ -290,7 +292,9 @@ export class Play {
         let p = this.fleetPose(ship, i, t); if (!p.piloted) p = this.helm.world(p); R.position.set(p.x, 0, p.z); R.rotation.y = p.yaw; V.pos = p; return;
       }
       if (!V || V.lv !== ship.lv || V.type !== ship.type) { if (V) V.mesh.removeFromParent(); V = { mesh: buildShipModel(ship.type, ship.lv), lv: ship.lv, type: ship.type, id: ship.id }; V.mesh.userData.shipId = ship.id; this.game.scene.add(V.mesh); this.fleetViews.set(ship.id, V); }
-      let p = this.fleetPose(ship, i, t); if (!p.piloted) p = this.helm.world(p); const y = waveHeight(p.x, p.z, time) * 0.7 + 0.05;
+      let p = this.fleetPose(ship, i, t); if (!p.piloted) p = this.helm.world(p);
+      if (p.away && ship.state === 'sail') { const sl = SHIPS[ship.type].len, q = pushOut(p.x, p.z, Math.max(2, sl * 0.22), this.game.solidProbes(sl)); if (q.x !== p.x || q.z !== p.z) p = { ...p, x: q.x, z: q.z }; }   // 出海 / 返航的船繞過殘骸 / 廢墟 / 冰山
+      const y = waveHeight(p.x, p.z, time) * 0.7 + 0.05;
       V.mesh.position.set(p.x, y, p.z); V.mesh.rotation.set(Math.sin(time * 1.2 + ship.id) * 0.03, p.yaw, Math.sin(time * 0.9 + ship.id * 2) * 0.04);
       let sc = 1; if (ship.state === 'build') { const pr = Math.max(0, Math.min(1, 1 - (ship.done - t) / (SHIPS[ship.type].build * 60))); sc = 0.35 + 0.65 * pr; V.mesh.position.y -= 0.4 * (1 - pr); }
       if (ship.state === 'wreck') { V.mesh.rotation.z += 0.22; V.mesh.position.y -= 0.5; }
@@ -355,11 +359,13 @@ export class Play {
   updatePilot(dt, time) {
     const P = this.pilot; if (!P) return; const g = this.game; const input = g.controls.move; const sdt = Math.min(dt, 0.1);
     let mag = Math.hypot(input.x, input.y); let desired = null;
-    if (P.homing) { const b = this.helm.world(this.berthOf(F.findShip(this.state, P.id))); const dx = b.x - P.x, dz = b.z - P.z; const d = Math.hypot(dx, dz); if (d < 3 || time - P.homeT > 120) { P.x = b.x; P.z = b.z; this.stopPilot(false); return; } desired = Math.atan2(-dz, dx); mag = Math.min(1, 0.25 + d / 60); }
+    if (P.homing) { const b = this.helm.world(this.berthOf(F.findShip(this.state, P.id))); const dx = b.x - P.x, dz = b.z - P.z; const d = Math.hypot(dx, dz); if (d < 3 || time - P.homeT > 120) { P.x = b.x; P.z = b.z; this.stopPilot(false); return; } desired = Math.atan2(-dz, dx); const sl = SHIPS[P.type].len; desired = steerAround(P.x, P.z, desired, Math.max(2, sl * 0.2), 30 + sl * 1.5, this.game.solidProbes(sl)); mag = Math.min(1, 0.25 + d / 60); }
     else if (mag > 0.08) { const s = Math.sin(g.controls.yaw), c = Math.cos(g.controls.yaw); let dx = (-s) * input.y + c * input.x, dz = (-c) * input.y + (-s) * input.x; desired = Math.atan2(-dz, dx); }
     let target = 0;
     if (desired != null) { const diff = Math.abs(Math.atan2(Math.sin(desired - P.yaw), Math.cos(desired - P.yaw))); P.yaw = dampAngle(P.yaw, desired, 2.6, sdt); target = P.max * Math.min(1, mag) * (input.run && !P.homing ? 1.7 : 1) * Math.max(0.25, Math.cos(Math.min(diff, 1.4))); }
-    P.v += (target - P.v) * Math.min(1, sdt * (target > P.v ? 0.9 : 1.6)); P.x += Math.cos(P.yaw) * P.v * sdt; P.z += -Math.sin(P.yaw) * P.v * sdt;
+    P.v += (target - P.v) * Math.min(1, sdt * (target > P.v ? 0.9 : 1.6)); const px0 = P.x, pz0 = P.z; P.x += Math.cos(P.yaw) * P.v * sdt; P.z += -Math.sin(P.yaw) * P.v * sdt;
+    { const sl = SHIPS[P.type].len, pst = { x: P.x, z: P.z, yaw: P.yaw, v: P.v, w: 0 }; const hit = sweepShip(pst, px0, pz0, { len: sl, hw: sl * 0.2 }, this.game.solidProbes(sl), sdt); P.x = pst.x; P.z = pst.z; P.v = pst.v;   // 領航也會撞到廢墟 / 殘骸 / 冰山 / 石柱（掃過式，不會穿過去）
+      if (hit && hit.imp > IMPACT_MIN && time - (P.hitT || -9) > 2) { P.hitT = time; const dmg = impactDamage(hit.imp), sh = F.findShip(this.state, P.id); if (sh && typeof sh.hp === 'number') sh.hp = Math.max(Math.min(sh.hp, SZ.floor), sh.hp - dmg); this.game.ui.toast('💥 撞上' + ({ debris: '漂流殘骸', ice: '冰山', stone: '石柱', ruin: '廢墟', bridge: '橋' }[hit.kind] || '障礙') + '！船體 −' + dmg.toFixed(1) + '%'); this.game.audio && this.game.audio.event('crash', 10); } }
     // 方舟船體（橢圓）擋住；外圍 260 單位為邊界
     // （母船被駕駛離開原位時，碰撞與邊界都在母船座標系裡算）
     const H = this.helm, hd = H.displaced; let lx = P.x, lz = P.z; if (hd) { const L = H.local(P.x, P.z); lx = L.x; lz = L.z; }

@@ -9,6 +9,7 @@ import { mapDecksTo } from './crew/decks.js';
 import { ContestTV } from './ship/tv.js';
 import { systems, emit } from './events.js';
 import { SeaLife } from './world/sealife.js';
+import { circleVsCircle, circleVsBox, ruinBoxes } from './sim/seaprops.js';
 import { AudioFX } from './audio.js';
 import { Player } from './player.js';
 import { Controls } from './controls.js';
@@ -139,6 +140,15 @@ export class Game {
     if (!import.meta.env.DEV) return;   // 只有開發模式（vite dev）才有；正式版整段會被拿掉
     if (!spec) { this.szOv = null; this.szT = 0; return; } const [id, d] = String(spec).split(','); const z = SPECIAL_ZONES[id]; if (!z) { this.szOv = null; return; }
     this.szOv = { id, z, depth: Math.max(0, Math.min(1, d == null ? 1 : +d || 1)), un: 1, speed: 1, pull: 0, lost: 0, trapped: false }; this.szT = 0; this.szFirst = false;
+  }
+  /** 海上固體物件的碰撞探針（廢墟 / 橋 / 漂流殘骸 / 冰山 / 石柱 / 岩柱）；len = 船長（橋面只擋大船）。給 helm、領航、NPC 船共用。 */
+  solidProbes(len = 10) {
+    const P = [], sl = this.sealife, po = this.polar, zf = this.zonefx; const pickBest = (a, h) => (h && (!a || h.pen > a.pen) ? h : a);
+    if (sl) { const dc = sl.debrisSolids(); P.push((x, z, r) => { let b = null; for (const c of dc) { if (Math.abs(c.x - x) > c.r + r || Math.abs(c.z - z) > c.r + r) continue; b = pickBest(b, circleVsCircle(x, z, r, c.x, c.z, c.r, 'debris')); } return b; });
+      if (sl.ruins) { const RB = ruinBoxes(); P.push((x, z, r) => { let b = null; for (const q of RB) { if (q.needLen && len < q.needLen) continue; b = pickBest(b, circleVsBox(x, z, r, q)); } return b; }); } }
+    if (po && po.items && po.items.length) P.push((x, z, r) => { let b = null; for (const q of po.items) if (q.kind === 'berg') b = pickBest(b, circleVsCircle(x, z, r, q.x, q.z, q.r * 0.85, 'ice')); return b; });
+    if (zf && zf.solidCount) P.push((x, z, r) => { let b = null; for (const e of zf.solid) { if (e.k < 0.55) continue; b = pickBest(b, circleVsCircle(x, z, r, e.it.x, e.it.z, e.it.r * 0.9, 'stone')); } return b; });
+    return P;
   }
   /** 測試 / 截圖用：把方舟直接放到某個特殊海域（u = 離中心的比例 0..1；會存檔）。 */
   szTeleport(id, u = 0.5) {
