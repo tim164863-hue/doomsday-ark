@@ -15,14 +15,12 @@ let fails = 0; const ok = (c, m) => { if (!c) { fails++; console.log('✗', m); 
   ok(r1.dis[0] && r1.dis[1], '分出勝負後撤退 / 交給船員按鈕被鎖（disabled）'); ok(r1.phase === 'fight' && r1.cur && !r1.last && JSON.parse(r1.st).f === 0, '輸了之後呼叫 retreat() / crew()：沒有結算、狀態不變、仍等砲戰場結算');
   await w(3500); const r1b = await pg.evaluate(() => ({ last: ark.play.state.fleet.world.bt.last, txt: ark.hud.battle.el.querySelector('.btRes').innerText })); ok(r1b.last && r1b.last.r !== 'fled', `砲戰場自己結算：${r1b.last && r1b.last.r}（不是撤退成功）`);
   // 2) 來不及卡片標點
-  await spawn('serpent', 1); await pg.evaluate(() => { const B = ark.hud.battle; B.open(); }); await w(600);
+  await pg.evaluate(() => { ark.play.state.cond = 100; }); await spawn('serpent', 1); await pg.evaluate(() => { const B = ark.hud.battle; B.open(); }); await w(600);
   const txt2 = await pg.evaluate(() => { const B = ark.hud.battle; ark.play.worldAct('battleAuto', {}); B.phase = 'done'; cancelAnimationFrame(B.raf); B.showResult({ ok: false, msg: 'x' }, null, null, 'crew'); return B.el.querySelector('.btRes').innerText; });
   ok(/結果：擊退了。/.test(txt2) && !/[！!][。.]/.test(txt2), '來不及卡片：「結果：擊退了。」沒有重複標點'); console.log('   ', txt2.replace(/\n/g, ' | '));
   // 3) 二次確認
   await pg.evaluate(() => ark.hud.battle.el.querySelector('[data-a=ok]').click()); await spawn('kraken', 1.3); await pg.evaluate(() => ark.hud.battle.take()); await w(500);
   const c3 = await pg.evaluate(() => { const cf = ark.hud.battle.cf, bs = [...cf.querySelectorAll('.eo button')]; return { txt: cf.innerText, pri: bs.filter((x) => x.classList.contains('pri')).map((x) => x.textContent), order: bs.map((x) => x.textContent) }; });
   ok(c3.pri.length === 1 && c3.pri[0] === '交給船員' && /這場幾乎打不贏/.test(c3.txt), `勝率 < 10%：預設按鈕＝交給船員（${c3.order.join(' / ')}），文字「這場幾乎打不贏」`);
-  await pg.evaluate(() => ark.hud.battle.cf.querySelector('[data-a=no]').click()); await spawn('pirate', 1.2); await pg.evaluate(() => ark.hud.battle.take()); await w(400);
-  const c4 = await pg.evaluate(() => { const B = ark.hud.battle, bs = [...B.cf.querySelectorAll('.eo button.pri')].map((x) => x.textContent); return { open: !B.cf.classList.contains('hide'), pri: bs, ar: ark.hud.battle.isOpen() }; }); console.log('    pirate confirm:', JSON.stringify(c4));
   ok(errs.length === 0, '主控台乾淨：' + (errs.join(' | ') || 'none')); await b.close(); console.log(fails ? fails + ' 項失敗' : '全部通過'); process.exit(fails ? 1 : 0);
 })();
