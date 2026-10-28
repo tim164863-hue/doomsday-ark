@@ -23,3 +23,5 @@ export function fmtClock(t01) {
 export const isTouchDevice = () => (('ontouchstart' in window) || navigator.maxTouchPoints > 0) && matchMedia('(pointer: coarse)').matches;
 /** 資料表（無原型物件）：用存檔 / 網址 / localStorage 讀進來的字串當 key 查表時，'__proto__' / 'constructor' / 'toString' 都查不到，不會誤判成有這一項。 */
 export const tbl = (o) => Object.assign(Object.create(null), o);
+/** Object.hasOwn 的相容寫法（舊版 Safari / Chrome 沒有 Object.hasOwn） */
+export const OWN = (o, k) => Object.prototype.hasOwnProperty.call(o, k);

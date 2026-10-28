@@ -5,6 +5,7 @@
 //  - 舷側中段（sternEdge ~ bowEdge）原封不動（客艙、餐廳、辦公區、跑道、球場、樓梯、電梯）
 //  - 船艉 / 船艏兩端的「景觀甲板」區域依 sternK / bowK 壓縮，裝飾座標經 ex() 重新對位
 import { FLAG_ROWS } from '../sim/promo.js';
+const OWN = (o, k) => Object.prototype.hasOwnProperty.call(o, k);   // config.js 保持零相依
 
 // 旗艦階級（階段③）：船身長度 / 甲板數在「開機時」依階級決定（升階完成後存好、重新載入一次），所以下面的常數都是 module 載入時算好的。
 // 階級來源：?tier=war_2（預覽用，不寫入）> localStorage 'ark.tier'（play.js 的 tierSync 依存檔寫入）> 基礎船。
@@ -12,8 +13,8 @@ export const TIER_KEY = 'ark.tier';
 function readTier() {
   // ?tier= 只有開發版（vite dev）有效；localStorage 的值要在資料表裡才算數，壞掉的值直接清掉（自我修復）。FLAG_ROWS 是無原型物件，所以 'constructor' / '__proto__' 也查不到。
   try {
-    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) { const q = new URLSearchParams(location.search).get('tier'); if (q && Object.hasOwn(FLAG_ROWS, q)) return { id: q, preview: true }; }
-    const v = localStorage.getItem(TIER_KEY); if (v != null) { if (Object.hasOwn(FLAG_ROWS, v)) return { id: v, preview: false }; localStorage.removeItem(TIER_KEY); }
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) { const q = new URLSearchParams(location.search).get('tier'); if (q && OWN(FLAG_ROWS, q)) return { id: q, preview: true }; }
+    const v = localStorage.getItem(TIER_KEY); if (v != null) { if (OWN(FLAG_ROWS, v)) return { id: v, preview: false }; localStorage.removeItem(TIER_KEY); }
   } catch (e) { /* node / 無 storage */ }
   return { id: 'ark_t0', preview: false };
 }

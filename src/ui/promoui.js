@@ -8,6 +8,8 @@ const nowSec = () => clock.now();
 
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const hm = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? `${h} 小時 ${m} 分` : `${m} 分`; };
+/** 訪客：數值換成自己小船的真實數值 */
+const homeBase = (hud) => { if (!hud.game.small) return null; const hs = FL.homeShip(hud.s.fleet); return hs ? FL.shipStats(hs) : null; };
 const pct = (v) => `${Math.round(v * 100)}%`;
 const zonesWith = (kind, id) => SZ_ORDER.map((z) => SPECIAL_ZONES[z]).filter((z) => (kind === 'mat' ? z.mat === id : z.bp.includes(id)));
 
@@ -29,7 +31,7 @@ function reqHtml(q, picked, up) {
 }
 
 export function renderPromo(hud) {
-  const c = hud.modal.querySelector('.mcard'), s = hud.s, now = nowSec(); const st = PM.promoStatus(s, now); const cur = st.row; const B = PM.BRANCHES;
+  const c = hud.modal.querySelector('.mcard'), s = hud.s, now = nowSec(); const st = PM.promoStatus(s, now); const HB = homeBase(hud), SR = (row) => (HB ? PM.smallRow(row, HB) : row); const cur = SR(st.row); const B = PM.BRANCHES;
   const curB = cur.branch ? B[cur.branch] : null;
   const head = `<div class="pm-cur"><div class="pm-ic" style="${curB ? `border-color:${curB.color}` : ''}">${curB ? curB.icon : '🚢'}</div><div class="pm-nm"><b>${shipName(hud, cur)}</b><em>${curB ? `${curB.name} T${cur.tier}` : '基礎船（T0）'}</em><div class="strow">${statChips(cur, null, hud.game.small)}</div></div></div>`;
   const hold = PM.holdOf(s.fleet); const holdH = hold.length ? `<p class="sub pm-hold">🏦 待退回倉庫：${hold.map((x) => `${x.icon}${x.name} ${x.v}`).join('　')}（倉庫有空位就會自動補回，不會損失）</p>` : '';
@@ -37,7 +39,7 @@ export function renderPromo(hud) {
   if (st.up) {
     const u = st.up; body = `<div class="pm-up"><h3>🛠 改裝中：${esc(u.row.name)}（${B[u.row.branch].name} T${u.row.tier}）</h3><div class="tb big"><u style="width:${u.frac * 100}%" data-pmprog></u><span data-pmeta>${hm(u.left)}</span></div>
       <p class="sub">旗艦停泊在原地，改裝期間不能出航、不能手動駕駛（艦隊小船不受影響）。完成時間已經固定，離線也會繼續算；${hud.game.small ? '完成後數值提升（小船外觀不變）。' : `完成後船身會變大、多出 ${u.row.decks - cur.decks} 層甲板。`}</p>
-      <div class="strow">${statChips(u.row, cur, hud.game.small)}</div></div>`;
+      <div class="strow">${statChips(SR(u.row), cur, hud.game.small)}</div></div>`;
   } else {
     const cards = st.options.map((o) => {
       const b = B[o.branch], sel = st.pj && o.to && st.pj.to === o.to;
@@ -47,14 +49,14 @@ export function renderPromo(hud) {
       const act = sel ? `<button data-a="dep" ${q.resOk ? 'disabled' : ''}>📥 投入資源</button><button class="pri" data-a="start" ${q.ready ? '' : 'disabled'}>🔧 開工（${q.hours} 小時）</button><button data-a="cancel" class="mini" title="取消籌備，投入的資源退回倉庫（放不下的先存在待退回區，有空位就補回）">取消</button>` : `<button class="pri" data-a="plan" data-to="${o.to}">選擇這條路</button>`;
       return `<div class="pm-br ${sel ? 'sel' : ''}" style="--bc:${b.color}" data-to="${o.to}"><div class="bh"><span class="bi">${b.icon}</span><div><b>${b.name}</b><small>${b.blurb}</small></div></div>
         <div class="tiers">${tiers}</div>
-        <h4>下一階：${esc(r.name)} <small>${hud.game.small ? '數值提升（小船外觀不變）' : `${r.len} m・${r.decks} 層甲板`}</small></h4><div class="strow">${statChips(r, cur, hud.game.small)}</div>
+        <h4>下一階：${esc(r.name)} <small>${hud.game.small ? '數值提升（小船外觀不變）' : `${r.len} m・${r.decks} 層甲板`}</small></h4><div class="strow">${statChips(SR(r), cur, hud.game.small)}</div>
         <h4>需求 <small>${q.done}/${q.total} 項達成${sel ? '' : '（選定後才能投入資源）'}</small></h4>${reqHtml(q, sel)}
         <div class="pb">${act}</div></div>`;
     }).join('');
     body = `<p class="sub">選一條晉升路線：每一階需要<b>資源 + 稀有藍圖 + 特殊海域材料</b>，開工後改裝 24 / 36 / 48 小時（旗艦停泊）。倉庫放不下整份資源（零件上限 ${PM.capOf(s.fleet, 'parts')}），所以可以<b>分批投入</b>；食物 / 飲水 / 燃料會替船員與航行保留一些。一階一階升，想換分支要先「改裝回基礎船」。</p><div class="pm-grid">${cards}</div>${cur.tier ? `<div class="mb"><button data-a="reset" class="mini">↩︎ 改裝回基礎船（階級歸零，不退費）</button></div>` : ''}`;
   }
   const zl = SZ_ORDER.map((id) => { const z = SPECIAL_ZONES[id]; const ok = PM.meetsNeed(s.fleet, z); return `<span class="zc ${ok ? '' : 'un'}" style="${ok ? `border-color:${z.color};color:${z.color}` : ''}" title="${z.need ? PM.needText(z) : '不需要階級'}">${z.icon}${z.short} ${!z.need ? '自由進出' : ok ? '✓ 可進' : '🔒 ' + PM.needText(z)}${z.need && !z.need.hard ? '（強條件）' : ''}</span>`; }).join('');
-  c.innerHTML = `<h2>⭐ 旗艦晉升 <button class="x" data-x="close">✕</button></h2>${head}${holdH}${body}<h3>特殊海域進入條件</h3><div class="zonebar pm-z">${zl}</div><p class="sub">🔒 = 旗艦階級不夠，海圖出航與手動駕駛都進不去（火焰是強條件：可以進，但危害 ×3）。</p>`;
+  c.innerHTML = `<h2>⭐ 旗艦晉升 <button class="x" data-x="close">✕</button></h2>${head}${holdH}${body}<h3>特殊海域進入條件</h3><div class="zonebar pm-z">${zl}</div><p class="sub">🔒 = 旗艦階級不夠，海圖出航與手動駕駛都進不去（火焰是強條件：可以進，但危害 ×3）。停泊仍會慢慢磨損，記得工坊／零件。</p>`;
   c.querySelector('[data-x=close]').onclick = () => hud.closeModal();
   const A = (sel, fn) => c.querySelectorAll(sel).forEach((b) => (b.onclick = () => fn(b)));
   A('[data-a=plan]', (b) => { hud.play.promoAct('plan', { to: b.dataset.to }); renderPromo(hud); });

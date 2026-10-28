@@ -113,7 +113,7 @@ export function rescueCan(s, nowSec) {
 }
 /** 在漩渦裡出航失敗（燃料不足）時附加的提示；不在漩渦裡回傳 ''。 */
 export function rescueHint(s, nowSec) {
-  const g = rescueGeo(s, nowSec); if (!g) return ''; return rescueCan(s, nowSec).ok ? `——你在漩渦裡：可以呼叫拖船救援（🔩${RESCUE.parts}，海圖側欄），把方舟拖到外緣` : `——你在漩渦裡：燃料夠開出外緣（需要 ⛽${Math.ceil(g.need)}），先手動駕駛出去再補給；真的開不出去才能呼叫拖船救援`;
+  const g = rescueGeo(s, nowSec); if (!g) return ''; return rescueCan(s, nowSec).ok ? `——你在漩渦裡：可以呼叫拖船救援（🔩${RESCUE.parts}，海圖側欄），把方舟拖到外緣${s.res.parts < RESCUE.parts ? `。零件不夠 ${RESCUE.parts}（只剩 ${Math.floor(s.res.parts)}）：救援最多只收你現有的零件，剩 0 也免費` : ''}` : `——你在漩渦裡：燃料夠開出外緣（需要 ⛽${Math.ceil(g.need)}），先手動駕駛出去再補給；真的開不出去才能呼叫拖船救援`;
 }
 export function rescueDo(s, nowSec) {
   const c = rescueCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; const g = rescueGeo(s, nowSec), f = s.fleet, w = f.world;

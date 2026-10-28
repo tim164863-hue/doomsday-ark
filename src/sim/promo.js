@@ -6,7 +6,7 @@
 import { RES, RES_KEYS } from './defs.js';
 import { WORLD } from './fleetdefs.js';
 import { PROMO, PROMO_BP, MATERIALS, MAT_ORDER, SPECIAL_ZONES, SZ_ORDER, routeZones, zoneAtPoint } from './szdata.js';
-import { clamp, tbl } from '../util.js';
+import { clamp, tbl, OWN } from '../util.js';
 
 export const BRANCHES = tbl({
   war: { id: 'war', name: '戰艦', icon: '⚔️', color: '#7f9bb5', blurb: '火力與裝甲：為階段④海戰準備；耐火、抗地獄。' },
@@ -34,14 +34,14 @@ const HOLD_MAX = 20000;   // 「待退回倉庫」暫存區的單項上限（防
 
 /** 乾淨的 flag（舊存檔沒有 flag → T0） */
 export function flagOf(f) {
-  const fl = f && f.flag; const ok = fl && typeof fl === 'object' && typeof fl.branch === 'string' && Object.hasOwn(BRANCHES, fl.branch) && (fl.tier | 0) >= 1 && (fl.tier | 0) <= 3;
+  const fl = f && f.flag; const ok = fl && typeof fl === 'object' && typeof fl.branch === 'string' && OWN(BRANCHES, fl.branch) && (fl.tier | 0) >= 1 && (fl.tier | 0) <= 3;
   return { branch: ok ? fl.branch : null, tier: ok ? fl.tier | 0 : 0, pj: fl && fl.pj || null, up: fl && fl.up || null, hold: fl && fl.hold || null };
 }
 export const flagRow = (f) => { const o = flagOf(f); return FLAG_ROWS[rowId(o.branch, o.tier)]; };
 /** 存檔清洗 */
 export function sanFlag(fl) {
   if (!fl || typeof fl !== 'object') return null; const n = (x) => typeof x === 'number' && Number.isFinite(x);
-  const has = (o, k) => typeof k === 'string' && Object.hasOwn(o, k); const branch = has(BRANCHES, fl.branch) ? fl.branch : null; let tier = branch ? clamp(fl.tier | 0, 0, 3) : 0; if (!tier) tier = 0;
+  const has = (o, k) => typeof k === 'string' && OWN(o, k); const branch = has(BRANCHES, fl.branch) ? fl.branch : null; let tier = branch ? clamp(fl.tier | 0, 0, 3) : 0; if (!tier) tier = 0;
   const o = { branch: tier ? branch : null, tier, pj: null, up: null, hold: null };
   if (fl.pj && typeof fl.pj === 'object' && has(PROMO, fl.pj.to)) { const p = { to: fl.pj.to }; for (const k of DEP_KEYS) p[k] = n(fl.pj[k]) ? clamp(fl.pj[k], 0, PROMO[fl.pj.to][k]) : 0; o.pj = p; }
   if (fl.up && typeof fl.up === 'object' && has(PROMO, fl.up.to) && n(fl.up.start) && n(fl.up.end) && fl.up.end >= fl.up.start) o.up = { to: fl.up.to, start: fl.up.start, end: fl.up.end };
@@ -56,6 +56,11 @@ export function flagStats(f) {
   const r = flagRow(f);
   return { row: r, id: r.id, branch: r.branch, tier: r.tier, decks: r.decks, len: r.len, lenK: r.len / T0.len, spd: r.spd, cargo: r.cargo, capMul: 1 + (r.cargo - T0.cargo) / 1000,
     hull: r.hull, armor: r.hull / T0.hull, armorMul: 1 / Math.sqrt(r.hull / T0.hull), fp: r.fp, scout: r.scout, scoutK: r.scout / T0.scout, cold: r.cold, haz: r.haz, hazMul: 1 - r.haz, trade: r.trade };
+}
+/** 訪客：把旗艦階級的「相對倍率」套到自己小船的真實數值上（晉升頁顯示用；模擬裡的效果同樣是倍率）。base = fleet.shipStats(homeShip)。 */
+export function smallRow(row, base) {
+  if (!base) return row; const r = FLAG_ROWS.ark_t0;
+  return { ...row, spd: +(base.speed * row.spd).toFixed(2), cargo: Math.round(base.cargo * row.cargo / r.cargo), hull: Math.round(base.hull * row.hull / r.hull), fp: Math.max(base.fp, Math.round(base.fp * row.fp / r.fp)), scout: row.scout };
 }
 /** 給階段④海戰用：火力 / 船體（還沒有戰鬥系統；只是把數值固定下來） */
 export const flagCombat = (f) => { const st = flagStats(f); return { fp: st.fp, hull: st.hull, armor: st.armor }; };
@@ -103,14 +108,14 @@ export function reqOf(s, to, pj) {
 }
 /** 目前狀態：現況、改裝中、各分支選項 */
 export function promoStatus(s, nowSec) {
-  const f = s.fleet, o = flagOf(f), st = flagStats(f); const up = o.up && Object.hasOwn(PROMO, o.up.to) ? { ...o.up, row: FLAG_ROWS[o.up.to], left: Math.max(0, o.up.end - nowSec), frac: clamp((nowSec - o.up.start) / Math.max(1, o.up.end - o.up.start), 0, 1) } : null;
+  const f = s.fleet, o = flagOf(f), st = flagStats(f); const up = o.up && OWN(PROMO, o.up.to) ? { ...o.up, row: FLAG_ROWS[o.up.to], left: Math.max(0, o.up.end - nowSec), frac: clamp((nowSec - o.up.start) / Math.max(1, o.up.end - o.up.start), 0, 1) } : null;
   const w = f && f.world; const moving = !!(w && w.route);
   const options = BRANCH_ORDER.map((b) => { const to = nextRowId(f, b); return { branch: b, to, req: to ? reqOf(s, to, o.pj) : null, locked: !to, why: !to ? (o.tier >= 3 ? '已經是最高階' : `目前是${BRANCHES[o.branch].name}；要換分支請先「改裝回基礎船」（階級歸零、資源重付）`) : '' }; });
   return { cur: o, stats: st, row: st.row, up, pj: o.pj, moving, options, busy: !!up };
 }
 /** 選定（或改選）晉升專案。已投入的資源退回倉庫；放不下的進「待退回」暫存區（不損失）。 */
 export function promoPlan(s, to) {
-  const f = s.fleet, o = flagOf(f); if (typeof to !== 'string' || !Object.hasOwn(PROMO, to)) return { ok: false, msg: '沒有這個晉升項目' }; if (o.up) return { ok: false, msg: '旗艦正在改裝' };
+  const f = s.fleet, o = flagOf(f); if (typeof to !== 'string' || !OWN(PROMO, to)) return { ok: false, msg: '沒有這個晉升項目' }; if (o.up) return { ok: false, msg: '旗艦正在改裝' };
   if (nextRowId(f, FLAG_ROWS[to].branch) !== to) return { ok: false, msg: '只能晉升到目前分支的下一階' };
   const fl = f.flag || (f.flag = { branch: o.branch, tier: o.tier, pj: null, up: null }); if (fl.pj && fl.pj.to !== to) { const old = fl.pj; fl.pj = null; refund(s, old); } fl.pj = { to, parts: 0, fuel: 0, food: 0, water: 0 };
   return { ok: true, msg: `已選定：${FLAG_ROWS[to].name}` };
@@ -154,7 +159,7 @@ export function promoReset(s) {
 /** 每個 tick（fleetTick 呼叫）：改裝完成 */
 export function promoTick(s, tEnd, ev) {
   const f = s.fleet, fl = f && f.flag; holdDrain(s); if (!fl || !fl.up) return; if (tEnd < fl.up.end) return;
-  const row = Object.hasOwn(FLAG_ROWS, fl.up.to) ? FLAG_ROWS[fl.up.to] : null; if (!row) { fl.up = null; return; } fl.branch = row.branch; fl.tier = row.tier; fl.up = null;
+  const row = OWN(FLAG_ROWS, fl.up.to) ? FLAG_ROWS[fl.up.to] : null; if (!row) { fl.up = null; return; } fl.branch = row.branch; fl.tier = row.tier; fl.up = null;
   ev && ev({ t: Math.min(tEnd, tEnd), type: 'promo', sub: 'done', text: `⭐ 旗艦晉升完成：${BRANCHES[row.branch].icon}${row.name}（${BRANCHES[row.branch].name} T${row.tier}）！船身加長到 ${row.len} m、${row.decks} 層甲板。`, to: row.id });
 }
 export const refitting = (f) => { const fl = f && f.flag; return !!(fl && fl.up); };

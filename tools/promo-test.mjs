@@ -6,6 +6,7 @@ import * as PM from '../src/sim/promo.js';
 import { SPECIAL_ZONES, SZ_ORDER, PROMO, PROMO_BP, zoneAtPoint } from '../src/sim/szdata.js';
 import { unprepared, unprepK, helmFx, seaPre, seaTick, emptySz } from '../src/sim/seazones.js';
 import { FLAG_ROWS } from '../src/sim/promo.js';
+import { rescueHint, rescueCan } from '../src/sim/seazones.js';
 import { SHIPS, ZONES } from '../src/sim/fleetdefs.js';
 import { FAC } from '../src/sim/defs.js';
 import { QUALITY } from '../src/config.js';
@@ -177,5 +178,17 @@ const flag = (s, branch, tier) => { s.fleet.flag = { branch, tier, pj: null, up:
   const s2 = mk(P); s2.cond = 12; t = T0; for (let i = 0; i < 100; i++) { const pre = seaPre(s2, t); seaTick(s2, t, t + 60, null, pre); t += 60; } ok(s2.cond === 12, '船體已低於地板時，區域傷害不再往下打（12% 維持 12%）');
   const s3 = mk(P); s3.res.food = 4000; let minCond = 100; for (let h = 1; h <= 48; h++) { s3.res.food = 450; s3.res.water = 450; s3.res.fuel = 450; simulateTo(s3, T0 + h * H); minCond = Math.min(minCond, s3.cond); }
   const zoneDmg = s3.fleet.world.sz.hull; ok(zoneDmg <= 80.0001, `停在火焰 48 小時：累計區域傷害 ${zoneDmg.toFixed(1)}% ≤ 80%（100% → 地板 20%）`); }
+
+
+// ---- 第 9 輪 A：救援提示（零件不足）、訪客小船真實數值、舊瀏覽器相容
+{ const z = SPECIAL_ZONES.whirlpool; const mkW = (parts) => { const s = mk({ x: z.x + z.r * 0.5, y: z.y }); s.res.fuel = 3; s.res.parts = parts; return s; };
+  const a = mkW(400), b = mkW(3), c = mkW(0);
+  ok(!/零件不夠/.test(rescueHint(a, T0)) && /零件不夠 10（只剩 3）/.test(rescueHint(b, T0)) && /只剩 0.*剩 0 也免費/.test(rescueHint(c, T0)), '漩渦救援提示：零件夠 → 不多說；剩 3 / 0 → 說明零件不足、剩 0 也免費');
+  ok(rescueCan(c, T0).ok, '零件 0 也能呼叫拖船救援');
+  const gs = mk({ x: 1000, y: 1000 }, { owner: false }); F.ensureFleet(gs, false); const hs = { type: 'skiff', lv: 1 }; const base = F.shipStats(hs); const r0 = PM.smallRow(FLAG_ROWS.ark_t0, base), r3 = PM.smallRow(FLAG_ROWS.war_3, base);
+  ok(r0.cargo === base.cargo && r0.hull === base.hull && r0.fp === base.fp && r0.cargo !== 400 && r3.hull === Math.round(base.hull * 1500 / 500) && r3.fp >= base.fp, `訪客小船數值：T0 = 小船自己的（貨 ${r0.cargo} / 船體 ${r0.hull} / 火力 ${r0.fp}），war_3 船體 ${r3.hull}`);
+  ok(PM.smallRow(FLAG_ROWS.war_3, null) === FLAG_ROWS.war_3, '沒有小船資料 → 原列');
+  const fs = await import('node:fs'); const files = []; const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = d + '/' + e.name; if (e.isDirectory()) walk(p); else if (p.endsWith('.js')) files.push(p); } }; walk(new URL('../src', import.meta.url).pathname);
+  ok(files.every((p) => !/Object\.hasOwn\(/.test(fs.readFileSync(p, 'utf8'))), 'src 沒有 Object.hasOwn（改用 hasOwnProperty.call）'); }
 
 console.log(fails ? `\n${fails} 項失敗` : '\n全部通過'); process.exit(fails ? 1 : 0);
