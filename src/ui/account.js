@@ -1,5 +1,5 @@
 // 帳號 UI：Google 登入按鈕 / 頭像與登出選單 / 雲端同步狀態 / 首次登入的存檔選擇對話框
-import { signIn, signOutNow, inAppBrowser, OWNER_EMAIL } from '../save/cloud.js';
+import { signIn, signOutNow, inAppBrowser } from '../save/cloud.js';
 import { MODE_KEY } from '../save/boot.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -61,8 +61,9 @@ export class AccountUI {
     } else {
       const owner = this.boot.owner;
       m.innerHTML = `<div class="ap">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : '<b>' + esc((u.displayName || u.email).slice(0, 1).toUpperCase()) + '</b>'}<div><div class="an">${esc(u.displayName || '玩家')}</div><div class="ae">${esc(u.email)}</div></div></div>
-        <div class="ar">${owner ? '⚓ 船東：顯示真實 bot 與交易電視' : '🧑‍✈️ 虛擬船員（不含任何真人 bot 資料）'}</div><div class="ar" id="acctSync">${this.syncText()}</div>
+        <div class="ar">${owner ? '⚓ 船東：顯示真實 bot 與交易電視' : '🧑‍✈️ 虛擬船員（不含任何真人 bot 資料）'}</div><div class="ar" id="acctSync">${this.syncText()}</div><div class="ar uid" title="點一下複製 uid">uid：<code id="acctUid">${esc(u.uid || '')}</code></div>
         <button id="gSync" class="ghost">立即同步</button><button id="gGuest" class="ghost">🧑‍✈️ 切換為訪客</button><button id="gOut" class="out">登出</button><div class="msg" id="acctMsg"></div>`;
+      { const ue = m.querySelector('#acctUid'); if (ue) ue.onclick = async () => { try { await navigator.clipboard.writeText(u.uid || ''); this.say('已複製 uid'); } catch (e) { const r = document.createRange(); r.selectNodeContents(ue); const s = getSelection(); s.removeAllRanges(); s.addRange(r); this.say('已選取 uid，請按複製'); } }; }
       m.querySelector('#gOut').onclick = () => this.logout(false); m.querySelector('#gGuest').onclick = () => this.logout(true); m.querySelector('#gSync').onclick = async () => { const a = this.boot.adapter; if (a && a.canWrite) { await this.game.play.save(true); this.renderMenu(); } else this.say('目前無法同步'); };
     }
   }

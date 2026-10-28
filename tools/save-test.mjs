@@ -1,6 +1,6 @@
 // node tools/save-test.mjs —— 存檔開機邏輯 / 雲端轉接器 / 時鐘防竄改 / 船東判定（用記憶體後端，不連網）
 import { bootSave, entryDecision, isOwnerSave, QUARANTINE_KEY } from '../src/save/boot.js';
-import { createMemoryBackend, isOwner, serialize, validateState, CloudAdapter, cloud, OWNER_EMAIL } from '../src/save/cloud.js';
+import { createMemoryBackend, isOwner, serialize, validateState, CloudAdapter, cloud, OWNER_UIDS } from '../src/save/cloud.js';
 import { clock } from '../src/clock.js';
 import * as S from '../src/sim/sim.js';
 import * as F from '../src/sim/fleet.js';
@@ -16,9 +16,10 @@ const U = { uid: 'u1', email: 'x@example.com', emailVerified: true };
 const put = (be, uid, s, ms) => be.docs.set(uid, { v: 1, data: serialize(s), lastSeen: s.lastSeen, updatedMs: ms || Date.now() });
 
 // 船東判定
-ok(isOwner({ uid: 'a', email: OWNER_EMAIL, emailVerified: true }), 'owner by verified email');
-ok(isOwner({ uid: 'a', email: OWNER_EMAIL.toUpperCase(), emailVerified: true }), 'owner email case-insensitive');
-ok(!isOwner({ uid: 'a', email: OWNER_EMAIL, emailVerified: false }), 'unverified email is not owner');
+ok(OWNER_UIDS.length === 1 && isOwner({ uid: '7yB5MDDkd3bymKEDHczUyb3buK63' }), 'owner by uid');
+ok(isOwner({ uid: '7yB5MDDkd3bymKEDHczUyb3buK63', email: 'x@example.com' }), 'owner by uid regardless of email');
+ok(!isOwner({ uid: 'a', email: 'former-owner@example.com', emailVerified: true }), 'email-only match is NOT owner');
+ok(!isOwner({ email: 'a@b.c' }) && !isOwner(null), 'no uid / no user is not owner');
 ok(!isOwner({ uid: 'a', email: 'other@x.com', emailVerified: true }) && !isOwner(null), 'other / null not owner');
 
 // 訪客
@@ -90,8 +91,8 @@ ok(validateState({ v: 1 }) === null && validateState(null) === null, 'validateSt
   { const st = mkStore(); const g = mk(4, now() - 600); g.fleet = F.newFleet(false); g.fleet.pick = 'small'; st.setItem('ark.save.v1', JSON.stringify(g));
     const b = await bootSave({ cloud: { user: null }, storage: st }); ok(b.state && b.state.seed === 4, 'normal guest save resumes'); }
   // 船東登入：永遠載入雲端 T董 方舟，絕不詢問 / 合併訪客進度
-  { const st = mkStore(); const be = setup(); const OW = { uid: 'own', email: OWNER_EMAIL, emailVerified: true }; const c = { ...cloud, user: OW, adapterFor: (u, o) => new CloudAdapter(be, u, o) };
-    put(be, 'own', ownerSave(5, now() - 7200)); const g = mk(9, now() - 10); g.fleet = F.newFleet(false); g.fleet.pick = 'small'; st.setItem('ark.save.v1', JSON.stringify(g));
+  { const st = mkStore(); const be = setup(); const OW = { uid: OWNER_UIDS[0], email: 'x@example.com', emailVerified: true }; const c = { ...cloud, user: OW, adapterFor: (u, o) => new CloudAdapter(be, u, o) };
+    put(be, OWNER_UIDS[0], ownerSave(5, now() - 7200)); const g = mk(9, now() - 10); g.fleet = F.newFleet(false); g.fleet.pick = 'small'; st.setItem('ark.save.v1', JSON.stringify(g));
     const b = await bootSave({ cloud: c, storage: st, choose: async () => { throw new Error('owner must not be asked'); } });
     ok(b.owner && b.mode === 'cloud' && b.state.seed === 5 && isOwnerSave(b.state), 'owner signs in → loads cloud T董 ark, guest save ignored'); }
   // 一般 Google 帳號：不會拿到船東存檔；訪客進度可選擇上傳

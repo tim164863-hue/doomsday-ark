@@ -16,16 +16,16 @@ export const FIREBASE_CONFIG = {
   messagingSenderId: '248448049412',
   appId: '1:248448049412:web:1412a5c420ec9d6b9f3051',
 };
-/** 船東帳號：只有它看得到真實 bot 與交易電視。僅為「顯示」判斷（sessions.json 本來就是公開檔），不是安全邊界。 */
-export const OWNER_EMAIL = 'tunchin0113@gmail.com';
-export const OWNER_UIDS = []; // 第一次登入後可把船東 uid 填進來鎖定（比 email 更嚴格）
+/** 船東帳號：只有它看得到真實 bot 與交易電視。僅為「顯示」判斷（sessions.json 本來就是公開檔），不是安全邊界。
+ *  只認 Firebase uid（不再比對 email，程式碼 / 打包檔裡也不放 email）。要換船東：把新的 uid 填進這個常數
+ *  （uid 可在 🔑 選單最下方複製）。清單是空的 = 沒有任何人是船東。 */
+export const OWNER_UIDS = ['7yB5MDDkd3bymKEDHczUyb3buK63'];
 export const MIN_WRITE_GAP = 30000;
 export const MAX_DOC_CHARS = 100000;
 
 export function isOwner(u) {
   if (!u) return false;
-  if (OWNER_UIDS.length) return OWNER_UIDS.includes(u.uid);
-  return String(u.email || '').toLowerCase() === OWNER_EMAIL && u.emailVerified !== false;
+  return !!u.uid && OWNER_UIDS.includes(u.uid);
 }
 
 /** 存檔序列化：只留最近 60 筆紀錄，並確保不超過文件大小上限。 */
@@ -168,7 +168,7 @@ function initFake(kind) {
   const be = createMemoryBackend({ docs, skewMs: +(P.get('fakeskew') || 0), fail: kind === 'offline' });
   const set = be.set.bind(be); be.set = async (u, p) => { await set(u, p); localStorage.setItem('ark.fakecloud', JSON.stringify([...docs])); };
   cloud.backend = be; cloud.available = true; cloud.fake = true;
-  if (kind !== 'guest') cloud.user = kind === 'owner' ? { uid: 'fake-owner', email: OWNER_EMAIL, emailVerified: true, displayName: 'Tim Tseng', photoURL: '' } : { uid: 'fake-' + kind, email: kind + '@example.com', emailVerified: true, displayName: kind === 'offline' ? 'Offline User' : 'Guest Player', photoURL: '' };
+  if (kind !== 'guest') cloud.user = kind === 'owner' ? { uid: OWNER_UIDS[0] || 'fake-owner', email: 'owner@example.com', emailVerified: true, displayName: 'Tim Tseng', photoURL: '' } : { uid: 'fake-' + kind, email: kind + '@example.com', emailVerified: true, displayName: kind === 'offline' ? 'Offline User' : 'Guest Player', photoURL: '' };
   return cloud;
 }
 
