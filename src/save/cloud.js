@@ -3,6 +3,7 @@
 // 文件路徑：arks/{uid}  欄位：{ v:int, data:string(JSON 存檔), lastSeen:number, updatedAt:serverTimestamp }
 // 使用 firestore/lite（REST，無長連線），寫入節流（預設最短 30 秒一次）以留在免費額度內。
 import { clock } from '../clock.js';
+import { firestorePvp, createMemoryPvp } from './pvpnet.js';
 import { SAVE_VERSION } from '../sim/defs.js';
 import { sanitizeFleet } from '../sim/fleet.js';
 import { sanitizeRel } from '../sim/rel.js';
@@ -145,7 +146,7 @@ const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeo
 
 let FB = null;
 export const cloud = {
-  user: null, backend: null, authError: null, available: false, fake: false,
+  user: null, backend: null, pvp: null, authError: null, available: false, fake: false,
   adapterFor(uid, opts) { return new CloudAdapter(this.backend, uid, opts); },
 };
 
@@ -156,7 +157,7 @@ export async function initCloud({ timeoutMs = 7000 } = {}) {
     const [appM, authM, fs] = await withTimeout(Promise.all([import('firebase/app'), import('firebase/auth'), import('firebase/firestore/lite')]), timeoutMs);
     const app = appM.initializeApp(FIREBASE_CONFIG); const auth = authM.getAuth(app); const db = fs.getFirestore(app);
     FB = { authM, auth, provider: new authM.GoogleAuthProvider() }; FB.provider.setCustomParameters({ prompt: 'select_account' });
-    cloud.backend = firestoreBackend(fs, db); cloud.available = true;
+    cloud.backend = firestoreBackend(fs, db); cloud.pvp = firestorePvp(fs, db); cloud.available = true;
     try { await withTimeout(authM.getRedirectResult(auth), timeoutMs); } catch (e) { if (e && e.code) cloud.authError = e; }
     await withTimeout(auth.authStateReady(), timeoutMs);
     cloud.user = simple(auth.currentUser);
@@ -170,6 +171,10 @@ function initFake(kind) {
   const be = createMemoryBackend({ docs, skewMs: +(P.get('fakeskew') || 0), fail: kind === 'offline' });
   const set = be.set.bind(be); be.set = async (u, p) => { await set(u, p); localStorage.setItem('ark.fakecloud', JSON.stringify([...docs])); };
   cloud.backend = be; cloud.available = true; cloud.fake = true;
+  // PvP 假雲端（DEV 專用）：presence / raids 存在 localStorage，可用 ?fakecloud=名字 開兩個分頁模擬兩個玩家
+  { const store = { presence: new Map(), raids: new Map() }; try { const raw = JSON.parse(localStorage.getItem('ark.fakepvp') || 'null'); if (raw) { store.presence = new Map(raw.p); store.raids = new Map(raw.r); } } catch (e) { /* ignore */ }
+    const uidNow = kind === 'owner' ? OWNER_UIDS[0] : 'fake-' + kind; const pv = createMemoryPvp(store, uidNow, () => clock.now(), OWNER_UIDS); pv.persist = () => localStorage.setItem('ark.fakepvp', JSON.stringify({ p: [...store.presence], r: [...store.raids] }));
+    for (const m of ['putPresence', 'putRaid']) { const f = pv[m].bind(pv); pv[m] = async (...a) => { const r = await f(...a); pv.persist(); return r; }; } cloud.pvp = pv; }
   if (kind !== 'guest') cloud.user = kind === 'owner' ? { uid: OWNER_UIDS[0] || 'fake-owner', email: 'owner@example.com', emailVerified: true, displayName: 'Tim Tseng', photoURL: '' } : { uid: 'fake-' + kind, email: kind + '@example.com', emailVerified: true, displayName: kind === 'offline' ? 'Offline User' : 'Guest Player', photoURL: '' };
   return cloud;
 }
