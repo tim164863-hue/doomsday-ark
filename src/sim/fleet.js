@@ -1,5 +1,6 @@
 // 末日方舟 · 艦隊模擬（純函式式；與 sim.js 同一套 tick：線上 / 離線補算結果相同）
 // 狀態 s.fleet 為「可選欄位」：舊存檔沒有也能載入（ensureFleet 補上），因此不需升 SAVE_VERSION。
+import { weatherAt, effectsOf } from './weather.js';
 import { TICK, RES, RES_KEYS, FAC, LV_MULT } from './defs.js';
 import { hash, mulberry32 } from './rng.js';
 import { SHIPS, SHIP_ORDER, STARTERS, ZONES, ZONE_ORDER, FLEET_MAX, LV_MAX, LV_STAT, LV_SPEED, RESERVE_FUEL, FLAGSHIP, TRIP_BP, WORLD } from './fleetdefs.js';
@@ -58,17 +59,20 @@ const pay = (s, c) => { for (const k in c) s.res[k] -= c[k]; };
 export const costTextF = (c) => Object.keys(c).map((k) => `${RES[k].icon}${c[k]}`).join(' ');
 const ev = (s, rep, e) => { s.log.push(e); if (s.log.length > 60) s.log.shift(); if (rep) rep.events.push(e); };
 
+/** 出發那一刻方舟位置的天氣效果（暴風 → 受損增加、雪 → 變慢、極光 → 藍圖機率與收穫提升）；沒有世界地圖 → 全部 ×1 */
+function missionWx(f, t) { const w = f.world; if (!w || !w.pos) return { luckBp: 1, luckHaul: 1, dmgMult: 1, timeMult: 1 }; const p = W.arkPos(w, t); return effectsOf(weatherAt(t, p.x, p.y)); }
 // ---------------------------------------------------------------- 任務規劃（在出發那一刻決定結果，與 trip 相同風格）
 export function planMission(s, ship, zone, startSec) {
   const f = s.fleet; const rnd = mulberry32(hash(s.seed, 'fm', ship.id, ship.n)); const Z = ZONES[zone]; const st = shipStats(ship);
-  const risk = missionRisk(ship, zone); const fail = rnd() < risk * 0.6;
-  const total = st.cargo * Z.rich * (0.7 + rnd() * 0.6) * (fail ? 0.4 : 1) * (1 + st.fp * 0.02);
+  const risk = missionRisk(ship, zone); const fail = rnd() < risk * 0.6; const wxm = missionWx(f, startSec);
+  const total = st.cargo * Z.rich * (0.7 + rnd() * 0.6) * (fail ? 0.4 : 1) * (1 + st.fp * 0.02) * wxm.luckHaul;
   const res = { food: 0, water: 0, fuel: 0, parts: 0 }; let ws = 0; for (const k in Z.w) ws += Z.w[k]; for (const k in Z.w) res[k] = Math.round(total * Z.w[k] / ws);
-  const hit = rnd() < risk * 2.5 || fail; const dmg = hit ? Math.round((8 + rnd() * 14) * (fail ? 1.6 : 1) / (1 + st.hull / 250) * (1 + Z.danger * 3)) : 0;
-  const pool = Z.bp.filter((b) => !f.bp[b]); let bp = null; if (!fail && pool.length && rnd() < Z.bpChance) bp = pool[Math.floor(rnd() * pool.length)];
+  const hit = rnd() < risk * 2.5 || fail; const dmg = hit ? Math.round((8 + rnd() * 14) * (fail ? 1.6 : 1) / (1 + st.hull / 250) * (1 + Z.danger * 3) * wxm.dmgMult) : 0;
+  const pool = Z.bp.filter((b) => !f.bp[b]); let bp = null; if (!fail && pool.length && rnd() < Z.bpChance * wxm.luckBp) bp = pool[Math.floor(rnd() * pool.length)];
   // 世界地圖：目的地 = 離方舟最近的該海域格；方舟已在（或緊鄰）遠方海域時，往返更快、收穫更多（預設出生在近海 → 完全不變）
   const w = f.world; const pos = W.arkPos(w, startSec); let from = null, to = null, mins = missionMinutes(ship, zone), close = false;
   if (w && w.pos) { from = { x: Math.round(pos.x), y: Math.round(pos.y) }; const c = W.nearestZoneCell(pos.x, pos.y, zone); if (c) { const jr = mulberry32(hash(s.seed, 'fmj', ship.id, ship.n)); to = { x: Math.round(c.x + (jr() - 0.5) * 18), y: Math.round(c.y + (jr() - 0.5) * 18) }; close = zone !== 'near' && c.d <= WORLD.near; } }
+  mins = Math.max(5, Math.round(mins * wxm.timeMult));
   if (close) { mins = Math.max(5, Math.round(mins * 0.7)); for (const k in res) res[k] = Math.round(res[k] * 1.15); }
   const m = { zone, start: startSec, end: startSec + mins * 60, fuel: missionFuel(ship, zone), res, dmg, fail, bp, from, to, ev: null };
   if (w && w.pos) m.ev = planEvent(s.seed, ship.id, ship.n, zone, fail);
@@ -166,6 +170,7 @@ function sanWorld(w) {
   const o = W.emptyWorld(); if (!w || typeof w !== 'object') return o; const n = (x) => typeof x === 'number' && Number.isFinite(x); const pt = (p) => (p && n(p.x) && n(p.y) ? { x: Math.max(0, Math.min(2000, p.x)), y: Math.max(0, Math.min(2000, p.y)) } : null);
   if (w.spawn && n(w.spawn.x) && n(w.spawn.y)) o.spawn = { slot: Math.max(0, Math.min(WORLD.slots - 1, w.spawn.slot | 0)), ...pt(w.spawn) };
   o.fog = typeof w.fog === 'string' && w.fog.length <= 1400 && /^[A-Za-z0-9+/=]*$/.test(w.fog) ? w.fog : ''; o.seen = {}; for (const z of ZONE_ORDER) if (w.seen && w.seen[z]) o.seen[z] = 1; o.pos = pt(w.pos); o.explored = n(w.explored) ? Math.max(0, w.explored | 0) : 0;
+  if (w.wx && typeof w.wx === 'object') { const c = (v) => (n(v) ? Math.max(0, Math.min(1e7, v | 0)) : 0); o.wx = { k: ['clear', 'storm', 'blizzard', 'snow', 'aurora'].includes(w.wx.k) ? w.wx.k : 'clear', hits: c(w.wx.hits), storm: c(w.wx.storm), snow: c(w.wx.snow), aur: c(w.wx.aur), polar: c(w.wx.polar) & 3 }; }
   const r = w.route; if (r && n(r.x0) && n(r.y0) && n(r.x1) && n(r.y1) && n(r.t0) && n(r.t1)) o.route = { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, t0: r.t0, t1: r.t1, fuel: n(r.fuel) ? r.fuel : 0 };
   return o;
 }

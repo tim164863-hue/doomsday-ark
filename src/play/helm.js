@@ -80,12 +80,13 @@ export class Helm {
       if (!run && this.thr > 1) this.thr = Math.max(1, this.thr - 0.8 * dt);
       if (c.keys.has(' ') || c.keys.has('x')) this.thr = 0;
       this.input = { thr: this.thr, rud: -inp.x };
-      if (this.fuelOk0()) this.burn((g.small ? 0.05 : 0.1) * Math.min(1.35, Math.abs(this.thr)) * dt);
+      if (this.fuelOk0()) this.burn((g.small ? 0.05 : 0.1) * Math.min(1.35, Math.abs(this.thr)) * (g.wxHelm ? g.wxHelm.fuel : 1) * dt);
     } else this.input = { thr: 0, rud: 0 };
     if (this.on || moving || this.displaced) {
       const cfg = this.cfg; const st = { v: this.v, w: this.w, yaw: this.yaw, x: this.x, z: this.z };
       const fuel = this.on ? this.fuelOk() : true; const ip = { thr: fuel ? this.input.thr : 0, rud: this.input.rud };
-      helmStep(st, ip, cfg, dt); this.limit(st);
+      const hf = g.wxHelm; if (hf) cfg.vmax *= hf.speed; // 暴風 / 下雪：最高速度下降（跟自動航行 / 離線一樣用 sim/weather.js 的係數）
+      helmStep(st, ip, cfg, dt); this.limit(st); this.iceHit(st, cfg);
       const ddx = st.x - this.x, ddz = st.z - this.z; if (c.mode !== 'follow' || !this.on) { c.target.x += ddx; c.target.z += ddz; if (c.tgtOver) { c.tgtOver.x += ddx; c.tgtOver.z += ddz; } }
       this.dist0 += Math.hypot(st.x - this.x, st.z - this.z); this.v = st.v; this.w = st.w; this.yaw = st.yaw; this.x = st.x; this.z = st.z;
       const tl = clamp(-this.w * (this.v / cfg.vmax) * (this.g.small ? 1.4 : 2.2), -0.09, 0.09); this.lean += (tl - this.lean) * (1 - Math.exp(-2.2 * dt));
@@ -104,6 +105,15 @@ export class Helm {
   fuelOk0() { const s = this.p.state; return !!(s && s.res && s.res.fuel >= 1); }
   /** 引擎本身的耗油（跟地圖航程的耗油分開算；累積到整數才扣，HUD 另外顯示小數） */
   burn(a) { const s = this.p.state; this.fuelUsed += a; if (s && s.res) s.res.fuel = Math.max(0, s.res.fuel - a); }
+  /** 冰山碰撞（兩極）：船頭 / 船身兩個圓；撞到 → 推出去、反彈、船體小損傷（2 秒冷卻），浮冰不會撞。 */
+  iceHit(st, cfg) {
+    const po = this.g.polar; if (!po || !po.items.length) return; const c = Math.cos(st.yaw), sn = -Math.sin(st.yaw), r = Math.max(2, cfg.hw * 0.95), L = cfg.len * 0.3;
+    for (const o of [L, 0, -L]) { const b = po.hit(st.x + c * o, st.z + sn * o, r); if (!b) continue;
+      const dx = st.x + c * o - b.x, dz = st.z + sn * o - b.z, d = Math.hypot(dx, dz) || 1, need = b.r * 0.85 + r + 0.3; st.x += dx / d * (need - d); st.z += dz / d * (need - d);
+      const imp = Math.abs(st.v); st.v *= -0.25; st.w *= 0.5; const now = performance.now();
+      if (this.on && imp > 1.2 && now - (this._iceT || 0) > 2000) { this._iceT = now; const s = this.p.state; const dmg = Math.min(2, 0.4 + imp * 0.12); if (s && typeof s.cond === 'number') s.cond = Math.max(0, s.cond - dmg); this.g.ui && this.g.ui.toast('🧊 撞上冰山！船體 −' + dmg.toFixed(1) + '%'); this.g.audio && this.g.audio.event('crash', 10); }
+      break; }
+  }
   /** 世界邊界：地圖位置推出世界外就停船 */
   limit(st) {
     const w = this.p.state && this.p.state.fleet && this.p.state.fleet.world; if (!w || !w.pos) return;

@@ -5,6 +5,7 @@ import { TICK, MAX_OFFLINE, SAVE_VERSION, RES, RES_KEYS, USE, SHIP_FUEL_USE, LV_
 import { hash, mulberry32 } from './rng.js';
 import { fleetTick, tripBlueprint, grantBlueprint } from './fleet.js';
 import { worldTick } from './world.js';
+import { weatherTick } from './weather.js';
 import { SHIPS } from './fleetdefs.js';
 import * as R from './rel.js';
 
@@ -86,6 +87,7 @@ export function stepTick(s, t, rep) {
   // 1. 出海返航
   for (const tr of s.trips.filter((x) => x.end <= tEnd).sort((a, b) => a.end - b.end || a.id - b.id)) resolveTrip(s, tr, tEnd, rep);
   s.trips = s.trips.filter((x) => x.end > tEnd);
+  weatherTick(s, t, tEnd, (e) => pushEvent(s, rep, e));   // 天氣：暴風 / 雷擊 / 雪減速 / 低溫耗油 / 極光（決定性；s.fleet.world 不存在就略過）
   worldTick(s, tEnd, (e) => pushEvent(s, rep, e));   // 世界：方舟航行 / 揭開迷霧 / 抵達
   fleetTick(s, t, tEnd, rep);   // 艦隊：建造 / 返航 / 閒置自動出航（s.fleet 不存在時什麼都不做）
   // 2. 生產 / 消耗

@@ -280,3 +280,13 @@ body.touch kbd { display: none; } body.touch .nt { display: none; } body:not(.to
 }
 @media (max-width: 700px) { #pilotbar { left: auto; right: 8px; transform: none; } }
 #helmbar button, #pilotbar button { white-space: nowrap; }
+
+/* ---- 天氣 chip / 手機膠囊圖示 / 面板一列 ---- */
+#wxChip { white-space: nowrap; }
+#tlpill .wxi { font-style: normal; font-size: 13px; }
+.scPanel .wxp h4 small { font-weight: 400; opacity: .8; margin-left: 4px; }
+@media (max-width: 700px) {
+  #resbar .rc.wx { grid-column: 1 / -1; overflow: hidden; } #resbar .rc.wx b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  .scSub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; }
+}
+@media (min-width: 701px) { #resbar .rc.wx { display: none !important; } }

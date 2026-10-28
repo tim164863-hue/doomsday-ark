@@ -16,7 +16,12 @@ import { Crew } from './crew/crew.js';
 import { DataSource } from './data.js';
 import { stairEntry, ELEV_PORTAL } from './crew/actor.js';
 import { BASE_Y, DH } from './ship/ship.js';
-import { waveHeight } from './world/waves.js';
+import { waveHeight, waveState } from './world/waves.js';
+import { WeatherFX } from './world/weather.js';
+import { Polar } from './world/polar.js';
+import { weatherAt, helmFactor } from './sim/weather.js';
+import { arkPos } from './sim/world.js';
+import { clock } from './clock.js';
 
 export class Game {
   constructor(canvas, opts = {}) {
@@ -42,6 +47,10 @@ export class Game {
     this.envState = this.env.update(this.dayT, 0, this.camera, this.focus); this.updatePhase();
     this.sealife = new SeaLife(this.scene, this.env, this.quality);
     this.audio = new AudioFX(); const _av = new THREE.Vector3(); this.sealife.onSound = (k, x, z) => this.audio.event(k, this.camera.position.distanceTo(_av.set(x, 0, z)));
+    // 天氣（粒子 / 閃電 / 極光 / 天色）與兩極（冰山、北極熊、企鵝）；強度來自 sim/weather.js 的 weatherAt(遊戲時間, 地圖位置)
+    this.wxfx = new WeatherFX(this.scene, this.env, this.quality, this.renderer); this.polar = new Polar(this.scene, this.quality); this.wxNow = null; this.wxT = 0; this.wxOv = null;
+    this.wxfx.onThunder = (d) => this.audio.event('thunder', d); this.polar.onSound = (k, x, z) => this.audio.event(k, this.camera.position.distanceTo(_av.set(x, 0, z)));
+    { const q = new URLSearchParams(location.search).get('wx'); if (q) this.setWx(q); }
     this.player = new Player(this); this.crew = new Crew(this);
     this.controls = new Controls(this, canvas); this.controls.tapCb = (x, y) => this.onTap(x, y); if (this.small) { this.controls.setMode('overview'); this.controls.target.copy(this.controls.tgtOver); }
     const P = new URLSearchParams(location.search);
@@ -57,7 +66,7 @@ export class Game {
     this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
   setQuality(level) {
-    this.qLevel = level; this.quality = QUALITY[level]; this.env.setQuality(this.quality); this.ocean.build(this.quality);
+    this.qLevel = level; this.quality = QUALITY[level]; this.env.setQuality(this.quality); this.ocean.build(this.quality); this.wxfx.setQuality(this.quality); this.polar.setQuality(this.quality);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, this.quality.dpr)); this.renderer.setSize(this.W, this.H, false);
     this.scene.traverse((o) => { if (o.material) { o.material.needsUpdate = true; } });
   }
@@ -94,7 +103,7 @@ export class Game {
     if (!this.paused) this.dayT = (this.dayT + dt * this.dayRate * this.speed) % 1;
     this.time += dt;
     const sdt = Math.min(dt, 0.1);
-    this.ocean.update(this.time, 1);
+    this.updateWeather(sdt); this.ocean.update(this.time, waveState.amp);
     if (this.helm) this.helm.update(sdt, this.time);
     this.ship.update(sdt, this.time);
     if (this.helm) this.helm.apply();
@@ -114,6 +123,25 @@ export class Game {
     if (this.fpsT0 == null) this.fpsT0 = nowMs;
     if (nowMs - this.fpsT0 >= 1000) { this.fps = this.fpsN * 1000 / (nowMs - this.fpsT0); this.fpsT0 = nowMs; this.fpsN = 0; this.autoQuality(); }
     return e;
+  }
+  /** 目前地圖位置（地圖單位）；沒有存檔 / 世界 → null */
+  mapPos() { const p = this.play, w = p && p.state && p.state.fleet && p.state.fleet.world; return w && w.pos ? arkPos(w, clock.now()) : null; }
+  /** 視覺用天氣覆寫（截圖 / 試玩）：'storm' | 'rain' | 'snow' | 'blizzard' | 'aurora' | 'clear'，可加 ,n / ,s（北 / 南極）；null 取消。不影響存檔與模擬。 */
+  setWx(spec) {
+    if (!spec) { this.wxOv = null; this.wxT = 0; return; }
+    const parts = String(spec).split(','), k = parts[0], hemi = parts.includes('s') ? 'south' : parts.includes('n') ? 'north' : null;
+    const polar = !!hemi, o = { kind: 'clear', snowy: false, i: 1, cold: polar ? 0.9 : 0.1, craw: polar ? 0.9 : 0.1, shelter: 0, night: false, aur: 0, temp: 20, polar: hemi, hemi: hemi || 'north' };
+    if (k === 'storm') o.kind = 'storm'; else if (k === 'blizzard') { o.kind = 'storm'; o.snowy = true; o.cold = o.craw = Math.max(o.cold, 0.7); } else if (k === 'snow') { o.kind = 'snow'; o.snowy = true; o.cold = o.craw = Math.max(o.cold, 0.7); } else if (k === 'rain') o.kind = 'rain'; else if (k === 'aurora') { o.aur = 1; o.cold = o.craw = Math.max(o.cold, 0.8); o.polar = o.polar || 'north'; } else if (k === 'cloudy') o.kind = 'cloudy';
+    if (o.cold > 0.5 && !hemi) o.hemi = 'north'; o.show = k; this.wxOv = o; this.wxT = 0; this.wxFirst = false; this.polar.fast = performance.now() + 25000;
+  }
+  updateWeather(dt) {
+    this.wxT -= dt;
+    if (this.wxT <= 0) { this.wxT = 0.5; if (this.wxOv) this.wxNow = this.wxOv; else { const p = this.mapPos(); this.wxNow = p ? weatherAt(clock.now(), p.x, p.y) : null; this.wxMap = p; } const w = this.wxNow; this.wxfx.setTarget(w, !this.wxFirst); this.wxFirst = true; this.wxHelm = w ? helmFactor(w) : null; }
+    const helm = this.helm, w = this.wxNow, hp = helm && (helm.on || helm.displaced) ? helm : null, cam = this.camera.position;
+    this.wxfx.update(dt, this.time, this.camera, this.envState, hp);
+    this.audio.setWeather(this.wxfx.s);
+    const hemi = this.wxOv ? this.wxOv.hemi : (this.wxMap && this.wxMap.y > 1000 ? 'south' : 'north');
+    this.polar.setCam(cam.x, cam.z); this.polar.update(dt, this.time, hp ? { x: hp.x, z: hp.z } : { x: 0, z: 0 }, w ? w.cold : 0, hemi, this.envState);
   }
   autoQuality() {
     if (this.qLocked || document.hidden || (this.realT || 0) < 5) return;

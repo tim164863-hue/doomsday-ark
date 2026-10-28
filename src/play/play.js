@@ -140,6 +140,12 @@ export class Play {
     const ui = this.game.ui; const bots = [...this.game.crew.bots.values()].filter((b) => !b.away && !b.sleeping && !b.inBath);
     const say = (b, txt, kind = 'chat') => b && b.say(txt, 4.8, kind);
     if (ev.type === 'storm') { ui.toast('⛈ ' + ev.text); for (const b of bots.slice(0, 3)) say(b, pick(['好大的浪！抓穩！', '船在晃，東西快固定好！', '風暴來了…']), 'mood'); }
+    else if (ev.type === 'weather') {
+      const recent = ev.t > nowSec() - 600; if (ev.sub !== 'lightning' || recent) ui.toast(ev.text);
+      if (ev.sub === 'lightning' && ev.t > nowSec() - 120) { const g = this.game; g.wxfx.strike(90, g.camera); for (const b of bots.slice(0, 2)) say(b, pick(['哇！閃電打到船了！', '好近的雷…檢查一下船體！']), 'mood'); }
+      else if (ev.sub === 'polar' && recent) for (const b of bots.slice(0, 2)) say(b, pick(['好冷…快穿外套！', '看！遠處有冰山！']), 'mood');
+      else if (ev.sub === 'aurora' && recent) for (const b of bots.slice(0, 2)) say(b, pick(['是極光！太美了！', '快看天空！']), 'mood');
+    }
     else if (ev.type === 'shortage') { ui.toast('⚠️ ' + ev.text); for (const b of bots.slice(0, 2)) say(b, pick(['肚子好餓…', '水…有沒有水喝？', '補給是不是該補一下了？']), 'mood'); }
     else if (ev.type === 'trip') { ui.toast('🚣 ' + ev.text); const b = this.botOf(ev.who); const tr = ev.injured || []; if (b) setTimeout(() => say(b, ev.fail ? pick(['這次運氣不太好…', '什麼都沒撈到，抱歉。']) : pick(['帶了東西回來囉！', '回來了！這趟不錯。']), 'mood'), 1200); for (const k of tr) { const x = this.botOf(k); if (x) setTimeout(() => say(x, '嘶…受了點傷。', 'mood'), 2400); } }
     else if (ev.type === 'fleet') ui.toast(ev.text);

@@ -3,6 +3,7 @@ import { clamp, lerp, smoothstep } from '../util.js';
 
 const C = (r, g, b) => new THREE.Color(r, g, b);
 const tmpA = new THREE.Color(), tmpB = new THREE.Color();
+const NOWX = { cloud: 0, storm: 0, snow: 0, flash: 0, rain: 0, aurora: 0, cold: 0 };
 const mix = (out, a, b, t) => out.copy(a).lerp(b, clamp(t, 0, 1));
 
 const skyVert = /* glsl */`
@@ -131,18 +132,26 @@ export class Environment {
     mix(U.uZenith.value, P.zenNight, P.zenDay, dayF); mix(U.uZenith.value, U.uZenith.value, P.zenDusk, duskF * 0.55);
     mix(U.uHorizon.value, P.horNight, P.horDay, dayF); mix(U.uHorizon.value, U.uHorizon.value, P.horDusk, duskF * 0.85);
     mix(U.uGlow.value, P.glowDay, P.glowDusk, duskF);
+    // 天氣（world/weather.js 寫入 this.wx）：烏雲壓暗 / 灰化天色，暴風更重；閃電瞬間把天空打亮
+    const W = this.wx || NOWX, cl = W.cloud;
+    if (cl > 0.005 || W.flash > 0.005) {
+      const lum = (0.12 + 0.36 * dayF + 0.1 * duskF) * (1 - 0.5 * W.storm); tmpA.setRGB(0.5 * lum, 0.55 * lum, 0.62 * lum); const gz = cl * (0.55 + 0.25 * W.storm);
+      U.uZenith.value.lerp(tmpA, gz); U.uHorizon.value.lerp(tmpA.multiplyScalar(1.25), gz * 0.8); U.uGlow.value.lerp(tmpA, gz * 0.7);
+      if (W.flash > 0.005) { U.uZenith.value.lerp(tmpB.setRGB(0.75, 0.82, 1), W.flash * 0.6); U.uHorizon.value.lerp(tmpB, W.flash * 0.7); }
+    }
     U.uSunDir.value.copy(this.sunDir); U.uMoonDir.value.copy(this.moonDir);
     U.uSunVis.value = smoothstep(-0.12, 0.0, es);
     U.uMoonVis.value = smoothstep(-0.02, 0.15, this.moonDir.y) * (1 - dayF * 0.9);
     U.uStars.value = clamp(nightF * 1.2, 0, 1) * smoothstep(0.1, -0.04, es + 0.0);
     U.uStars.value = clamp(1 - smoothstep(-0.2, 0.02, es), 0, 1);
     U.uTime.value = time; U.uDay.value = dayF;
-    U.uCloudCover.value = this.q.clouds ? 0.52 : 0;
+    U.uCloudCover.value = this.q.clouds ? Math.min(0.95, 0.52 + 0.45 * Math.max(W.cloud, W.snow * 0.8)) : 0;
+    U.uStars.value *= 1 - 0.85 * W.cloud;
     U.uSunCol.value.setRGB(1, lerp(0.55, 0.96, smoothstep(0.0, 0.4, es)), lerp(0.25, 0.85, smoothstep(0.0, 0.4, es)));
     this.sky.position.copy(camera.position);
 
     // 光源
-    const sunI = 3.1 * smoothstep(-0.04, 0.32, es);
+    const sunI = 3.1 * smoothstep(-0.04, 0.32, es) * (1 - 0.72 * W.cloud);
     tmpA.setRGB(1, lerp(0.52, 0.95, smoothstep(0.0, 0.45, es)), lerp(0.28, 0.86, smoothstep(0.0, 0.45, es)));
     this.sun.color.copy(tmpA); this.sun.intensity = sunI;
     this.focusSet(focus);
@@ -152,20 +161,21 @@ export class Environment {
     this.moon.position.copy(this.shadowFocus).addScaledVector(this.moonDir, 100); this.moon.target.position.copy(this.shadowFocus);
     this.hemi.color.copy(U.uZenith.value).lerp(U.uHorizon.value, 0.45).multiplyScalar(1.0).addScalar(0.04);
     this.hemi.groundColor.setRGB(0.22, 0.2, 0.2).lerp(tmpB.setRGB(0.05, 0.06, 0.1), nightF);
-    this.hemi.intensity = lerp(0.78, 0.95, dayF) + duskF * 0.0;
+    this.hemi.intensity = lerp(0.78, 0.95, dayF) * (1 - 0.18 * W.cloud) + W.flash * 3.2;
     // 霧
     const fogCol = this.scene.fog.color.copy(U.uHorizon.value);
     fogCol.multiplyScalar(0.92);
-    this.scene.fog.density = lerp(0.00062, 0.00042, dayF) * (1 + duskF * 0.4);
+    this.scene.fog.density = lerp(0.00062, 0.00042, dayF) * (1 + duskF * 0.4) * (1 + 1.2 * W.cloud + 2.2 * W.storm + 3.2 * W.snow); if (W.snow > 0.01) fogCol.lerp(tmpB.setRGB(0.8, 0.86, 0.92).multiplyScalar(0.25 + 0.75 * dayF), W.snow * 0.5);
     this.scene.background = null;
     // 燈光
     this.lampMat.emissiveIntensity = 0.05 + nightF * 2.4;
     this.windowMat.emissiveIntensity = nightF * 1.6;
     // 水色
     mix(this.waterDeep, C(0.004, 0.014, 0.035), C(0.02, 0.125, 0.21), dayF);
-    this.waterDeep.lerp(C(0.03, 0.06, 0.12), duskF * 0.25);
+    this.waterDeep.lerp(C(0.03, 0.06, 0.12), duskF * 0.25); if (W.cloud > 0.01) { this.waterDeep.lerp(C(0.016, 0.04, 0.05).multiplyScalar(0.4 + 0.6 * dayF), W.cloud * 0.55); }
     mix(this.waterShallow, C(0.01, 0.03, 0.06), C(0.07, 0.31, 0.37), dayF);
-    this.renderer.toneMappingExposure = lerp(1.3, 0.9, dayF);
+    if (W.cloud > 0.01) this.waterShallow.lerp(C(0.03, 0.06, 0.08).multiplyScalar(0.5 + 0.5 * dayF), W.cloud * 0.5);
+    this.renderer.toneMappingExposure = lerp(1.3, 0.9, dayF) * (1 + 0.1 * W.cloud * (1 - dayF));
     Object.assign(this.state, { es, dayF, duskF, nightF });
     return this.state;
   }

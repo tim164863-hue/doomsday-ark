@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { on } from '../events.js';
 import { MOODS } from '../crew/mood.js';
 import { fmtClock } from '../util.js';
+import { KINDS } from '../sim/weather.js';
 import { MODE_NAMES } from '../controls.js';
 import { NAMES, TITLES } from '../ship/ship.js';
 
@@ -20,7 +21,7 @@ export class UI {
   build() {
     const g = this.game, r = this.root;
     r.innerHTML = '';
-    this.top = $(`<div id="top"><div class="brand"><b>末日方舟</b><span>DOOMSDAY ARK</span></div><div class="chips"><span id="dataChip" class="chip">連線中…</span><span id="phaseChip" class="chip"></span><span id="fpsChip" class="chip dim"></span></div>
+    this.top = $(`<div id="top"><div class="brand"><b>末日方舟</b><span>DOOMSDAY ARK</span></div><div class="chips"><span id="dataChip" class="chip">連線中…</span><span id="phaseChip" class="chip"></span><span id="wxChip" class="chip hide"></span><span id="fpsChip" class="chip dim"></span></div>
       <div class="tools"><select id="qsel" title="畫質"><option value="auto">畫質：自動</option><option value="high">畫質：高</option><option value="mid">畫質：中</option><option value="low">畫質：低</option></select><button id="sndBtn" title="音效：開／關">🔊</button><button id="helpBtn" title="操作說明 (H)">❓</button></div></div>`);
     this.right = $(`<div id="right"><button id="camBtn" title="切換視角 (V)">🎥 追隨</button><button id="panBtn" title="全景：顯示整艘船 (0)">🚢 全景</button><div id="decks"></div><button id="exBtn" title="展開甲板">🗂 展開</button><button id="listBtn" title="成員 (L)">👥 成員</button></div>`);
     this.crewPanel = $(`<div id="crew" class="hide"><div class="hd">👥 船員 <small>點選即可聚焦</small><button class="x">✕</button></div><div class="bd"></div></div>`);
@@ -38,7 +39,7 @@ export class UI {
     if (g.small) { const cols = this.help.querySelector('.cols'); cols.innerHTML = cols.innerHTML.replace('點擊地板</b> 自動尋路（可跨樓層）','點擊甲板</b> 自動尋路').replace('<b>1–5</b> 看某一層（含以下各層）　','').replace('🛳️ 駕駛母船（','⛵ 駕駛小船（').replace('走到樓梯口自動上下樓；走進電梯會跳出樓層選單。','你的小船就是你的家：船員在甲板上工作、吃飯、聊天，累了就進艙休息。'); }
     this.toastEl = $(`<div id="toast"></div>`);
     r.append(this.top, this.right, this.crewPanel, this.timebar, this.elev, this.help, this.toastEl);
-    this.qsel = this.top.querySelector('#qsel'); this.camBtn = this.right.querySelector('#camBtn'); this.dataChip = this.top.querySelector('#dataChip'); this.phaseChip = this.top.querySelector('#phaseChip'); this.fpsChip = this.top.querySelector('#fpsChip');
+    this.qsel = this.top.querySelector('#qsel'); this.camBtn = this.right.querySelector('#camBtn'); this.dataChip = this.top.querySelector('#dataChip'); this.phaseChip = this.top.querySelector('#phaseChip'); this.wxChip = this.top.querySelector('#wxChip'); this.fpsChip = this.top.querySelector('#fpsChip');
     this.qsel.value = g.qLocked && new URLSearchParams(location.search).get('q') == null ? g.qLevel : 'auto'; if (!g.qLocked) this.qsel.value = 'auto';
     if (innerWidth <= 700) for (const op of this.qsel.options) op.textContent = op.textContent.replace('畫質：', '🎞 ');
     if (g.audio) g.audio.bind(this.top.querySelector('#sndBtn'));
@@ -78,6 +79,11 @@ export class UI {
       let sub = b.info.cat === 'work' ? (b.activity === '休息一下' ? '小歇一下' : '敲鍵盤中') : b.info.cat === 'rest' ? (ACT[b.activity] || b.activity || '放鬆') : (b.activity || '休息'); sub = sub + ' · ' + m.name; if (b.info.equity != null) sub += ` · ${b.info.equity.toFixed(1)}U ${b.info.pnl >= 0 ? '+' : ''}${b.info.pnl.toFixed(1)}%`;
       row.querySelector('small').textContent = sub; const s = row.querySelector('.stt'); s.textContent = st[0]; s.style.color = st[1]; s.style.borderColor = st[1]; }
   }
+  /** 天氣：桌機 = 頂部 chip；手機 = 左上膠囊的圖示 + 展開後面板的一列。晴 / 多雲不佔位（chip 隱藏、膠囊不加圖示）。 */
+  updWx() {
+    const g = this.game, w = g.wxNow, K = w && (KINDS[w.show] || KINDS[w.kind]); const notable = !!(w && (w.show !== 'clear' && w.show !== 'cloudy' && !(w.i < 0.2 && ['rain', 'storm', 'snow'].includes(w.kind)) || w.cold > 0.5));
+    const txt = w ? `${K.icon} ${K.name} · ${w.temp}°C` : ''; if (g.hud && txt !== this._wxTxt) { this._wxTxt = txt; this.wxChip.textContent = txt; this.wxChip.classList.toggle('hide', !notable); const h = g.hud; if (h && h.pill) { const i = h.pill.querySelector('.wxi'); i.textContent = notable ? K.icon : ''; i.style.display = notable ? '' : 'none'; const r = h.bar.querySelector('.rc.wx'); if (r) { r.style.display = notable ? '' : 'none'; r.querySelector('i').textContent = K.icon; r.querySelector('b').textContent = `${K.name} ${w.temp}°C`; } } }
+  }
   // ---- 每幀：標籤 + 狀態
   update() {
     const g = this.game; const es = g.envState;
@@ -86,7 +92,7 @@ export class UI {
     this._fc = (this._fc || 0) + 1;
     if (this._fc % 20 === 0) {
       const d = g.dataInfo; if (d) { this.dataChip.textContent = d.virtual && !d.offline ? '🧑‍✈️ 虛擬船員 · ' + g.crew.bots.size + ' 位' : d.offline ? '🟠 離線示範資料' : '🟢 即時連線 · ' + g.crew.bots.size + ' 位船員'; this.dataChip.className = 'chip ' + (d.offline ? 'warn' : d.virtual ? 'virt' : 'ok'); }
-      this.fpsChip.textContent = Math.round(g.fps) + ' fps · ' + g.qLevel; this.refreshDeckBtns();
+      this.updWx(); this.fpsChip.textContent = Math.round(g.fps) + ' fps · ' + g.qLevel; this.refreshDeckBtns();
     }
     this.updateLabels();
   }

@@ -3,11 +3,14 @@
 //   · 海鷗：白天偶爾一兩聲（鋸齒波 + 滑音 + 顫音 + 帶通），隨機左右聲道。
 //   · 海豚：躍出水面時的點擊聲（短促帶通雜訊）+ 口哨（正弦上下滑音），依距離衰減。
 //   · 鯨魚：浮上海面時的低頻長鳴（兩個低頻正弦滑音 + 緩慢顫音 + 延遲迴響）。
+//   · 天氣（setWeather，由 game 每幀餵入）：雨聲（白噪音高低通）、風聲（棕噪音帶通 + 緩慢起伏）、極光（四個泛音正弦 + 慢顫音）；天氣結束 20 秒後整組停止並斷開。
+//   · 雷聲（thunder：近處霹靂 + 低頻滾動 + 距離延遲）、企鵝叫聲、北極熊低吼。
 // 瀏覽器自動播放規則：AudioContext 在第一次使用者手勢（pointerdown / keydown / touchend）後才建立；
 // 分頁切到背景時 suspend，回來 resume；音量與開關存在 localStorage 'ark.sound'。
 const KEY = 'ark.sound';
 const LEVELS = [{ ic: '🔊', v: 0.5 }, { ic: '🔉', v: 0.2 }, { ic: '🔇', v: 0 }];
 const rnd = (a, b) => a + Math.random() * (b - a);
+const ZERO = { storm: 0, rain: 0, snow: 0, aurora: 0, cold: 0 };
 
 export class AudioFX {
   constructor() {
@@ -49,8 +52,9 @@ export class AudioFX {
   /** 每幀呼叫：isDay(0..1 的白天程度)、helm 速度；白天才會有海鷗 */
   update(dt, dayF, spd) {
     if (!this.on) return; const c = this.ctx; this.day = dayF; this.nextGull -= dt;
-    if (this.wave) { const tg = 0.5 + Math.min(0.5, Math.abs(spd || 0) * 0.04); if (Math.abs(tg - (this._wg == null ? -1 : this._wg)) > 0.02) { this._wg = tg; this.wave.gain.setTargetAtTime(tg, c.currentTime, 0.5); } } // 只在目標值有明顯變化時才排程
-    if (this.nextGull <= 0) { this.nextGull = rnd(9, 24); if (dayF > 0.5) this.gull(rnd(0.5, 1)); }
+    if (this.wave) { const W = this.wxT || ZERO; const tg = Math.max(0.2, 0.5 + Math.min(0.5, Math.abs(spd || 0) * 0.04) + 0.3 * W.storm - 0.25 * W.snow); if (Math.abs(tg - (this._wg == null ? -1 : this._wg)) > 0.02) { this._wg = tg; this.wave.gain.setTargetAtTime(tg, c.currentTime, 0.5); } } // 只在目標值有明顯變化時才排程
+    if (this.nextGull <= 0) { this.nextGull = rnd(9, 24); if (dayF > 0.5 && !(this.wxT && (this.wxT.storm > 0.25 || this.wxT.rain > 0.3 || this.wxT.snow > 0.3))) this.gull(rnd(0.5, 1)); }
+    this.wxStep(dt);
   }
   out(pan, gain) { const c = this.ctx; const g = c.createGain(); g.gain.value = gain; if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); p.connect(this.master); } else g.connect(this.master); return g; }
   gull(vol = 1) {
@@ -77,6 +81,61 @@ export class AudioFX {
       const v = c.createOscillator(); v.frequency.value = 5; const vg = c.createGain(); vg.gain.value = 3 * m; v.connect(vg); vg.connect(o.frequency); const e = c.createGain(); e.gain.setValueAtTime(0.0001, t0); e.gain.exponentialRampToValueAtTime(a, t0 + 0.9); e.gain.exponentialRampToValueAtTime(0.0001, t0 + len); o.connect(e); e.connect(out); e.connect(dl); o.start(t0); v.start(t0); o.stop(t0 + len + 0.1); v.stop(t0 + len + 0.1); nodes.push(o, v, e); }
     setTimeout(() => { for (const n of nodes) { try { n.disconnect(); } catch (e) { /* 已斷開 */ } } }, (len + 4) * 1000); // 迴響尾音衰減後，明確斷開延遲迴路
   }
-  /** sealife 事件：kind = 'dolphin' | 'whale'；dist = 與鏡頭的距離（公尺） */
-  event(kind, dist) { if (!this.on) return; const now = performance.now(); if (now - (this.lastEv[kind] || 0) < (kind === 'whale' ? 8000 : 1800)) return; this.lastEv[kind] = now; if (kind === 'dolphin') this.dolphin(dist); else if (kind === 'whale') this.whale(dist); }
+  // ------------------------------------------------------------ 天氣
+  /** game 每幀（或每次變化）傳入平滑後的天氣強度：{storm, rain, snow, aurora}（0..1）。只存目標值；音訊節點在 update() 內才建 / 調。 */
+  setWeather(w) { this.wxT = w; }
+  wxStep(dt) {
+    const T = this.wxT || ZERO, c = this.ctx; const need = Math.max(T.rain, T.storm, T.snow, T.aurora);
+    if (need > 0.02) this.wxIdle = 0; else this.wxIdle = (this.wxIdle || 0) + dt;
+    if (!this.wx && need > 0.02) this.buildWx();
+    if (this.wx && this.wxIdle > 20) { this.teardownWx(); return; }
+    if (!this.wx) return; const g = this.wx.tg;
+    const rain = Math.max(T.rain, T.storm * 0.9) * (T.snow > 0.5 ? 0.15 : 1), wind = Math.min(1, 0.12 + T.storm * 0.9 + T.snow * 0.55 + T.rain * 0.3) * (need > 0.02 ? 1 : 0);
+    const set = (k, node, v) => { if (Math.abs(v - (g[k] == null ? -1 : g[k])) > 0.015) { g[k] = v; node.gain.setTargetAtTime(v, c.currentTime, 0.8); } };
+    set('rain', this.wx.rain, rain * 0.5); set('wind', this.wx.wind, wind * 0.55); set('aur', this.wx.aur, T.aurora * 0.07);
+  }
+  buildWx() {
+    const c = this.ctx, nodes = [], srcs = []; const track = (n) => { nodes.push(n); return n; };
+    const loop = (buf, rate) => { const s = c.createBufferSource(); s.buffer = buf; s.loop = true; s.playbackRate.value = rate; srcs.push(s); return s; };
+    const mkG = () => { const gn = track(c.createGain()); gn.gain.value = 0; gn.connect(this.master); return gn; };
+    const white = this.noiseBuf(3, false), brown = this._wxBrown || (this._wxBrown = this.noiseBuf(5, true));
+    // 雨：白噪音 → 高通 1.2k → 低通 7k
+    const rain = mkG(), rs = loop(white, rnd(0.95, 1.05)), hp = track(c.createBiquadFilter()); hp.type = 'highpass'; hp.frequency.value = 1200; const lp = track(c.createBiquadFilter()); lp.type = 'lowpass'; lp.frequency.value = 7000; rs.connect(hp); hp.connect(lp); lp.connect(rain); rs.start();
+    // 風：棕噪音 → 帶通（頻率與音量被兩個慢 LFO 推著走）
+    const wind = mkG(), ws = loop(brown, rnd(0.9, 1.1)), bp = track(c.createBiquadFilter()); bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.9; ws.connect(bp); bp.connect(wind); ws.start();
+    const lfo = (target, depth, hz) => { const o = c.createOscillator(); o.frequency.value = hz; const d = track(c.createGain()); d.gain.value = depth; o.connect(d); d.connect(target); o.start(); srcs.push(o); };
+    lfo(bp.frequency, 160, 0.11); lfo(wind.gain, 0.12, 0.17);
+    // 極光：C4 G4 C5 G5 泛音，各自微失諧 + 慢顫音
+    const aur = mkG(); [[261.63, 1], [392.0, 0.6], [523.25, 0.45], [784.0, 0.25]].forEach(([f, a], i) => { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f * (1 + (i % 2 ? 0.003 : -0.002)); const e = track(c.createGain()); e.gain.value = a * 0.25; const t = c.createOscillator(); t.frequency.value = 0.07 + i * 0.05; const td = track(c.createGain()); td.gain.value = a * 0.2; t.connect(td); td.connect(e.gain); o.connect(e); e.connect(aur); o.start(); t.start(); srcs.push(o, t); });
+    this.wx = { nodes, srcs, rain, wind, aur, tg: {} };
+  }
+  teardownWx() { const w = this.wx; this.wx = null; if (!w) return; for (const s of w.srcs) { try { s.stop(); } catch (e) { /* 已停 */ } } for (const n of w.nodes) { try { n.disconnect(); } catch (e) { /* 已斷開 */ } } }
+  /** 雷聲：dist（公尺）。近處先有霹靂（高頻噪音爆裂），再接低頻滾動；遠處只剩悶雷，並依距離延遲（上限 2.5 秒）。 */
+  thunder(dist = 300) {
+    const c = this.ctx, g = Math.max(0.12, 1 - dist / 1200), delay = Math.min(2.5, dist / 340), t0 = c.currentTime + 0.02 + delay, out = this.out(rnd(-0.6, 0.6), 0.55 * g), nodes = [out];
+    const track = (n) => { nodes.push(n); return n; };
+    if (dist < 400) { const s = c.createBufferSource(); s.buffer = this._clickBuf || (this._clickBuf = this.noiseBuf(0.05, false)); s.loop = true; const hp = track(c.createBiquadFilter()); hp.type = 'highpass'; hp.frequency.value = 1800; const e = track(c.createGain()); e.gain.setValueAtTime(1.0, t0); e.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.35); s.connect(hp); hp.connect(e); e.connect(out); s.start(t0); s.stop(t0 + 0.4); }
+    const rb = this._thBuf || (this._thBuf = this.noiseBuf(4.5, true)), s2 = c.createBufferSource(); s2.buffer = rb; const lp = track(c.createBiquadFilter()); lp.type = 'lowpass'; lp.frequency.setValueAtTime(260, t0); lp.frequency.exponentialRampToValueAtTime(90, t0 + 3.6); const e2 = track(c.createGain());
+    const len = 3 + (dist < 400 ? 0.8 : 0); e2.gain.setValueAtTime(0.0001, t0 + 0.02); e2.gain.exponentialRampToValueAtTime(1.4, t0 + (dist < 400 ? 0.12 : 0.5)); e2.gain.exponentialRampToValueAtTime(0.5, t0 + 0.9); e2.gain.exponentialRampToValueAtTime(0.9, t0 + 1.3); e2.gain.exponentialRampToValueAtTime(0.0001, t0 + len);
+    s2.connect(lp); lp.connect(e2); e2.connect(out); s2.start(t0); s2.stop(t0 + len + 0.1);
+    setTimeout(() => { for (const n of nodes) { try { n.disconnect(); } catch (e) { /* 已斷開 */ } } }, (len + delay + 1) * 1000);
+  }
+  /** 撞冰：低頻悶響 + 一小段碎冰噪音 */
+  crash(dist = 10) {
+    const c = this.ctx, t0 = c.currentTime + 0.01, out = this.out(0, 0.55), o = c.createOscillator(); o.type = 'sine'; o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(38, t0 + 0.5);
+    const e = c.createGain(); e.gain.setValueAtTime(1, t0); e.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.55); o.connect(e); e.connect(out); o.start(t0); o.stop(t0 + 0.6);
+    const s = c.createBufferSource(); s.buffer = this._clickBuf || (this._clickBuf = this.noiseBuf(0.05, false)); s.loop = true; const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.8; const e2 = c.createGain(); e2.gain.setValueAtTime(0.7, t0); e2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.25); s.connect(bp); bp.connect(e2); e2.connect(out); s.start(t0); s.stop(t0 + 0.3);
+  }
+  penguin(dist = 30) {
+    const c = this.ctx, g = Math.max(0, 1 - dist / 90); if (g < 0.05) return; const out = this.out(rnd(-0.6, 0.6), 0.2 * g), n = 2 + Math.floor(Math.random() * 3); let t = c.currentTime + 0.02;
+    for (let i = 0; i < n; i++) { const len = rnd(0.12, 0.2), o = c.createOscillator(); o.type = 'sawtooth'; const f = rnd(620, 900); o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.5, t + len * 0.5); o.frequency.exponentialRampToValueAtTime(f * 0.9, t + len);
+      const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1500; bp.Q.value = 2; const e = c.createGain(); e.gain.setValueAtTime(0.0001, t); e.gain.exponentialRampToValueAtTime(1, t + 0.02); e.gain.exponentialRampToValueAtTime(0.0001, t + len); o.connect(bp); bp.connect(e); e.connect(out); o.start(t); o.stop(t + len + 0.03); t += len + rnd(0.04, 0.1); }
+  }
+  bear(dist = 40) {
+    const c = this.ctx, g = Math.max(0, 1 - dist / 160); if (g < 0.05) return; const t0 = c.currentTime + 0.03, len = 1.5, out = this.out(rnd(-0.5, 0.5), 0.4 * g), o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(95, t0); o.frequency.exponentialRampToValueAtTime(55, t0 + len);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 340; lp.Q.value = 3; const am = c.createGain(); am.gain.value = 0.6; const lf = c.createOscillator(); lf.frequency.value = 17; const ld = c.createGain(); ld.gain.value = 0.4; lf.connect(ld); ld.connect(am.gain);
+    const e = c.createGain(); e.gain.setValueAtTime(0.0001, t0); e.gain.exponentialRampToValueAtTime(1, t0 + 0.25); e.gain.exponentialRampToValueAtTime(0.0001, t0 + len); o.connect(lp); lp.connect(am); am.connect(e); e.connect(out); o.start(t0); lf.start(t0); o.stop(t0 + len + 0.05); lf.stop(t0 + len + 0.05);
+  }
+  /** 事件：kind = 'dolphin' | 'whale' | 'thunder' | 'penguin' | 'bear'；dist = 與鏡頭的距離（公尺） */
+  event(kind, dist) { if (!this.on) return; const now = performance.now(); if (now - (this.lastEv[kind] || 0) < (kind === 'whale' ? 8000 : kind === 'thunder' ? 900 : kind === 'crash' ? 1500 : kind === 'bear' ? 9000 : kind === 'penguin' ? 3500 : 1800)) return; this.lastEv[kind] = now; if (kind === 'dolphin') this.dolphin(dist); else if (kind === 'whale') this.whale(dist); else if (kind === 'thunder') this.thunder(dist); else if (kind === 'crash') this.crash(dist); else if (kind === 'penguin') this.penguin(dist); else if (kind === 'bear') this.bear(dist); }
 }
