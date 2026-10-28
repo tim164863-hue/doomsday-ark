@@ -55,3 +55,12 @@ raids/{id}                    {attacker,defender,power,loot,t}   攻守雙方可
 - `fleet.home`（選填，船 id）= 旗艦；沒有就用 `fleet.pick` 那艘，再不然第一艘可當家的船（`homeShip`）。`sanitizeFleet` 只保留有效的整數 id；潛艇不能當旗艦；出海中 / 建造中不能換。
 - 沒有選船（`home=null`）→ `Game` 不建立任何船體，只有海面。擁有者路徑不變。
 - 場景裡只有一層甲板（所有 `D.*` 層索引映射到 0）；船員人數 = `min(虛擬船員, spec.cap)`。旗艦出海任務時整艘船（含船員）一起航行，鏡頭跟隨。
+- 精簡桌：`placeDesks` 先試標準桌（`FP.desk`），放不下才用 `FP.deskC`（`opts.compact`），保證桌數 = `spec.desks`。
+- 小船人物標籤：`ui.js` 對 `game.small` 使用較近的 far / mid 門檻（28 / 20 m，大船 70 / 36 m）。
+
+## 7. 遊玩與船員互動
+- 小遊戲：`MiniGame`（`src/ui/minigame.js`）+ `Games`（`src/play/games.js`）；邀請由 `decide()`（`R.inviteChance` + 同分鐘固定的 `inviteRoll`）決定。
+- 關係：`sim/rel.js` 的 `s.rel = { aff, feud, cool, party, cel, best }`，皆為選填、`sanitize` 後才存；離線模擬為決定性，不使用 `Math.random`。演出層 `crew/social.js` 只把已發生的事演出來，並把船員之間的小互動 `R.bump` 回交情。
+- 驗證：`tools/rel-test.mjs`、`tools/rellines-test.mjs`、`tools/walk.cjs`。
+- Firestore 規則（僅文字，尚未部署）：`rel` 為 `users/{uid}/ark` 文件內的 map，欄位大小限制同存檔；不新增集合。
+- PvP 作弊風險：目前所有計時小遊戲成績只存在本機 / 自己的存檔，沒有排行榜；若日後加入排行榜或 PvP，成績必須由伺服器重算或只當展示，不可作為資源來源。
