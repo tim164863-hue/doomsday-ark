@@ -87,7 +87,7 @@ export class HUD {
       el.querySelector('b').textContent = v; const sm = el.querySelector('small'); sm.textContent = (net >= 0 ? '+' : '') + net.toFixed(1); sm.className = net >= 0 ? 'up' : 'dn';
       el.classList.toggle('low', s.res[k] < RES[k].cap * 0.08 && (k !== 'parts')); el.title = `${RES[k].name} ${v}/${RES[k].cap}　每分鐘：生產 +${r[k].toFixed(2)}　消耗 −${(r.cons[k] || 0).toFixed(2)}`;
     }
-    { const pv = this.pill.querySelector('.pv'); pv.innerHTML = ['food', 'water', 'fuel'].map((k) => `<span class="${s.res[k] < RES[k].cap * 0.08 ? 'low' : ''}">${RES[k].icon}${Math.floor(s.res[k])}</span>`).join(''); }
+    { const cn = (v) => { v = Math.floor(v); return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : String(v); }; const pv = this.pill.querySelector('.pv'); pv.innerHTML = ['food', 'water', 'fuel'].map((k) => `<span class="${s.res[k] < RES[k].cap * 0.08 ? 'low' : ''}">${RES[k].icon}${cn(s.res[k])}</span>`).join(''); }
     const ce = this.bar.querySelector('.rc.cond'); ce.querySelector('b').textContent = Math.round(s.cond) + '%'; const u = ce.querySelector('u'); u.style.width = s.cond + '%'; u.style.background = s.cond < 30 ? '#ff6b5e' : s.cond < 60 ? '#ffc65e' : '#6fd78f'; ce.classList.toggle('low', s.cond < 30);
     const done = s.daily.tasks.filter((t) => t.progress >= t.target && !t.claimed).length; const bt = this.bar.querySelector('#btnTasks .bdg'); bt.textContent = done; bt.classList.toggle('hide', !done);
     const nTr = s.trips.length; const bb = this.bar.querySelector('#btnTrips .bdg'); bb.textContent = nTr; bb.classList.toggle('hide', !nTr);

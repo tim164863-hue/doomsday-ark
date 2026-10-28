@@ -22,14 +22,18 @@ export class AudioFX {
   bind(btn) { this.btns.push(btn); btn.onclick = () => this.cycle(); this.syncBtn(); }
   syncBtn() { for (const b of this.btns) { b.textContent = this.level.ic; b.title = '音效：' + ['開（點一下調小）', '小聲（點一下靜音）', '靜音（點一下開啟）'][this.lv]; } }
   cycle() { this.lv = (this.lv + 1) % LEVELS.length; try { localStorage.setItem(KEY, JSON.stringify({ lv: this.lv })); } catch (e) { /* 無痕模式 */ } this.unlock(); this.apply(); this.syncBtn(); }
-  apply() { if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.level.v, this.ctx.currentTime, 0.15); }
+  apply() {
+    if (!this.master || !this.ctx) return; const c = this.ctx; clearTimeout(this._susT);
+    if (this.level.v > 0) { if (c.state === 'suspended' && !document.hidden) c.resume().catch(() => {}); this.master.gain.setTargetAtTime(this.level.v, c.currentTime, 0.15); }
+    else { this.master.gain.setTargetAtTime(0, c.currentTime, 0.08); this._susT = setTimeout(() => { if (this.level.v === 0 && this.ctx) this.ctx.suspend().catch(() => {}); }, 500); } // 靜音：淡出後直接 suspend，不再空算
+  }
   unlock() {
     try {
       if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.gain.value = 0; this.master.connect(this.ctx.destination); this.buildWaves(); this.apply(); }
-      if (this.ctx.state === 'suspended' && !document.hidden) this.ctx.resume().catch(() => {});
+      if (this.ctx.state === 'suspended' && !document.hidden && this.level.v > 0) this.ctx.resume().catch(() => {});
     } catch (e) { /* 沒有音訊裝置就靜默 */ }
   }
-  vis() { if (!this.ctx) return; if (document.hidden) this.ctx.suspend().catch(() => {}); else this.ctx.resume().catch(() => {}); }
+  vis() { if (!this.ctx) return; if (document.hidden) this.ctx.suspend().catch(() => {}); else if (this.level.v > 0) this.ctx.resume().catch(() => {}); }
   get on() { return !!this.ctx && this.ctx.state === 'running' && this.level.v > 0; }
   noiseBuf(sec, brown) { const c = this.ctx, n = Math.floor(c.sampleRate * sec), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0); let l = 0; for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1; if (brown) { l = (l + 0.02 * w) / 1.02; d[i] = l * 3.5; } else d[i] = w; } const f = Math.min(2000, n >> 1); for (let i = 0; i < f; i++) { const k = i / f; d[n - f + i] = d[n - f + i] * (1 - k) + d[i] * k; } return b; } // 尾端與開頭交叉淡化，循環無爆音
   buildWaves() {
@@ -45,10 +49,10 @@ export class AudioFX {
   /** 每幀呼叫：isDay(0..1 的白天程度)、helm 速度；白天才會有海鷗 */
   update(dt, dayF, spd) {
     if (!this.on) return; const c = this.ctx; this.day = dayF; this.nextGull -= dt;
-    if (this.wave) this.wave.gain.setTargetAtTime(0.5 + Math.min(0.5, Math.abs(spd || 0) * 0.04), c.currentTime, 0.5);
+    if (this.wave) { const tg = 0.5 + Math.min(0.5, Math.abs(spd || 0) * 0.04); if (Math.abs(tg - (this._wg == null ? -1 : this._wg)) > 0.02) { this._wg = tg; this.wave.gain.setTargetAtTime(tg, c.currentTime, 0.5); } } // 只在目標值有明顯變化時才排程
     if (this.nextGull <= 0) { this.nextGull = rnd(9, 24); if (dayF > 0.5) this.gull(rnd(0.5, 1)); }
   }
-  out(pan, gain) { const c = this.ctx; const g = c.createGain(); g.gain.value = gain; let n = g; if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); p.connect(this.master); } else g.connect(this.master); return g; }
+  out(pan, gain) { const c = this.ctx; const g = c.createGain(); g.gain.value = gain; if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); p.connect(this.master); } else g.connect(this.master); return g; }
   gull(vol = 1) {
     const c = this.ctx, t0 = c.currentTime + 0.02, pan = rnd(-0.8, 0.8), out = this.out(pan, 0.22 * vol), calls = 1 + Math.floor(Math.random() * 3);
     let t = t0; for (let i = 0; i < calls; i++) {
@@ -68,9 +72,10 @@ export class AudioFX {
   }
   whale(dist = 60) {
     const c = this.ctx, g = Math.max(0, 1 - dist / 220); if (g < 0.05) return; const t0 = c.currentTime + 0.05, len = 4.2, out = this.out(rnd(-0.5, 0.5), 0.5 * g);
-    const dl = c.createDelay(1); dl.delayTime.value = 0.35; const fb = c.createGain(); fb.gain.value = 0.35; dl.connect(fb); fb.connect(dl); const wet = c.createGain(); wet.gain.value = 0.4; dl.connect(wet); wet.connect(out);
+    const nodes = [out]; const dl = c.createDelay(1); dl.delayTime.value = 0.35; const fb = c.createGain(); fb.gain.value = 0.35; dl.connect(fb); fb.connect(dl); const wet = c.createGain(); wet.gain.value = 0.4; dl.connect(wet); wet.connect(out); nodes.push(dl, fb, wet);
     for (const [m, a] of [[1, 1], [2.01, 0.35]]) { const o = c.createOscillator(); o.type = 'sine'; const f = rnd(70, 95) * m; o.frequency.setValueAtTime(f, t0); o.frequency.exponentialRampToValueAtTime(f * 2.3, t0 + len * 0.4); o.frequency.exponentialRampToValueAtTime(f * 1.5, t0 + len);
-      const v = c.createOscillator(); v.frequency.value = 5; const vg = c.createGain(); vg.gain.value = 3 * m; v.connect(vg); vg.connect(o.frequency); const e = c.createGain(); e.gain.setValueAtTime(0.0001, t0); e.gain.exponentialRampToValueAtTime(a, t0 + 0.9); e.gain.exponentialRampToValueAtTime(0.0001, t0 + len); o.connect(e); e.connect(out); e.connect(dl); o.start(t0); v.start(t0); o.stop(t0 + len + 0.1); v.stop(t0 + len + 0.1); }
+      const v = c.createOscillator(); v.frequency.value = 5; const vg = c.createGain(); vg.gain.value = 3 * m; v.connect(vg); vg.connect(o.frequency); const e = c.createGain(); e.gain.setValueAtTime(0.0001, t0); e.gain.exponentialRampToValueAtTime(a, t0 + 0.9); e.gain.exponentialRampToValueAtTime(0.0001, t0 + len); o.connect(e); e.connect(out); e.connect(dl); o.start(t0); v.start(t0); o.stop(t0 + len + 0.1); v.stop(t0 + len + 0.1); nodes.push(o, v, e); }
+    setTimeout(() => { for (const n of nodes) { try { n.disconnect(); } catch (e) { /* 已斷開 */ } } }, (len + 4) * 1000); // 迴響尾音衰減後，明確斷開延遲迴路
   }
   /** sealife 事件：kind = 'dolphin' | 'whale'；dist = 與鏡頭的距離（公尺） */
   event(kind, dist) { if (!this.on) return; const now = performance.now(); if (now - (this.lastEv[kind] || 0) < (kind === 'whale' ? 8000 : 1800)) return; this.lastEv[kind] = now; if (kind === 'dolphin') this.dolphin(dist); else if (kind === 'whale') this.whale(dist); }
