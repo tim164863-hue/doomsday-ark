@@ -64,3 +64,11 @@ raids/{id}                    {attacker,defender,power,loot,t}   攻守雙方可
 - 驗證：`tools/rel-test.mjs`、`tools/rellines-test.mjs`、`tools/walk.cjs`。
 - Firestore 規則（僅文字，尚未部署）：`rel` 為 `users/{uid}/ark` 文件內的 map，欄位大小限制同存檔；不新增集合。
 - PvP 作弊風險：目前所有計時小遊戲成績只存在本機 / 自己的存檔，沒有排行榜；若日後加入排行榜或 PvP，成績必須由伺服器重算或只當展示，不可作為資源來源。
+
+## 8. 駕駛母船與樓層檢視
+- `src/play/helm.js`（`Helm`）+ `src/play/helmphys.js`（純函式：`helmStep` 物理、`toWorld`/`toLocal`、`HELM_K`）。測試：`node tools/helm-test.mjs`。
+- 母船姿態 = `H = {x, z, yaw}`（樞軸＝船中心；擁有者方舟樞軸在 `SHIP_CX`，小船在 0）。根節點位置 `H − Ry(yaw)·pivot`；`Ship.yawOff / lean`（`rotation.order = 'YXZ'`）與 `SmallShip.lean` 負責航向與傾斜，波浪搖晃不受影響。
+- 艦隊其他船（`fleetPose`）、探索小艇（`boatPose`）、領航小船的邊界／返港、展示台都經 `helm.world()` 放進母船座標系，所以母船被開走後它們仍在身邊。
+- 海面：頂點著色器用 `uOrg` 把波浪相位換成世界座標，網格跟著鏡頭走（不再被 5200 單位的海面邊界限制）；`uArk` 讓方舟船殼的泡沫環跟著船。
+- 地圖耦合：位移向量 × `HELM_K` 推 `fleet.world.pos`（1 Hz 批次，`syncWorld`），`insideWorld` 擋住世界邊界；不改 `worldTick`、不影響離線模擬。本地偏移不存檔（重開機後船回到出發點，位置以海圖為準）。
+- 樓層檢視：`Game.updateDecks()` 單層模式也顯示「被選的層 + 以下所有層」，船殼剖面帶 `k < 被選層`。
