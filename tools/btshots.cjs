@@ -4,7 +4,7 @@ const puppeteer = require(process.env.PUPPETEER || '/tmp/shot/node_modules/puppe
 const w = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   const [base, dev = 'desktop', no = '175', fight = '12'] = process.argv.slice(2); let n = +no;
-  const [W, H] = dev === 'mobile' ? [390, 844] : [1280, 760]; const touch = dev === 'mobile';
+  const [W, H] = process.env.VW ? [+process.env.VW, +process.env.VH] : dev === 'mobile' ? [390, 844] : [1280, 760]; const touch = dev === 'mobile';
   const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const pg = await b.newPage(); await pg.setViewport({ width: W, height: H, deviceScaleFactor: 1, hasTouch: touch, isMobile: touch });
   const errs = []; pg.on('pageerror', (e) => errs.push('pageerror: ' + e.message)); pg.on('console', (m) => { if (['error', 'warning'].includes(m.type())) errs.push(m.type() + ': ' + m.text()); });

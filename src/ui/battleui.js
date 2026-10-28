@@ -53,7 +53,7 @@ export class BattleUI {
     const s = this.s, c = s && BT.curOf(s), now = nowSec(); const show = !!c && now < c.end && !this.isOpen();
     this.pill.classList.toggle('hide', !show); if (!show) return;
     const B = BT.FOES[c.k], own = F.combatOf(s), pv = BT.battlePreview(s, own), left = c.end - now;
-    const t = `⚔️ ${B.icon} ${esc(c.nm || B.name)} Lv${c.lv} 來襲　⏱ ${mmss(left)}<small>船員打算${pv.fight ? '開砲迎戰' : '全速逃跑（接管＝硬拚，勝率約 ' + Math.round(pv.win * 100) + '%）'}${c.eng ? '・已接管' : ''}</small>`; const el = this.pill.querySelector('.bpt'); if (el.innerHTML !== t) el.innerHTML = t;
+    const t = `⚔️ ${B.icon} ${esc(c.nm || B.name)} Lv${c.lv} 來襲　<span class="tm">⏱ ${mmss(left)}</span><small>船員打算${pv.fight ? '開砲迎戰' : '全速逃跑（接管＝硬拚，勝率約 ' + Math.round(pv.win * 100) + '%）'}${c.eng ? '・已接管' : ''}</small>`; const el = this.pill.querySelector('.bpt'); if (el.innerHTML !== t) el.innerHTML = t;
   }
   // ---------------------------------------------------------------- 玩家動作
   open() {
