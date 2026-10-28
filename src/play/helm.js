@@ -62,7 +62,7 @@ export class Helm {
     const c = g.controls; this.prevMode = c.mode; c.setMode('follow'); this.camSave = { dist: c.dist, pitch: c.pitch, yaw: c.yaw };
     const cf = this.cfg; c.dist = cf.cam; c.pitch = cf.pitch; c.yaw = this.yaw - Math.PI / 2; this.userT = -99; this.updateCam(true);
     document.body.classList.add('helming'); p.hud.showHelmBar(true); g.updateDecks(); g.ui && g.ui.refreshDeckBtns && g.ui.refreshDeckBtns();
-    ui && ui.toast((g.small ? '⛵ 駕駛小船' : '🚢 駕駛母船') + note + (document.body.classList.contains('touch') ? '　左下搖桿轉向 · 按鈕控制油門與停車' : '　W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車 · G 退出'));
+    ui && ui.toast((g.small ? '⛵ 駕駛小船' : '🚢 駕駛母船') + note + (document.body.classList.contains('touch') ? '　搖桿轉向 · 按鈕控油門/停車' : '　W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車 · G 退出'));
   }
   stop() {
     if (!this.on) return; this.on = false; this.thr = 0; const g = this.g, c = g.controls;
