@@ -2,7 +2,7 @@ import { emit } from './events.js';
 import { hash, mulberry32 } from './sim/rng.js';
 
 /** 唯讀資料來源：只 GET 公開的 sessions.json（辦公室既有輸出，已淨化），不會對 bot 送出任何東西。 */
-export const DATA_URL = 'https://tim164863-hue.github.io/grokbot-office/sessions.json';
+export const DATA_URL = 'https://tt0xcatyi.github.io/grokbot-office/sessions.json';
 const WORKING = new Set(['thinking', 'tool', 'typing', 'waiting', 'error']);
 
 /** 把原始 sessions.json 轉成遊戲用的精簡資料（只留名稱 / 狀態 / 類型 / 權益數字）。 */
