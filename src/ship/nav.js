@@ -31,26 +31,29 @@ export class NavGrid {
     if (dz !== 0 && this.walkable(x, z + dz, r)) return [x, z + dz];
     return [x, z];
   }
-  los(x0, z0, x1, z1) {
+  los(x0, z0, x1, z1, r = 0.22) {
     const d = Math.hypot(x1 - x0, z1 - z0); const n = Math.max(1, Math.ceil(d / 0.2));
-    for (let i = 0; i <= n; i++) { const t = i / n; if (!this.walkable(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, 0.22)) return false; }
+    for (let i = 0; i <= n; i++) { const t = i / n; if (!this.walkable(x0 + (x1 - x0) * t, z0 + (z1 - z0) * t, r)) return false; }
     return true;
   }
-  nearestFree(x, z, maxR = 8) {
+  nearestFree(x, z, maxR = 8, rad = 0) {
+    const ok = rad ? (a, b) => this.walkable(this.cx(a), this.cz(b), rad) : (a, b) => this.free(a, b);
     const ix = this.ix(x), iz = this.iz(z);
-    if (this.free(ix, iz)) return [this.cx(ix), this.cz(iz)];
+    if (ok(ix, iz)) return [this.cx(ix), this.cz(iz)];
     for (let r = 1; r < maxR / CS; r++) {
       let best = null, bd = 1e9;
       for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
         if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
-        if (this.free(ix + dx, iz + dz)) { const d = dx * dx + dz * dz; if (d < bd) { bd = d; best = [ix + dx, iz + dz]; } }
+        if (ok(ix + dx, iz + dz)) { const d = dx * dx + dz * dz; if (d < bd) { bd = d; best = [ix + dx, iz + dz]; } }
       }
       if (best) return [this.cx(best[0]), this.cz(best[1])];
     }
     return null;
   }
-  findPath(x0, z0, x1, z1) {
-    const s = this.nearestFree(x0, z0), g = this.nearestFree(x1, z1);
+  /** 先要求「人體半徑也走得過」的路（避開 0.5 m 寬的假通道）；找不到才退回只看格子 */
+  findPath(x0, z0, x1, z1) { return this.findPath2(x0, z0, x1, z1, true) || this.findPath2(x0, z0, x1, z1, false); }
+  findPath2(x0, z0, x1, z1, strict) {
+    const s = this.nearestFree(x0, z0), g = (strict && this.nearestFree(x1, z1, 3, 0.26)) || this.nearestFree(x1, z1);
     if (!s || !g) return null;
     const sx = this.ix(s[0]), sz = this.iz(s[1]), gx = this.ix(g[0]), gz = this.iz(g[1]);
     const start = sz * GW + sx, goal = gz * GW + gx;
@@ -65,6 +68,7 @@ export class NavGrid {
       const cx = c % GW, cz = (c / GW) | 0;
       for (const [dx, dz, w] of N8) {
         const nx = cx + dx, nz = cz + dz; if (!this.free(nx, nz)) continue;
+        if (strict && (nz * GW + nx) !== goal && !this.walkable(this.cx(nx), this.cz(nz), 0.26)) continue;
         if (dx && dz && (!this.free(cx + dx, cz) || !this.free(cx, cz + dz))) continue;
         const n = nz * GW + nx; const ng = gS[c] + w; if (ng >= gS[n]) continue;
         gS[n] = ng; from[n] = c; h.push(n, ng + Math.hypot(gx - nx, gz - nz));
@@ -77,7 +81,7 @@ export class NavGrid {
     const out = []; let i = 0; let cur = [x0, z0];
     while (i < pts.length) {
       let j = pts.length - 1;
-      while (j > i && !this.los(cur[0], cur[1], pts[j][0], pts[j][1])) j--;
+      while (j > i && !this.los(cur[0], cur[1], pts[j][0], pts[j][1], strict ? 0.27 : 0.22)) j--;
       out.push(pts[j]); cur = pts[j]; i = j + 1;
     }
     return out;
