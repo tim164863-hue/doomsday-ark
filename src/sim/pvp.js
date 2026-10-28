@@ -31,6 +31,7 @@ export const PV = Object.freeze({
   capBase: 30, capPerFp: 3,   // lootCap(fp)：每種資源單次掠奪的絕對上限
   minClaim: 5,          // 全部資源加起來不到這個數就不值得出手
   atkTtl: 150,          // 一場攻擊從開始到交戰報告的最長秒數（砲戰場 75 秒 + 緩衝）
+  futureSlack: 300,     // 收件匣：t 比現在晚超過 300 秒的文件一律丟掉（pvIngest）
   atkCool: 900,         // 攻擊方：打完一場（贏 / 輸）後 15 分鐘內不能再出手
   pubGap: 300,          // presence 最短寫入間隔（上線中）
   scanGap: 45,          // 掃描間隔（本機節流，每次掃描 ≤ 24 次讀取）
@@ -87,9 +88,9 @@ export const ensurePv = (s) => { const w = s.fleet && s.fleet.world; if (!w) ret
 export function pubOf(s, uid, now, own, isOwnerUid) {
   const w = s.fleet && s.fleet.world; if (!uid || isOwnerUid || !w || !w.pos) return null; const pv = pvOf(s);
   const p = arkPos(w, now), r = w.route && now < w.route.t1 ? { x0: Math.round(w.route.x0), y0: Math.round(w.route.y0), x1: Math.round(w.route.x1), y1: Math.round(w.route.y1), t0: Math.floor(w.route.t0), t1: Math.ceil(w.route.t1) } : null;
-  const res = {}; for (const k of PV.lootKeys) res[k] = Math.max(0, Math.floor(s.res[k] || 0));
-  const fp = Math.round(own.fp * 10) / 10;
-  const o = { v: 1, h: handleOf(uid), x: Math.round(p.x), y: Math.round(p.y), fp, hl: Math.round(own.hull), cd: Math.round(clamp(s.cond, 0, 100)), res, cap: lootCap(fp), sh: Math.floor(pv ? pv.sh : 0), ls: Math.floor(now), t: Math.floor(now), cells: r ? blocksOfRoute(r.x0, r.y0, r.x1, r.y1) : [blockOf(p.x, p.y)] };
+  const res = {}; for (const k of PV.lootKeys) res[k] = clamp(Math.floor(s.res[k] || 0), 0, 2000);
+  const fp = clamp(Math.round(own.fp * 10) / 10, 0, 200);
+  const o = { v: 1, h: handleOf(uid), x: Math.round(p.x), y: Math.round(p.y), fp, hl: clamp(Math.round(own.hull), 0, 5000), cd: Math.round(clamp(s.cond, 0, 100)), res, cap: lootCap(fp), sh: clamp(Math.floor(pv ? pv.sh : 0), 0, Math.floor(now) + PV.shield), ls: Math.floor(now), t: Math.floor(now), cells: r ? blocksOfRoute(r.x0, r.y0, r.x1, r.y1) : [blockOf(p.x, p.y)] };
   if (r) o.rt = r; return o;
 }
 /** presence 文件的形狀檢查（Firestore 規則的 JS 鏡像；見 DESIGN-fleet.md 的規則草案） */
@@ -147,13 +148,14 @@ export function raidSubmit(s, now, rep, own, selfUid) {
   if (!rep || rep.id !== a.id) return { ok: false, msg: '這份戰報不屬於目前這場突襲，已忽略' };
   if (now > a.t0 + PV.atkTtl) { pv.att = null; return { ok: false, msg: '突襲時間已過' }; }
   pv.att = null; pv.cd = Math.floor(now + PV.atkCool); pv.st.atk++;
+  const tSub = Math.floor(now), bSub = bucketOf(tSub);      // 6 小時桶以「送出當下」為準（不是開打當下）：跨桶時文件的 b 與 t 才會一致，規則（b == floor(t/21600)）才不會事後擋掉
   const w = arenaWin(rep, attFoe(a), own);
   if (!w) { const h = hullDmg(s, num(rep && rep.loss) ? clamp(rep.loss, 0, 100) : 0); return { ok: true, win: false, hull: +h.toFixed(1), msg: `⚓ 突襲 ${a.h} 失敗，沒有搶到東西${h > 0 ? `，船體 −${h.toFixed(0)}%` : ''}` }; }
   const hull = hullDmg(s, w.loss), got = {};
   for (const k of PV.lootKeys) { const c = a.claim[k] | 0; if (c < 1) continue; const b = s.res[k]; s.res[k] = Math.min(resCap(s, k), b + c); const g = Math.round(s.res[k] - b); if (g > 0) got[k] = g; }
-  pv.pb[a.tgt] = a.b; const ks = Object.keys(pv.pb); if (ks.length > PV.pbMax) for (const k of ks.slice(0, ks.length - PV.pbMax)) delete pv.pb[k];
+  pv.pb[a.tgt] = bSub; const ks = Object.keys(pv.pb); if (ks.length > PV.pbMax) for (const k of ks.slice(0, ks.length - PV.pbMax)) delete pv.pb[k];
   pv.st.won++; pv.st.loot += sum(got);
-  const doc = sanRaidDoc({ attacker: selfUid, defender: a.tgt, b: a.b, t: Math.floor(now), ah: handleOf(selfUid), loot: a.claim, ap: arkPos(s.fleet.world, now) });
+  const doc = sanRaidDoc({ attacker: selfUid, defender: a.tgt, b: bSub, t: tSub, ah: handleOf(selfUid), loot: a.claim, ap: arkPos(s.fleet.world, now) });
   if (doc) { pv.out.push(doc); if (pv.out.length > PV.outMax) pv.out.shift(); }
   const txt = Object.keys(got).map((k) => `${RES[k].icon}+${got[k]}`).join(' ');
   return { ok: true, win: true, doc, got, hull: +hull.toFixed(1), msg: `🏴‍☠️ 突襲 ${a.h} 成功！搶到 ${txt || '（你的倉庫滿了）'}${hull > 0 ? `，船體 −${hull.toFixed(0)}%` : ''}` };
@@ -166,10 +168,11 @@ export function attExpire(s, now) { const pv = pvOf(s); if (pv && pv.att && now 
 
 // ---------------------------------------------------------------- 防守方（決定性）
 /** 把雲端抓回來的 raid 文件抄進收件匣（去重、驗證、上限）。回傳新加入的數量。要在 simulateTo 之前呼叫。 */
-export function pvIngest(s, docs, selfUid, isOwnerUid) {
-  if (isOwnerUid || !selfUid) return 0; const pv = ensurePv(s); if (!pv || !Array.isArray(docs)) return 0; let n = 0;
+export function pvIngest(s, docs, selfUid, isOwnerUid, now) {
+  if (isOwnerUid || !selfUid || !num(now)) return 0; const pv = ensurePv(s); if (!pv || !Array.isArray(docs)) return 0; let n = 0;
   for (const raw of docs.slice(0, 80)) {
-    const d = sanRaidDoc(raw); if (!d || d.defender !== selfUid) continue; const id = raidDocId(d);
+    const d = sanRaidDoc(raw); if (!d || d.defender !== selfUid) continue; if (d.t > now + PV.futureSlack) continue;   // 未來時間的文件一律丟掉（否則 24 份「未來」文件能永遠塞滿收件匣）
+    const id = raidDocId(d);
     if (!ID.test(id) || pv.seen.includes(id) || pv.in.some((r) => r.id === id)) continue;
     if (pv.in.length >= PV.inMax) break;
     const cap = lootCap(1e9) , claim = {}; for (const k of PV.lootKeys) if (d.loot[k] >= 1) claim[k] = Math.min(d.loot[k], cap);

@@ -14,23 +14,50 @@ const PUB_KEYS = ['v', 'h', 'x', 'y', 'fp', 'hl', 'cd', 'res', 'cap', 'sh', 'ls'
 const RAID_KEYS = ['v', 'attacker', 'defender', 'b', 't', 'ah', 'loot', 'ap'];
 const only = (o, ks) => Object.keys(o).every((k) => ks.includes(k));
 const intNN = (x) => Number.isInteger(x) && x >= 0;
-/** 與 DESIGN-fleet.md 的 Firestore 規則一一對應（記憶體後端用它來模擬「規則擋下來」，測試靠它） */
-export function ruleCheckPresence({ auth, uid, doc, nowSec, isOwnerUid }) {
-  if (!auth || auth !== uid) return 'not-owner-of-doc'; if (isOwnerUid) return 'owner-no-presence';
-  if (!doc || typeof doc !== 'object' || !only(doc, PUB_KEYS)) return 'bad-keys'; if (!sanPub(doc)) return 'bad-shape';
-  if (Math.abs(doc.t - nowSec) > 120) return 'bad-time'; if (!(doc.ls <= doc.t + 5)) return 'bad-ls'; if (doc.cap > 1000 || doc.fp > 200) return 'bad-range';
-  for (const k of PV.lootKeys) if (!(doc.res[k] >= 0 && doc.res[k] <= 2000)) return 'bad-res'; return '';
+/** 與 firestore.pvp.rules（DESIGN-fleet.md §4.1）一一對應的 JS 鏡像：記憶體後端用它模擬「規則擋下來」，tools/pvp-test.mjs 靠它。
+ *  真正的規則由 tools/rules-emulator（Firebase 模擬器）測 150 個案例；兩邊的界線必須一致。 */
+const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
+const rng = (v, lo, hi) => isNum(v) && v >= lo && v <= hi;
+const nint = (v, hi) => Number.isInteger(v) && v >= 0 && v <= hi;
+const isMap = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
+const sameKeys = (o, ks) => isMap(o) && Object.keys(o).length === ks.length && ks.every((k) => k in o);
+const cellOk = (c) => typeof c === 'string' && c.length <= 5 && /^[0-9]{1,2}_[0-9]{1,2}$/.test(c);
+export const RULE = { shieldMax: 43200, clock: 120, nearPad: 60, listPresence: 24, listInbox: 60, minWrite: 10, attFresh: 900, lootMax: 400 };
+/** presence 形狀（create / update 共用）。回傳空字串 = 通過，否則是第一個不合格的理由。 */
+export function presenceShape(d, nowSec) {
+  if (!isMap(d)) return 'bad-keys'; const ks = Object.keys(d);
+  if (!PUB_KEYS.every((k) => k === 'rt' || k in d) || !ks.every((k) => PUB_KEYS.includes(k))) return 'bad-keys';
+  if (d.v !== 1) return 'bad-version'; if (typeof d.h !== 'string' || d.h.length < 1 || d.h.length > 12) return 'bad-handle';
+  if (!(rng(d.x, 0, 2000) && rng(d.y, 0, 2000) && rng(d.fp, 0, 200) && rng(d.hl, 0, 5000) && rng(d.cd, 0, 100) && rng(d.cap, 0, 1000))) return 'bad-range';
+  if (!(isMap(d.res) && Object.keys(d.res).length === 4 && PV.lootKeys.every((k) => rng(d.res[k], 0, 2000)))) return 'bad-res';
+  if (!rng(d.t, nowSec - RULE.clock, nowSec + RULE.clock)) return 'bad-time'; if (!rng(d.ls, d.t - 86400, d.t + 5)) return 'bad-ls';
+  if (!rng(d.sh, 0, nowSec + RULE.shieldMax + RULE.clock)) return 'bad-shield';
+  if (!Array.isArray(d.cells) || d.cells.length < 1 || d.cells.length > 16 || !d.cells.every(cellOk)) return 'bad-cells';
+  if ('rt' in d) { const r = d.rt; if (!(sameKeys(r, ['x0', 'y0', 'x1', 'y1', 't0', 't1']) && rng(r.x0, 0, 2000) && rng(r.y0, 0, 2000) && rng(r.x1, 0, 2000) && rng(r.y1, 0, 2000) && rng(r.t0, 0, nowSec + 2592000) && rng(r.t1, r.t0, nowSec + 2592000))) return 'bad-route'; }
+  return '';
 }
-export function ruleCheckRaid({ auth, def, id, doc, pres, nowSec, isOwnerUid }) {
-  if (!auth) return 'no-auth'; if (!doc || typeof doc !== 'object' || !only(doc, RAID_KEYS)) return 'bad-keys';
-  if (doc.attacker !== auth) return 'attacker-mismatch'; if (isOwnerUid) return 'owner-no-pvp';
-  if (doc.defender !== def || def === auth) return 'defender-mismatch'; if (!sanRaidDoc(doc)) return 'bad-shape';
-  if (!intNN(doc.b) || doc.b !== bucketOf(doc.t)) return 'bad-bucket'; if (id !== `${auth}_${doc.b}`) return 'bad-id';
-  if (!(Math.abs(doc.t - nowSec) <= 120)) return 'bad-time';
-  for (const k of Object.keys(doc.loot)) if (!PV.lootKeys.includes(k) || !intNN(doc.loot[k])) return 'bad-loot';
+/** prev = 目前雲端上的文件（沒有 = create；有 = update，多一條「距離上次寫入 ≥ 10 秒」） */
+export function ruleCheckPresence({ auth, uid, doc, nowSec, isOwnerUid, prev }) {
+  if (!auth || auth !== uid) return 'not-owner-of-doc'; if (isOwnerUid) return 'owner-no-presence';
+  const e = presenceShape(doc, nowSec); if (e) return e;
+  if (prev && !(nowSec - prev.t >= RULE.minWrite)) return 'too-frequent'; return '';
+}
+/** att = 攻擊者自己的 presence；pres = 防守者的 presence。攻擊者的 presence 必須存在、最近發佈過、與宣稱座標一致。 */
+export function ruleCheckRaid({ auth, def, id, doc, pres, att, nowSec, isOwnerUid }) {
+  if (!auth) return 'no-auth'; if (isOwnerUid) return 'owner-no-pvp';
+  if (!isMap(doc) || !sameKeys(doc, RAID_KEYS)) return 'bad-keys'; if (doc.v !== 1) return 'bad-version';
+  if (doc.attacker !== auth) return 'attacker-mismatch'; if (doc.defender !== def || def === auth) return 'defender-mismatch';
+  if (typeof doc.ah !== 'string' || doc.ah.length > 12) return 'bad-ah';
+  if (!isNum(doc.t) || !Number.isInteger(doc.b) || doc.b !== bucketOf(doc.t)) return 'bad-bucket'; if (id !== `${auth}_${doc.b}`) return 'bad-id';
+  if (!rng(doc.t, nowSec - RULE.clock, nowSec + RULE.clock)) return 'bad-time';
+  if (!(sameKeys(doc.ap, ['x', 'y']) && rng(doc.ap.x, 0, 2000) && rng(doc.ap.y, 0, 2000))) return 'bad-ap';
   if (!pres) return 'no-presence'; if (!(pres.ls <= doc.t - PV.offlineAfter)) return 'target-online'; if (!(pres.sh <= doc.t)) return 'target-shielded';
-  for (const k of PV.lootKeys) if ((doc.loot[k] || 0) > Math.min(Math.floor((pres.res[k] || 0) * PV.take), pres.cap)) return 'loot-too-big';
-  if (!(Math.abs(doc.ap.x - pres.x) <= PV.range + 60 && Math.abs(doc.ap.y - pres.y) <= PV.range + 60)) return 'too-far';
+  const l = doc.loot; if (!isMap(l) || !Object.keys(l).every((k) => PV.lootKeys.includes(k))) return 'bad-loot';
+  for (const k of PV.lootKeys) { const v = k in l ? l[k] : 0; if (!nint(v, RULE.lootMax)) return 'bad-loot'; if (v > pres.res[k] * PV.take || v > pres.cap) return 'loot-too-big'; }
+  const pad = PV.range + RULE.nearPad, near = (x, y, p) => Math.abs(x - p.x) <= pad && Math.abs(y - p.y) <= pad;
+  if (!near(doc.ap.x, doc.ap.y, pres)) return 'too-far';
+  if (!att) return 'attacker-no-presence'; if (!(att.t >= doc.t - RULE.attFresh && att.ls >= doc.t - RULE.attFresh)) return 'attacker-stale';
+  if (!near(doc.ap.x, doc.ap.y, att)) return 'ap-far-from-attacker'; if (!near(att.x, att.y, pres)) return 'attacker-far-from-target';
   return '';
 }
 
@@ -40,13 +67,13 @@ export function createMemoryPvp(store, as, now, owners = []) {
   const chk = () => { if (cfg.fail) throw new Error('network'); };
   return {
     store: S, calls, cfg, as,
-    async putPresence(uid, doc) { chk(); calls.put++; const e = ruleCheckPresence({ auth: as, uid, doc, nowSec: now(), isOwnerUid: owners.includes(as) }); if (e) throw new Error('rules-denied:' + e); S.presence.set(uid, JSON.parse(JSON.stringify(doc))); },
-    async near(blocks, limit = PV.scanMax) { chk(); calls.near++; const out = []; for (const [uid, d] of S.presence) { if (d.cells.some((c) => blocks.includes(c))) out.push({ uid, ...JSON.parse(JSON.stringify(d)) }); if (out.length >= limit) break; } return out; },
+    async putPresence(uid, doc) { chk(); calls.put++; const e = ruleCheckPresence({ auth: as, uid, doc, nowSec: now(), isOwnerUid: owners.includes(as), prev: S.presence.get(uid) || null }); if (e) throw new Error('rules-denied:' + e); S.presence.set(uid, JSON.parse(JSON.stringify(doc))); },
+    async near(blocks, limit = PV.scanMax) { chk(); calls.near++; if (!(limit <= RULE.listPresence)) throw new Error('rules-denied:list-limit'); const out = []; for (const [uid, d] of S.presence) { if (d.cells.some((c) => blocks.includes(c))) out.push({ uid, ...JSON.parse(JSON.stringify(d)) }); if (out.length >= limit) break; } return out; },
     async putRaid(def, id, doc) {
       chk(); calls.raid++; const key = `${def}/${id}`; if (S.raids.has(key)) throw new Error('rules-denied:exists');
-      const e = ruleCheckRaid({ auth: as, def, id, doc, pres: S.presence.get(def) || null, nowSec: now(), isOwnerUid: owners.includes(as) }); if (e) throw new Error('rules-denied:' + e); S.raids.set(key, JSON.parse(JSON.stringify(doc)));
+      const e = ruleCheckRaid({ auth: as, def, id, doc, pres: S.presence.get(def) || null, att: S.presence.get(as) || null, nowSec: now(), isOwnerUid: owners.includes(as) }); if (e) throw new Error('rules-denied:' + e); S.raids.set(key, JSON.parse(JSON.stringify(doc)));
     },
-    async raidsFor(uid, since, limit = 60) { chk(); calls.pull++; if (uid !== as) throw new Error('rules-denied:read'); const out = []; for (const [k, d] of S.raids) if (k.startsWith(uid + '/') && d.t >= since) out.push(JSON.parse(JSON.stringify(d))); return out.slice(0, limit); },
+    async raidsFor(uid, since, limit = 60) { chk(); calls.pull++; if (uid !== as) throw new Error('rules-denied:read'); if (!(limit <= RULE.listInbox)) throw new Error('rules-denied:list-limit'); const out = []; for (const [k, d] of S.raids) if (k.startsWith(uid + '/') && d.t >= since) out.push(JSON.parse(JSON.stringify(d))); return out.slice(0, limit); },
     async updateRaid() { throw new Error('rules-denied:update'); }, async deleteRaid() { throw new Error('rules-denied:delete'); },
   };
 }
@@ -54,9 +81,9 @@ export function createMemoryPvp(store, as, now, owners = []) {
 export function firestorePvp(fs, db) {
   return {
     async putPresence(uid, doc) { await fs.setDoc(fs.doc(db, 'presence', uid), doc); },
-    async near(blocks, limit = PV.scanMax) { const q = fs.query(fs.collection(db, 'presence'), fs.where('cells', 'array-contains-any', blocks.slice(0, 9)), fs.limit(limit)); const snap = await fs.getDocs(q); return snap.docs.map((d) => ({ uid: d.id, ...d.data() })); },
+    async near(blocks, limit = PV.scanMax) { const q = fs.query(fs.collection(db, 'presence'), fs.where('cells', 'array-contains-any', blocks.slice(0, 9)), fs.limit(Math.min(limit, RULE.listPresence))); const snap = await fs.getDocs(q); return snap.docs.map((d) => ({ uid: d.id, ...d.data() })); },
     async putRaid(def, id, doc) { await fs.setDoc(fs.doc(db, 'raids', def, 'in', id), doc); },
-    async raidsFor(uid, since, limit = 60) { const q = fs.query(fs.collection(db, 'raids', uid, 'in'), fs.where('t', '>=', since), fs.limit(limit)); const snap = await fs.getDocs(q); return snap.docs.map((d) => d.data()); },
+    async raidsFor(uid, since, limit = 60) { const q = fs.query(fs.collection(db, 'raids', uid, 'in'), fs.where('t', '>=', since), fs.limit(Math.min(limit, RULE.listInbox))); const snap = await fs.getDocs(q); return snap.docs.map((d) => d.data()); },
   };
 }
 
@@ -83,11 +110,14 @@ export class PvpClient {
   /** 把收件匣抄進存檔。必須在 simulateTo 之前呼叫（登入時 / 輪詢時）。 */
   async pull(s, force) {
     if (!this.enabled) return 0; const now = this.now(); if (!force && now - this.pullAt < 120) return 0; this.pullAt = now;
-    try { const docs = await this.be.raidsFor(this.uid, ingestSince(s)); this.counts.pull++; this.err = ''; return pvIngest(s, docs, this.uid, this.owner); } catch (e) { this.err = String(e && e.message || e); return 0; }
+    try { const docs = await this.be.raidsFor(this.uid, ingestSince(s)); this.counts.pull++; this.err = ''; return pvIngest(s, docs, this.uid, this.owner, now); } catch (e) { this.err = String(e && e.message || e); return 0; }
   }
   /** 送出 outbox 裡的 raid 文件（失敗保留，下次再送；被規則擋掉的 = 永久失敗，丟掉） */
-  async flush(s) {
-    const pv = pvOf(s); if (!this.enabled || !pv || !pv.out.length) return 0; const now = this.now(); outPrune(s, now); attExpire(s, now); let n = 0;
+  async flush(s, own) {
+    const pv = pvOf(s); if (!this.enabled || !pv || !pv.out.length) return 0; const now = this.now();
+    // 規則要比對攻擊者自己的 presence（要存在、夠新、座標接近）⇒ 送 raid 前先強制發佈一次（太頻繁被擋就沿用舊的，規則允許 15 分鐘內）
+    if (own) await this.publish(s, own, true);
+    outPrune(s, now); attExpire(s, now); let n = 0;
     for (const d of [...pv.out]) { try { await this.be.putRaid(d.defender, raidDocId(d), d); outDone(s, d); n++; this.counts.raid++; } catch (e) { const m = String(e && e.message || e); this.err = m; if (/rules-denied|permission|exists|ALREADY/i.test(m)) outDone(s, d); else break; } }
     return n;
   }

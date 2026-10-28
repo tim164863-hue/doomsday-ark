@@ -425,7 +425,7 @@ export class Play {
   }
   async pvpBeat(first) {
     const pc = this.pvc; if (!pc || !pc.enabled || this.pvBusy) return; this.pvBusy = true;
-    try { const s = this.state, own = F.combatOf(s); await pc.publish(s, own, !!first); await pc.flush(s); const n = await pc.pull(s, false); if (n > 0) this.tickLive(); } catch (e) { /* ignore */ } finally { this.pvBusy = false; }
+    try { const s = this.state, own = F.combatOf(s); await pc.publish(s, own, !!first); await pc.flush(s, own); const n = await pc.pull(s, false); if (n > 0) this.tickLive(); } catch (e) { /* ignore */ } finally { this.pvBusy = false; }
   }
   pvpScan(force) { return this.pvc ? this.pvc.scan(this.state, force) : Promise.resolve([]); }
   pvpSig() { const pc = this.pvc, pv = PVP.pvOf(this.state); return JSON.stringify([pc ? [pc.why, pc.scanning, pc.scanned, pc.err ? 1 : 0, pc.list.map((e) => e.uid + e.c.why + Math.round((e.c.dist || 0) / 4))] : 0, pv ? [pv.log.length, pv.sh > nowSec(), pv.in.length, pv.out.length, pv.att ? pv.att.id : 0, pv.cd > nowSec(), pv.st.won, pv.st.atk] : 0]); }
@@ -433,7 +433,7 @@ export class Play {
   pvpAct(name, a = {}) {
     const s = this.state, now = nowSec(), pc = this.pvc; let r = { ok: false, msg: '玩家對戰目前不能用' }; if (!pc) return r; const own = F.combatOf(s);
     if (name === 'raidStart') { const e = pc.list.find((x) => x.uid === a.uid); r = !e ? { ok: false, msg: '目標已經不在附近了，請重新掃描' } : PVP.raidStart(s, e.pub, e.uid, pc.uid, now, own, pc.owner); if (r.ok) r.foe = PVP.attFoe(r.att); }
-    else if (name === 'raidSubmit') { r = PVP.raidSubmit(s, now, a.rep, own, pc.uid); if (r.doc) pc.flush(s).then(() => this.save(true)).catch(() => {}); if (r.msg) this.game.ui.toast(r.msg); }
+    else if (name === 'raidSubmit') { r = PVP.raidSubmit(s, now, a.rep, own, pc.uid); if (r.doc) pc.flush(s, own).then(() => this.save(true)).catch(() => {}); if (r.msg) this.game.ui.toast(r.msg); }
     else if (name === 'raidAbort') { const pv = PVP.pvOf(s); if (pv) pv.att = null; r = { ok: true }; }
     this.save(true); this.hud.refresh(true); return r;
   }
