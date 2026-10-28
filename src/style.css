@@ -369,3 +369,11 @@ body:not(.touch) #bjoy { display: none; }
 .scPanel .pvp .warn { color: #ffd27a; margin: 4px 0; }
 #btl.raid .btTitle { color: #ffd27a; }
 .pvlog .et { opacity: .7; margin-right: 4px; }
+
+/* ---- 階段⑤ 第 14 輪：隱私說明 + 隱身開關（只新增，不動階段④以前的樣式） ---- */
+#pvnotice { position: fixed; inset: 0; z-index: 10001; background: rgba(3,8,16,.82); display: flex; align-items: center; justify-content: center; padding: 12px; }
+#pvnotice .mcard { background: #0f1c2e; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; width: min(560px, 100%); max-height: 100%; overflow: auto; color: #fff; }
+#pvnotice h3 { margin: 0 0 6px; color: var(--acc); font-size: 17px; } #pvnotice .sub { margin: 0 0 8px; font-size: 13px; opacity: .85; line-height: 1.5; }
+#pvnotice .pvn { font-size: 13px; line-height: 1.55; margin: 8px 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: #ffffff08; } #pvnotice .pvn ul { margin: 4px 0 6px; padding-left: 20px; }
+#pvnotice .mb { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; flex-wrap: wrap; } #pvnotice button { padding: 7px 14px; font-size: 13px; border-radius: 10px; } #pvnotice button.pri { border-color: var(--acc); color: var(--acc); }
+.pvp .pvhide.on { border-color: var(--acc); color: var(--acc); } #acctMenu .pvh { display: block; margin: 6px 0 0; width: 100%; }

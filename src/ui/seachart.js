@@ -11,6 +11,7 @@ import { SPECIAL_ZONES, SZ_ORDER, zoneAtPoint, routeZones, MATERIALS } from '../
 import { routeGate, gateMsg } from '../sim/promo.js';
 import { btHtml } from './battleui.js';
 import { pvHtml } from './raidui.js';
+import * as PVP from '../sim/pvp.js';
 import { posOf } from '../sim/pvp.js';
 import { curOf } from '../sim/battle.js';
 import { unprepared, unprepK, seaStatus, rescueCan, RESCUE } from '../sim/seazones.js';
@@ -166,6 +167,7 @@ export class SeaChart {
       ${btHtml(s, now)}${pvHtml(s, now, this.hud.play.pvc)}${this.wxHtml(w, ark, now)}${this.szPanel(w, ark, now)}<div class="pk"><h4>🚢 海上任務</h4>${ms}${done}</div><div class="pk"><h4>🗺 已發現海域</h4><div class="zonebar">${seen}</div><p class="dim">方舟停在遠海域旁，該海域的任務會更快、收穫更多。船出任務時會順便揭開目的地附近的迷霧。</p></div>`;
     this.panel.querySelectorAll('[data-a=ev]').forEach((b) => { b.onclick = () => { const id = +b.closest('.evc').dataset.id; this.hud.play.worldAct('decide', { id, i: +b.dataset.i }); this.refresh(true); }; });
     this.panel.querySelectorAll('[data-a=pvRaid]').forEach((b) => { b.onclick = () => this.hud.battle.openRaid(b.closest('.pvr').dataset.u); });
+    const pvh = this.panel.querySelector('[data-a=pvHide]'); if (pvh) pvh.onclick = async () => { pvh.disabled = true; const r = await this.hud.play.pvpHide(!(PVP.pvOf(this.hud.play.state) || {}).hid); this.hud.ui.toast(r.msg); this.refresh(true); };
     const pvs = this.panel.querySelector('[data-a=pvScan]'); if (pvs) pvs.onclick = async () => { pvs.disabled = true; await this.hud.play.pvpScan(true); this.refresh(true); };
     const btk = this.panel.querySelector('[data-a=btTake]'); if (btk) btk.onclick = () => this.hud.battle.take();
     const btc = this.panel.querySelector('[data-a=btCrew]'); if (btc) btc.onclick = () => { this.hud.play.worldAct('battleAuto', {}); this.refresh(true); };

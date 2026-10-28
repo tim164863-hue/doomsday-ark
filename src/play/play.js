@@ -17,6 +17,7 @@ import * as BTL from '../sim/battle.js';
 import * as PVP from '../sim/pvp.js';
 import * as W from '../sim/world.js';
 import { PvpClient } from '../save/pvpnet.js';
+import { showPvNotice } from '../ui/pvnotice.js';
 import { cloud } from '../save/cloud.js';
 import { SHIPS, ZONES, ZONE_ORDER } from '../sim/fleetdefs.js';
 import { buildShipModel } from '../ship/fleetmodels.js';
@@ -425,7 +426,19 @@ export class Play {
   }
   async pvpBeat(first) {
     const pc = this.pvc; if (!pc || !pc.enabled || this.pvBusy) return; this.pvBusy = true;
-    try { const s = this.state, own = F.combatOf(s); await pc.publish(s, own, !!first); await pc.flush(s, own); const n = await pc.pull(s, false); if (n > 0) this.tickLive(); } catch (e) { /* ignore */ } finally { this.pvBusy = false; }
+    try { const s = this.state, own = F.combatOf(s); this.pvpNotice(); await pc.publish(s, own, !!first); await pc.flush(s, own); const n = await pc.pull(s, false); if (n > 0) this.tickLive(); } catch (e) { /* ignore */ } finally { this.pvBusy = false; }
+  }
+  /** 隱身開關（海圖卡片 / 帳號選單共用）。回傳 { ok, msg } */
+  async pvpHide(on) { const pc = this.pvc; if (!pc || !pc.enabled) return { ok: false, msg: '登入後才有玩家對戰' }; const r = await pc.setHidden(this.state, !!on); this.save(true); this.hud.refresh(true); return r; }
+  /** 登出 / 刪帳號前：刪掉自己公開的 presence（最多等 3 秒，失敗不擋登出） */
+  async pvpWipe() { const pc = this.pvc; if (!pc || !pc.enabled) return false; try { return await Promise.race([pc.wipe(), new Promise((r) => setTimeout(() => r(false), 3000))]); } catch (e) { return false; } }
+  /** 首次登入的隱私說明：看完之前不公開任何東西。有別的視窗開著就等下一次（每 20 秒檢查一次）。 */
+  pvpNotice() {
+    const pc = this.pvc, s = this.state; if (!pc || !pc.enabled || this.pvNoticeOpen) return; const pv = PVP.ensurePv(s); if (!pv || pv.nt) return;
+    if (import.meta.env.DEV && !/[?&]pvnotice=1/.test(location.search)) { pv.nt = 1; return; }   // DEV：預設略過說明（?pvnotice=1 才顯示）
+    if (this.hud.modalKind || this.pendingReport || (this.hud.helpOpen && this.hud.helpOpen()) || document.getElementById('syncdlg') || (this.hud.battle && !this.hud.battle.el.classList.contains('hide'))) return;
+    this.pvNoticeOpen = true;
+    showPvNotice(PVP.handleOf(pc.uid), async (k) => { this.pvNoticeOpen = false; if (k === 'hide') await pc.setHidden(s, true); else { pv.nt = 1; } pv.nt = 1; this.save(true); this.hud.refresh(true); this.game.ui.toast(k === 'hide' ? '🕶 已隱身，之後可以在「附近的船」卡片隨時打開' : '🏴‍☠️ 已開啟玩家對戰（可隨時隱身）'); this.pvpBeat(true); });
   }
   pvpScan(force) { return this.pvc ? this.pvc.scan(this.state, force) : Promise.resolve([]); }
   pvpSig() { const pc = this.pvc, pv = PVP.pvOf(this.state); return JSON.stringify([pc ? [pc.why, pc.scanning, pc.scanned, pc.err ? 1 : 0, pc.list.map((e) => e.uid + e.c.why + Math.round((e.c.dist || 0) / 4))] : 0, pv ? [pv.log.length, pv.sh > nowSec(), pv.in.length, pv.out.length, pv.att ? pv.att.id : 0, pv.cd > nowSec(), pv.st.won, pv.st.atk] : 0]); }

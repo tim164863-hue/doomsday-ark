@@ -15,25 +15,25 @@ const pc = (x) => Math.round(x * 100);
 const hm = (t) => { const d = new Date(t * 1000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const dhm = (sec) => { sec = Math.max(0, Math.ceil(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60); return h ? `${h} 小時 ${m} 分` : `${m} 分`; };
 const resTxt = (o, sign = '') => PVP.PV.lootKeys.filter((k) => o && o[k] > 0).map((k) => `${RES[k].icon}${sign}${o[k]}`).join(' ');
-const WHY_TXT = { online: '🟢 在線中', shield: '🛡 護盾中', far: '📏 太遠', done: '✅ 剛打過', poor: '💤 沒油水', cool: '⏳ 休整中', busy: '⏳ 進行中' };
+const WHY_TXT = { online: '🟢 在線中', shield: '🛡 護盾中', far: '📏 太遠', done: '✅ 剛打過', poor: '💤 沒油水', cool: '⏳ 休整中', busy: '⏳ 進行中', hidden: '🕶 你在隱身', stale: '👻 很久沒上線' };
 
 /** 海圖側欄的卡片（pc = play.pvc，可能是 null） */
 export function pvHtml(s, now, pcl) {
   const pv = PVP.pvOf(s); const head = '<h4>🏴‍☠️ 附近的船 <small>玩家對戰</small></h4>';
-  const rules = `<p class="dim">規則：只能突襲<b>離線超過 10 分鐘</b>、距離 ${PVP.PV.range} 以內、迷霧已揭開的玩家；每次最多搶 8%（每天 ≤ 20%），被襲的人有 12 小時護盾，回來會看到紀錄。只搶食物 / 飲水 / 燃料 / 零件，不搶船或藍圖。<br>⚠️ 免費版沒有伺服器裁判，防不了作弊，所以掠奪量刻意設得很小。</p>`;
+  const rules = `<p class="dim">規則：只能突襲<b>離線超過 10 分鐘</b>、距離 ${PVP.PV.range} 以內、迷霧已揭開的玩家；每次最多搶 8%（每天 ≤ 20%），你實際拿到宣稱量的 50%；被襲的人損失全額、有 12 小時護盾（損失太小 &lt; ${PVP.PV.minClaim} 件則不扣船體、也沒有護盾），回來會看到紀錄。同一個人 12 小時內只能打一次；超過 7 天沒上線的船不會出現。只搶食物 / 飲水 / 燃料 / 零件，不搶船或藍圖。<br>⚠️ 免費版沒有伺服器裁判，防不了作弊，所以掠奪量刻意設得很小。</p>`;
   if (!pcl || !pcl.enabled) {
     const why = !pcl || pcl.why === 'guest' ? '登入 Google 帳號後，才能和附近的其他玩家互動（你的方舟也才會出現在別人的海圖上）。' : pcl.why === 'owner' ? '船東帳號不參與玩家對戰，T董與遊輪保持專屬。' : '目前連不上雲端，玩家對戰暫停。';
     return `<div class="pk pvp" data-pv="off">${head}<p class="dim">${why}</p>${logHtml(pv)}</div>`;
   }
-  const sh = PVP.shieldLeft(s, now); const mine = sh > 0 ? `<p class="pvsh">🛡 你有護盾，還剩 ${dhm(sh)}（這段時間不會再被突襲）</p>` : '<p class="dim">你的方舟：離線 10 分鐘後，附近的玩家就可能來突襲（每次最多損失 8%）。</p>';
+  const hid = !!(pv && pv.hid), sh = PVP.shieldLeft(s, now); const mine = hid ? '<p class="pvsh">🕶 你正在隱身：別人看不到你，你也暫時不能出手（掃描仍可用）。</p>' : sh > 0 ? `<p class="pvsh">🛡 你有護盾，還剩 ${dhm(sh)}（這段時間不會再被突襲）</p>` : '<p class="dim">你的方舟：離線 10 分鐘後，附近的玩家就可能來突襲（每次最多損失 8%）。</p>';
   const pend = pv && pv.in.length ? `<p class="warn">📨 有 ${pv.in.length} 份突襲通知正在結算</p>` : '';
   const cd = pv && pv.cd > now ? `<p class="dim">船員休整中，${dhm(pv.cd - now)}後可再出手。</p>` : '';
   const rows = pcl.list.map((e) => {
     const c = e.c, p = e.pub, claim = c.claim || PVP.claimOf(p); const act = c.ok ? `<button class="pri" data-a="pvRaid">⚔ 突襲</button>` : `<span class="pvw">${WHY_TXT[c.why] || '不可'}</span>`;
-    return `<div class="pvr${c.ok ? ' ok' : ''}" data-u="${esc(e.uid)}"><div><b>${esc(p.h)}</b> <small>戰力 ${Math.round(p.fp)}・距離 ${Math.round(c.dist || 0)}${c.ok ? '' : ''}</small><br><small class="dim">${c.ok ? `可搶 ${resTxt(claim)}` : c.why === 'online' ? '對方還在線上（或剛離線不到 10 分鐘）' : c.why === 'shield' ? `護盾剩 ${dhm(p.sh - now)}` : c.why === 'cool' ? `還要等 ${dhm(c.wait)}` : ''}</small></div>${act}</div>`;
+    return `<div class="pvr${c.ok ? ' ok' : ''}" data-u="${esc(e.uid)}"><div><b>${esc(p.h)}</b> <small>戰力 ${Math.round(p.fp)}・距離 ${Math.round(c.dist || 0)}${c.ok ? '' : ''}</small><br><small class="dim">${c.ok ? `你可拿 ${resTxt(PVP.gainOf(claim))}（對方損失 ${resTxt(claim)}）` : c.why === 'online' ? '對方還在線上（或剛離線不到 10 分鐘）' : c.why === 'shield' ? `護盾剩 ${dhm(p.sh - now)}` : c.why === 'cool' ? `還要等 ${dhm(c.wait)}` : ''}</small></div>${act}</div>`;
   }).join('');
   const body = pcl.scanning && !pcl.scanned ? '<p class="dim">掃描中…</p>' : rows || `<p class="dim">${pcl.scanned ? '附近 80 單位內沒有其他玩家的船（或還在迷霧裡）。' : '按「掃描附近」看看海上有沒有別的玩家。'}</p>`;
-  return `<div class="pk pvp" data-pv="on">${head}${mine}${pend}${cd}<div class="pvl">${body}</div><div class="eo"><button data-a="pvScan">${pcl.scanning ? '掃描中…' : '🔍 掃描附近'}</button></div>${pcl.err ? `<p class="dim">（雲端暫時連不上，稍後自動重試）</p>` : ''}${logHtml(pv)}${rules}</div>`;
+  return `<div class="pk pvp" data-pv="on">${head}${mine}${pend}${cd}<div class="pvl">${body}</div><div class="eo"><button data-a="pvScan">${pcl.scanning ? '掃描中…' : '🔍 掃描附近'}</button><button data-a="pvHide" class="pvhide${hid ? ' on' : ''}" title="開啟後會立刻刪除你公開的位置與資源，別人看不到你">🕶 隱身：${hid ? '開' : '關'}</button></div>${pcl.err ? `<p class="dim">（雲端暫時連不上，稍後自動重試）</p>` : ''}${logHtml(pv)}${rules}</div>`;
 }
 function logHtml(pv) {
   if (!pv) return ''; const st = pv.st, lg = pv.log.slice(-5).reverse();
@@ -53,8 +53,8 @@ export class PvpBattleUI extends BattleUI {
     if (!e) { this.hud.ui.toast('目標已經不在附近了，請重新掃描'); return; }
     const c = PVP.canRaid(s, e.pub, e.uid, pcl.uid, now, pcl.owner); if (!c.ok) { this.hud.ui.toast(PVP.WHY[c.why] || '現在不能出手'); return; }
     const own = F.combatOf(s), foe = PVP.guardFoe(own, e.pub, '守衛艦 ' + e.pub.h), ar = arenaRisk(own, foe), box = this.cf.querySelector('.btCard');
-    box.innerHTML = `<div class="rk">🏴‍☠️</div><h3>突襲 ${esc(e.pub.h)}？</h3><p class="rtx">對方離線中，只有一艘守衛艦（Lv ${foe.lv}）看家。在砲戰場打倒它就能搶：<b>${resTxt(c.claim)}</b></p>
-      <p class="dim">預估勝率 ${pc(ar.win)}%（全力指揮最好 ${pc(ar.winMax)}%）・打輸 / 超時：沒收穫，船體 −${Math.round(ar.loss * 100) / 100 > 0 ? Math.round(ar.loss) : 0}% 左右（不會低於 20%），船員休整 15 分鐘。<br>中途可以「撤離」，沒有損失。對方 12 小時內有護盾，回來會看到你的代號 <b>${esc(PVP.handleOf(pcl.uid))}</b>。</p>
+    box.innerHTML = `<div class="rk">🏴‍☠️</div><h3>突襲 ${esc(e.pub.h)}？</h3><p class="rtx">對方離線中，只有一艘守衛艦（Lv ${foe.lv}）看家。在砲戰場打倒它就能搶：你可拿 <b>${resTxt(PVP.gainOf(c.claim))}</b>（宣稱量 ${resTxt(c.claim)} 的 50%；對方損失全額）。</p>
+      <p class="dim">預估勝率 ${pc(ar.win)}%（全力指揮最好 ${pc(ar.winMax)}%）・打輸 / 超時：沒收穫，船體 −${Math.round(ar.loss * 100) / 100 > 0 ? Math.round(ar.loss) : 0}% 左右（不會低於 20%），船員休整 15 分鐘。<br>中途可以「撤離」，沒有損失。同一個人 12 小時內只能打一次。對方被襲後有 12 小時護盾（損失太小則沒有），回來會看到你的代號 <b>${esc(PVP.handleOf(pcl.uid))}</b>。</p>
       <div class="eo"><button data-a="go" class="pri">出擊</button><button data-a="no">算了</button></div>`;
     box.querySelector('[data-a=go]').onclick = () => { this.cf.classList.add('hide'); this.startRaid(uid); }; box.querySelector('[data-a=no]').onclick = () => this.cf.classList.add('hide'); this.cf.classList.remove('hide');
   }

@@ -135,7 +135,7 @@ export class CloudAdapter {
     })();
     return this._inflight;
   }
-  async clear() { try { this.store && this.store.removeItem(this.mirrorKey); } catch (e) { /* ignore */ } try { await this.backend.del(this.uid); } catch (e) { /* ignore */ } }
+  async clear() { try { this.store && this.store.removeItem(this.mirrorKey); } catch (e) { /* ignore */ } try { await this.backend.del(this.uid); } catch (e) { /* ignore */ } try { if (cloud.pvp && cloud.pvp.delPresence) await cloud.pvp.delPresence(this.uid); } catch (e) { /* 第 14 輪：刪存檔時一併刪掉公開的 presence（盡力而為） */ } }
 }
 
 // ------------------------------------------------------------------ Firebase 初始化 / 登入
@@ -174,7 +174,7 @@ function initFake(kind) {
   // PvP 假雲端（DEV 專用）：presence / raids 存在 localStorage，可用 ?fakecloud=名字 開兩個分頁模擬兩個玩家
   { const store = { presence: new Map(), raids: new Map() }; try { const raw = JSON.parse(localStorage.getItem('ark.fakepvp') || 'null'); if (raw) { store.presence = new Map(raw.p); store.raids = new Map(raw.r); } } catch (e) { /* ignore */ }
     const uidNow = kind === 'owner' ? OWNER_UIDS[0] : 'fake-' + kind; const pv = createMemoryPvp(store, uidNow, () => clock.now(), OWNER_UIDS); pv.persist = () => localStorage.setItem('ark.fakepvp', JSON.stringify({ p: [...store.presence], r: [...store.raids] }));
-    for (const m of ['putPresence', 'putRaid']) { const f = pv[m].bind(pv); pv[m] = async (...a) => { const r = await f(...a); pv.persist(); return r; }; } cloud.pvp = pv; }
+    for (const m of ['putPresence', 'putRaid', 'delPresence']) { const f = pv[m].bind(pv); pv[m] = async (...a) => { const r = await f(...a); pv.persist(); return r; }; } cloud.pvp = pv; }
   if (kind !== 'guest') cloud.user = kind === 'owner' ? { uid: OWNER_UIDS[0] || 'fake-owner', email: 'owner@example.com', emailVerified: true, displayName: 'Tim Tseng', photoURL: '' } : { uid: 'fake-' + kind, email: kind + '@example.com', emailVerified: true, displayName: kind === 'offline' ? 'Offline User' : 'Guest Player', photoURL: '' };
   return cloud;
 }

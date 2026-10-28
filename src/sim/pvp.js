@@ -8,7 +8,7 @@
 //   scan presence → pvTargets（距離 / 迷霧 / 離線 / 護盾）→ raidStart（建立 att）→ 在砲戰場打「守衛艦」（arena.js，沿用階段④）
 //   → raidSubmit（arenaWin 合理性檢查）→ 產生一份 raid 文件（唯一的跨使用者寫入：raids/{defender}/in/{attacker}_{bucket}，只能 create）。
 // 流程（防守方，離線也一樣）：登入 / 輪詢時把 raid 文件抄進自己存檔的收件匣 pv.in（pvIngest），
-//   之後由 pvTick（在 stepTick 內，tEnd >= raid.t 的第一個 tick）決定性地結算：每次 ≤ 8% 庫存、≤ lootCap、每日 ≤ 20%、12 小時護盾、船體最多受損到 50%。
+//   之後由 pvTick（在 stepTick 內，tEnd >= raid.t 的第一個 tick）決定性地結算：每次 ≤ 8% 庫存、≤ lootCap、每日 ≤ 20%、12 小時護盾、船體最多受損到 50%（第 14 輪：損失 < 5 件不扣船體也沒有護盾；只結算 t 在最近 48 小時內的突襲；攻擊者只拿宣稱量的 50%）。
 //   防守方什麼都不寫入別人的文件；結算只改自己的存檔，所以「一次跑完」「一小時一小時跑」「逐 tick 跑」結果完全相同。
 import { hash } from './rng.js';
 import { clamp } from '../util.js';

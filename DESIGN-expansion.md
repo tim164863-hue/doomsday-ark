@@ -190,13 +190,13 @@
 6. 利維坦的出現不依賴天氣，只依賴特殊海域的深度與冷卻（距離上次結算 3 個遊戲日）。
 
 ## 5. 階段⑤：PvP
-- **Ark 可被離線突襲**，但每次只掠奪一小部分：每種資源最多 8%，且單次上限 = 防守者公開快照的 `lootCap`；被突襲後 12 小時保護盾；同一對玩家 6 小時內只能一次；每日被掠奪上限 20%。藍圖 / 船 / 材料不會被搶。船體損傷只做表面（最低保留 50%）。
+- **Ark 可被離線突襲**，但每次只掠奪一小部分：每種資源最多 8%，且單次上限 = 防守者公開快照的 `lootCap`；被突襲後 12 小時保護盾；同一對玩家 12 小時內只能一次（第 14 輪由 6 小時改成 12 小時）；每日被掠奪上限 20%。藍圖 / 船 / 材料不會被搶。船體損傷只做表面（最低保留 50%）。
 - Firestore 結構（僅文字，**未部署**）：`arks/{uid}`（公開快照：名稱、旗艦階級、fp、hull、位置、`shieldUntil`；只有本人可寫）、`raids/{pairBucketId}`（攻擊者 uid、defender uid、時間桶、宣稱戰利品；由攻擊者建立，防守者上線時結算）。規則限制：欄位白名單、數值不超過防守者快照 × 8%、文件 id = `attacker_defender_6h桶` 避免重複、只能攻擊 `friends` 名單內的人（初期）。
 - **重要：免費方案沒有伺服端驗證，所以不可能防作弊。** 惡意用戶端可以偽造戰鬥結果或繞過冷卻；規則只能限制「單次可寫入的最大數值與頻率」，不能證明戰鬥真的發生。因此 PvP 初期只適合朋友之間（白名單 + 互相信任），不開放陌生人配對；若要公開，需要 Cloud Functions（需 Blaze）或自架伺服器驗證。
 - 此段與既有 `DESIGN-fleet.md` 第 3 節的 Firestore 規則草案合併；規則新增部分同樣只是文字，不部署。
 
 ### 5.1 實作紀錄（階段⑤，已實作）
-- 程式：`src/sim/pvp.js`（規則 / 決定性結算 / 掃描與突襲的純函式）、`src/save/pvpnet.js`（Firestore 層 + 記憶體替身 + 規則的 JS 鏡像 + 客戶端排程）、`src/ui/raidui.js`（海圖「附近的船」卡片、突襲砲戰場）、`tools/pvp-test.mjs`（119 項檢查）、DEV 專用 `src/play/pvdev.js`（假玩家，正式版不含）。對階段④檔案**零修改**（`battle.js / arena.js / arenabot.js / btrisk.js / szdata.js / weather.js / battleui.js` 位元組相同）；只有 `sim.js`（+1 行 `pvTick` 呼叫）、`fleet.js`（+1 行 `sanPv`）、`hud.js`（+1 行換成 `PvpBattleUI` 子類別 + 回來報告的突襲段落）、`seachart.js`、`play.js`、`cloud.js` 的接線。
+- 程式：`src/sim/pvp.js`（規則 / 決定性結算 / 掃描與突襲的純函式）、`src/save/pvpnet.js`（Firestore 層 + 記憶體替身 + 規則的 JS 鏡像 + 客戶端排程）、`src/ui/raidui.js`（海圖「附近的船」卡片、突襲砲戰場）、`tools/pvp-test.mjs`（188 項檢查）、DEV 專用 `src/play/pvdev.js`（假玩家，正式版不含）。對階段④檔案**零修改**（`battle.js / arena.js / arenabot.js / btrisk.js / szdata.js / weather.js / battleui.js` 位元組相同）；只有 `sim.js`（+1 行 `pvTick` 呼叫）、`fleet.js`（+1 行 `sanPv`）、`hud.js`（+1 行換成 `PvpBattleUI` 子類別 + 回來報告的突襲段落）、`seachart.js`、`play.js`、`cloud.js` 的接線。
 - **相遇條件**：只有同一張世界地圖上、距離 ≤ 80、而且那格迷霧已被攻擊者揭開、對方離線 ≥ 10 分鐘、沒有護盾、攻擊者自己不在冷卻的玩家才能被突襲。掃描：`presence` 的 100×100 區塊 `cells array-contains-any`（3×3 鄰近區塊，limit 24）。
 - **戰鬥**：攻擊者打一場階段④的砲戰場（`createArena` / `stepArena` / `arenaWin`），對手是「守衛艦」（`foeStats({k:'pirate'})`，等級依雙方 fp 比例 0.6–1.9）。贏 = 戰利品（每種 ≤ 防守者存量 8% 與 `lootCap(fp)`，且總和 ≥ 5），輸 / 超時 / 偽造 = 沒有戰利品，只有砲戰場的船體損傷（20% 底線）和 15 分鐘冷卻；撤離免費。
 - **防守者（離線結算，決定性）**：收件匣文件登入時在 `simulateTo` **之前**抄進 `fleet.world.pv.in`（`seen` 去重），`pvTick` 依 (t, id) 排序、在第一個 `tEnd >= raid.t` 的 tick 結算：每種損失 = min(宣稱, 現存 8%, `lootCap`, 當日（UTC）首次被突襲時存量的 20% 扣掉已損失)；結算後啟動 12 小時護盾，護盾內的突襲作廢；船體 −2~6%（用 `hash('pvh', seed, id)`，最低 50%，不會把更低的船體拉高）。結果寫入 `pv.log` + 事件（回來時的歡迎視窗有「🏴‍☠️ 離線時被突襲」段落，海圖卡片留最近 5 筆）。一次補算 = 分段補算 = 逐 tick（有測試）。
@@ -206,7 +206,7 @@
 ### 5.2 與原計畫的差異（含原因）
 1. **對象不是「friends 白名單」**：依這一輪的需求改為「地圖上附近的玩家」（相遇 = 共同世界地圖 + 迷霧 + 80 單位範圍），不需要好友系統；風險由「小戰利品 + 護盾 + 每日上限 + 離線 10 分鐘」控制，**不是**由信任控制。
 2. **`presence/{uid}` 頂層集合**取代 `arks/{uid}/pub/summary`：掃描附近的人需要跨使用者查詢，子文件做不到（沒有 collection-group 規則）。**`raids/{defender}/in/{attacker}_{bucket}`** 取代 `raids/{id}`：讓防守者讀收件匣只是單欄位查詢（不需要複合索引），規則也能直接用路徑限制「只能寫別人的收件匣、只能 create」。
-3. `raids` 文件 id 由 `attacker_defender_6h桶` 改成路徑中的 `defender` + id `attacker_6h桶`（語意相同，同一對 6 小時內只能一次）。
+3. `raids` 文件 id 由 `attacker_defender_桶` 改成路徑中的 `defender` + id `attacker_桶`（語意相同，同一對在一個桶內只能一次；桶在第 13 輪是 6 小時，第 14 輪改成 12 小時）。
 4. 突襲介面用 `PvpBattleUI extends BattleUI`（`raidui.js`）包起來，`battleui.js` 位元組不變（階段④凍結）；階段④的砲戰場 / 結算卡風格直接沿用。
 5. **攻擊者不會被「回沖」**：防守者實際被擋下 / 作廢的部分不會回頭扣攻擊者（那需要防守者寫別人的文件）。所以宣稱值本身就被 8% / `lootCap` 限制，最壞情況是小幅通膨（見 DESIGN-fleet.md §4.1）。
 6. **收件匣時序**：若文件是在 `simT` 已經超過 `raid.t` 之後才抄進存檔（例如在線時才被突襲），會在下一個 tick 結算（`raid.t` 仍用原本的時間算護盾 / 日期）。離線結算本身與時序無關、完全決定性。
@@ -216,5 +216,25 @@
 - 規則改成 repo 內的 `firestore.pvp.rules`（提案檔，**沒有部署**；現行 `firestore.rules` / `firebase.json` / 任何 Firebase 專案設定都沒動），並用本機 Firebase 模擬器 + `@firebase/rules-unit-testing` 測過（`tools/rules-emulator`，`npm test`）。細節與規則表見 DESIGN-fleet.md §4.1。
 - 修掉的規則錯誤：presence create 讀 `resource`（create 時是 null）→ 每次第一次寫入都被拒絕；raid 的 `lootCap` 只檢查 food；欄位沒有大小 / 型別界線；presence 讀取沒有分 get / list（沒有 limit 上限）；沒有比對攻擊者自己的 presence；護盾可以設成永久。
 - 客戶端：`pvIngest` 丟掉 `t > now + 300` 的文件；raid 的桶 `b` 改在 `raidSubmit` 算；`flush(s, own)` 送 raid 前先強制發佈攻擊者自己的 presence；`firestorePvp` 的查詢 limit 夾在 24 / 60 以內；`pubOf` 把送出的欄位夾進規則界線（資源 ≤ 2000、`fp` ≤ 200、`hl` ≤ 5000、`sh` ≤ 現在 + 12 小時），避免合法玩家被自己的規則擋下。
-- **未動（等 Tim 決定）**：presence 的隱私與位置取整、48 小時結算窗、經濟數字、戰利品太少是否觸發護盾、TTL。
+- 當時**未動（等 Tim 決定）**的項目：presence 的隱私與位置取整、48 小時結算窗、經濟數字、戰利品太少是否觸發護盾、TTL —— 第 14 輪已用保守預設值處理，見 §5.4。
 - **已知取捨**：raid 文件 `t` 必須在伺服器時間 ±120 秒內，所以離線贏了、超過 2 分鐘才連上網的文件會被規則擋掉（戰利品本機已拿）；`attacker presence` 要求攻擊者在突襲前 15 分鐘內發佈過 presence，客戶端用強制發佈處理，但 presence 有「≥ 10 秒才能再寫」的下限，剛好剛發佈過就沿用舊的。
+
+### 5.4 審查第 14 輪：頻率限制漏洞 + 保守預設值（Tim 之後可再調）
+**必修：presence 的 10 秒頻率限制可以繞過。** 舊規則比的是 `request.time - resource.data.t`，但 `t` 是客戶端自己填的：`t = now-100` 連寫三次全部通過（模擬器重現）。修法：presence 新增欄位 `ut`，規則要求 `ut == request.time`（客戶端寫 `serverTimestamp()`），update 要求 `request.time - resource.data.ut >= duration.value(10, 's')`。`PUB_KEYS`、JS 鏡像（`presenceShape` / `ruleCheckPresence`）、記憶體假後端（`ut = now()`）都同步；模擬器新增「第二次緊接著的寫入被擋（即使 `t = now-100`）」等案例。備註：同一個 batch 對同一份文件寫兩次只算一次提交（最終只有一份文件、`ut = request.time`），不是繞過。
+
+**預設值（A–E；全部集中在 `PV` 常數與規則的數字，要改只改那幾個數字）**
+| | 預設 | 實作 |
+|---|---|---|
+| A 隱私 | 首次登入顯示一次說明；「🕶 隱身」開關（開 = 刪掉自己的 presence）；登出 / 刪除存檔時刪掉 presence；位置取整 10 單位、`ls` 取整 10 分鐘（進位）、資源取整儲存上限的 5%（捨去）；移除 `hl` / `cd`；非船東不顯示「複製 uid」 | `pvnotice.js`、`PvpClient.setHidden / wipe`、`pubOf` 取整、帳號選單與「附近的船」卡片的開關、`AccountUI.logout`、`CloudAdapter.clear()`。存檔欄位 `pv.nt`（已看過說明）、`pv.hid`（隱身），皆選填、`SAVE_VERSION` 仍是 1。**沒看過說明、或隱身中 → 不公開任何東西。**隱身中不能出手（規則要求攻擊者自己有 presence），掃描仍可用 |
+| B 48 小時窗 | 只結算 `t` 在最近 48 小時內的突襲，更舊的作廢 | `pvIngest` 丟掉 `t < now − 48h`；`pvTick` 對 `tEnd − t > 48h` 的記為 `old`（沒有損失）；`pull` 的查詢下界也是 `now − 48h` |
+| C 經濟 | 同一組攻守桶 12 小時；`ls` 超過 7 天的 presence 不列入掃描、規則也不讓人打；攻擊者拿宣稱量的 50% | `PV.bucket = 43200`（規則 `int(t / 43200)`）；`PV.staleAfter`；`PV.atkShare = 0.5`（`gainOf`）。防守者損失仍是全額（raid 文件的 `loot` = 宣稱量，規則 8% / cap 檢查不變）；攻擊者無條件捨去後拿一半 |
+| D 小額 | 防守者實際損失總和 < `minClaim`（5）→ 不扣船體、不觸發護盾 | `pvTick`：`tot ≥ 5` 才扣船體 + 啟動護盾；`0 < tot < 5` 記為 `small`（東西照扣）；`tot = 0` 仍是 `poor` |
+| E TTL | 略過 | 沒有設定任何 TTL（也沒有動任何 Firebase 設定） |
+
+**已知限制 / 誠實說明**
+- `t` 與 `ut` 仍然洩漏「最後一次寫入」的時間（精確到秒）；`ut` 是頻率限制必要的、且由伺服器寫，沒辦法取整。取整的 `ls` 只是讓「最後上線」看起來粗一點。
+- 文件 id = 帳號 uid（一串隨機字元，不是 email）；說明視窗有寫。
+- 7 天的過濾在 `list` 無法放進規則（需要複合索引）；掃描時由客戶端過濾，`get` 與 raid create 由規則強制。
+- 目前**沒有「刪除帳號」的介面**；唯一類似的路徑是 `CloudAdapter.clear()`（刪雲端存檔，沒有接到任何按鈕），已一併刪除 presence。之後若加刪帳號功能，請呼叫 `play.pvpWipe()` 或 `cloud.pvp.delPresence(uid)`。
+- 沒有 TTL → 過期文件不會自動清除（只有本人隱身 / 登出會刪自己的 presence）。
+- 規則仍是提案、未部署；120 秒的 raid `t` 限制（第 13 輪的已知取捨）沒有改。

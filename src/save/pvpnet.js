@@ -4,7 +4,7 @@
 //   · presence/{uid}            ：只有本人能寫（公開快照；任何登入者可讀）。別人永遠寫不了你的 presence，也寫不了 arks/{uid}。
 //   · raids/{defender}/in/{attacker}_{bucket}：攻擊方在「被攻擊者的收件匣」裡 create 一份文件（只能 create，不能 update / delete）。
 //       被攻擊者（本人）上線時讀自己的收件匣，把它抄進自己的存檔，之後由決定性的 pvTick 結算。被攻擊者不需要寫任何別人的文件。
-//   · 規則能做的事：型別 / 範圍 / 大小 / 每個「攻擊者×目標×6 小時」一份 / 與目標 presence 快照比較（get()）的掠奪上限 / 時間戳靠近伺服器時間。
+//   · 規則能做的事：型別 / 範圍 / 大小 / 每個「攻擊者×目標×12 小時」一份 / 與目標 presence 快照比較（get()）的掠奪上限 / 時間戳靠近伺服器時間。
 //   · 規則做不到的事（⇒ 防不了作弊）：驗證打贏了守衛艦、驗證攻擊者真的在附近（只能比對自己宣稱的座標）、驗證 presence 快照是真的、
 //     讓被攻擊者的實際損失回饋給攻擊者。
 import { PV, sanPub, sanRaidDoc, blockOf, nearBlocks, bucketOf, pubOf, pubChanged, canRaid, pvIngest, ingestSince, pvOf, attExpire, outPrune, outDone, handleOf, raidDocId, ensurePv } from '../sim/pvp.js';
