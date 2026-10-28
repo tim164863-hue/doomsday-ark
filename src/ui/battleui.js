@@ -70,8 +70,8 @@ export class BattleUI {
     const s = this.s, now = nowSec(), c = BT.curOf(s); if (!c || now >= c.end) { this.hud.ui.toast('遭遇已經結束了'); return; }
     if (c.eng) { this.open(); return; }   // 已經接管過（回來繼續打）不用再問
     const { pv, ar, rk } = riskOf(s, F.combatOf(s)); if (!ar.risky) { this.open(); return; }
-    const B = BT.FOES[c.k], box = this.cf.querySelector('.btCard');
-    box.innerHTML = `<div class="rk">⚠️</div><h3>確定要接管嗎？</h3><p class="rtx">${B.icon} ${esc(c.nm || B.name)} Lv${c.lv} 對現在的船很危險。</p><p class="dim">${rk.take}${ar.winMax > ar.win + 0.02 ? '（全力指揮最好 ' + pc(ar.winMax) + '%）' : ''}<br>${rk.crew}<br>${rk.retreat}</p><p class="dim">在砲戰場打倒牠＝勝利；打輸 / 超時才照公式結算，船員自己判斷風險比較低。中途可以按「撤退」。</p><div class="eo"><button data-a="go" class="pri">仍要接管</button><button data-a="crew">交給船員</button><button data-a="no">再想想</button></div>`;
+    const B = BT.FOES[c.k], box = this.cf.querySelector('.btCard'), hopeless = ar.win < 0.1;
+    box.innerHTML = `<div class="rk">⚠️</div><h3>確定要接管嗎？</h3><p class="rtx">${B.icon} ${esc(c.nm || B.name)} Lv${c.lv} ${hopeless ? '<b>這場幾乎打不贏</b>，建議交給船員（或進場後隨時撤退）。' : '對現在的船很危險。'}</p><p class="dim">${rk.take}${ar.winMax > ar.win + 0.02 ? '（全力指揮最好 ' + pc(ar.winMax) + '%）' : ''}<br>${rk.crew}<br>${rk.retreat}</p><p class="dim">在砲戰場打倒牠＝勝利；打輸 / 超時才照公式結算，船員自己判斷風險比較低。中途可以按「撤退」。</p><div class="eo">${hopeless ? '<button data-a="crew" class="pri">交給船員</button><button data-a="go">仍要接管</button>' : '<button data-a="go" class="pri">仍要接管</button><button data-a="crew">交給船員</button>'}<button data-a="no">再想想</button></div>`;
     box.querySelector('[data-a=go]').onclick = () => { this.cf.classList.add('hide'); this.open(); }; box.querySelector('[data-a=no]').onclick = () => this.cf.classList.add('hide');
     box.querySelector('[data-a=crew]').onclick = () => { this.cf.classList.add('hide'); this.crew(); }; this.cf.classList.remove('hide');
   }
@@ -90,14 +90,17 @@ export class BattleUI {
     if (BT.curOf(this.s)) this.hud.ui.toast('先離開砲戰；倒數還在，隨時可以回來接管（再開一次會重打）'); this.hud.refresh(true);
   }
   crew() {
+    if (this.isOpen() && this.phase === 'fight' && this.arena && this.arena.over) return;   // 同上：分出勝負後不能改交給船員
     const r = this.hud.play.worldAct('battleAuto', {}); if (this.isOpen()) { this.phase = 'idle'; cancelAnimationFrame(this.raf); this.showResult(r, null, null, 'crew'); } else this.refresh();
   }
   retreat() {
-    if (this.phase !== 'fight') return; this.phase = 'idle'; cancelAnimationFrame(this.raf); this.fireHeld = false;
+    if (this.phase !== 'fight' || this.arena.over) return;   // 砲戰已分出勝負（約 0.9 秒結算前）→ 不能再用撤退把結果換掉
+    this.phase = 'idle'; cancelAnimationFrame(this.raf); this.fireHeld = false;
     const r = this.hud.play.worldAct('battleRetreat', { id: this.cid }); this.showResult(r, A.arenaMetrics(this.arena), this.arena.over, 'retreat');
   }
   toggleInc() { this.ammo = this.ammo ? 0 : 1; this.syncBtn(); }
-  syncBtn() { const a = this.arena; const b = this.el.querySelector('[data-a=inc]'); if (!a) return; b.querySelector('b').textContent = a.p.inc; b.classList.toggle('on', !!this.ammo && a.p.inc > 0); b.disabled = a.p.inc <= 0; }
+  syncBtn() { const a = this.arena; if (a) for (const k of ['retreat', 'crew']) this.el.querySelector(`.btTop [data-a=${k}]`).disabled = !!a.over;   // 分出勝負後鎖住撤退 / 交給船員
+     const b = this.el.querySelector('[data-a=inc]'); if (!a) return; b.querySelector('b').textContent = a.p.inc; b.classList.toggle('on', !!this.ammo && a.p.inc > 0); b.disabled = a.p.inc <= 0; }
   finish(why) {
     const a = this.arena; this.phase = 'done'; cancelAnimationFrame(this.raf); const m = A.arenaMetrics(a); this.metrics = m;
     const r = this.hud.play.worldAct('battleSubmit', { rep: { id: this.cid, won: m.won, loss: m.loss, hits: m.hits, shots: m.shots, t: m.t, acc: m.acc, dodge: m.dodge } }); this.showResult(r, m, a.over, 'arena');
@@ -108,7 +111,7 @@ export class BattleUI {
     const b = BT.btStats(this.s), last = b && b.last && b.last.id === this.cid ? b.last : null;
     if (!r || !r.ok) {
       const [ic, tt] = last ? KIND_TXT[last.r] || ['⚔️', '結束'] : ['⏳', ''];
-      card.innerHTML = last ? `<div class="rk">${ic}</div><h3>⏳ 來不及了，船員已經處理</h3><p class="rtx">${esc(last.text)}</p><p class="dim">結果：${tt}。倒數結束時，沒有人接管的遭遇會由船員自動結算（你剛才在砲戰場的表現不計入）。</p><div class="eo"><button data-a="ok" class="pri">回到海上</button></div>`
+      card.innerHTML = last ? `<div class="rk">${ic}</div><h3>⏳ 來不及了，船員已經處理</h3><p class="rtx">${esc(last.text)}</p><p class="dim">結果：${tt.replace(/[！!。…]+$/, '')}。倒數結束時，沒有人接管的遭遇會由船員自動結算（你剛才在砲戰場的表現不計入）。</p><div class="eo"><button data-a="ok" class="pri">回到海上</button></div>`
         : `<div class="rk">⏳</div><h3>${esc((r && r.msg) || '遭遇已經由船員處理')}</h3><div class="eo"><button data-a="ok" class="pri">回到海上</button></div>`;
     } else {
       const [ic, tt] = KIND_TXT[r.kind] || ['⚔️', '結束']; const B = BT.FOES[last ? last.k : 'serpent'];

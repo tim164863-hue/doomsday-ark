@@ -3,6 +3,10 @@
 // 階段③（旗艦晉升）的材料 / 稀有藍圖 / 晉升配方也先定義在這裡（PROMO），階段③只需要讀。
 import { clamp, tbl } from '../util.js';
 
+/** 所有船體傷害（自然磨損 / 風暴 / 雷擊 / 海域 / 戰鬥）共用的保底：只把「高於 SZ.floor 的部分」扣掉，回傳實際扣掉的量；
+ *  已經低於保底的船體不會被扣、也不會被抬高（修理才會讓它回升）。純函式式更新 s.cond，線上逐 tick = 離線補算。 */
+export const hullDmg = (s, d) => { if (!(d > 0)) return 0; const b = s.cond, n = Math.max(Math.min(b, SZ.floor), b - d); s.cond = n; return b - n; };
+
 export const SZ_ORDER = ['fog', 'whirlpool', 'fire', 'hell', 'stonehenge'];
 export const SZ = {
   edge: 0.3,            // 深度 = (1 − 距離 / 半徑) / edge，上限 1

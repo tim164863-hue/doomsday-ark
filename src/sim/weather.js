@@ -6,6 +6,7 @@ import { RES } from './defs.js';
 import { SPAWNS, arkPos } from './world.js';
 import { resCap, flagStats } from './promo.js';
 import { clamp, smoothstep } from '../util.js';
+import { hullDmg } from './szdata.js';
 
 export const WX = {
   bucket: 3 * 3600, cell: 400,                 // 每 3 遊戲小時 × 每 400×400 地圖區塊一組天氣
@@ -93,8 +94,8 @@ export function weatherTick(s, t, tEnd, ev, xslow = 0) { // xslow = 特殊海域
   if (r && p.moving && slow > 0.001 && r.t1 - t > dt * 1.5) {
     const rem = r.t1 - t, v = 1 / rem, adv = (1 - slow) * dt * v; r.x0 = p.x + (r.x1 - p.x) * adv; r.y0 = p.y + (r.y1 - p.y) * adv; r.t0 = tEnd; r.t1 = r.t1 + slow * dt;
   }
-  if (E.hull) s.cond = Math.max(0, s.cond - E.hull);
-  if (E.strike && hash(s.seed, 'wxl', ti) / U32 < E.strike) { const sd = WX.strikeDmg * (E.strikeK || 1); s.cond = Math.max(0, s.cond - sd); st.hits = (st.hits | 0) + 1; ev && ev({ t: tEnd, type: 'weather', sub: 'lightning', text: `雷擊！船體 −${+sd.toFixed(1)}%` }); }
+  if (E.hull) hullDmg(s, E.hull);
+  if (E.strike && hash(s.seed, 'wxl', ti) / U32 < E.strike) { const sd = WX.strikeDmg * (E.strikeK || 1); const sdA = +hullDmg(s, sd).toFixed(1); st.hits = (st.hits | 0) + 1; ev && ev({ t: tEnd, type: 'weather', sub: 'lightning', text: sdA > 0 ? `雷擊！船體 −${sdA}%` : '雷擊！船體已在保底，沒有再受損' }); }
   if (E.fuel) { const f0 = s.res.fuel; if (f0 > WX.fuelReserve) s.res.fuel = Math.max(WX.fuelReserve, f0 - E.fuel); const f1 = s.res.fuel; // 低油量提示（只在跨過門檻的那一刻，沒有額外存檔欄位）
     if (ev && f0 >= WX.fuelWarn && f1 < WX.fuelWarn) ev({ t: tEnd, type: 'weather', sub: 'lowfuel', text: `⛽ 燃料只剩 ${Math.floor(f1)}：極地暖氣耗油，儲備 ${WX.fuelReserve} 以下暖氣不再耗油。請盡快補給或駛離極地！` }); }
   if (E.water) s.res.water = Math.min(resCap(s, 'water'), s.res.water + E.water);

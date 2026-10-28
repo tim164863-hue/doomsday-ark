@@ -10,6 +10,7 @@ import { resCap } from './promo.js';
 import { weatherTick } from './weather.js';
 import { seaPre, seaTick, moraleMul } from './seazones.js';
 import { SHIPS } from './fleetdefs.js';
+import { hullDmg } from './szdata.js';
 import * as R from './rel.js';
 
 const r2 = (x) => Math.round(x * 100) / 100;
@@ -104,7 +105,7 @@ export function stepTick(s, t, rep) {
   for (const k of ['food', 'water', 'fuel']) { const need = r.cons[k]; const have = s.res[k]; const used = Math.min(need, have); s.res[k] -= used; if (rep) rep.consumed[k] += used; if (used < need - 1e-9 && k !== 'fuel') short = true; }
   // 工坊修復船體（耗零件）
   const wk = s.fac.workshop; if (wk.lv && s.res.parts >= 0.1 && s.cond < 100) { const g = 0.05 * LV_MULT[wk.lv] * (wk.dmg ? 0.5 : 1); s.res.parts -= 0.1; if (rep) rep.consumed.parts += 0.1; s.cond = Math.min(100, s.cond + g); }
-  s.cond = Math.max(0, s.cond - (short ? 0.06 : 0.01));
+  hullDmg(s, short ? 0.06 : 0.01);   // 自然磨損也停在 SZ.floor（20%）
   if (short && tEnd - s.shortageAt > 6 * 3600) { s.shortageAt = tEnd; s.stats.shortages++; pushEvent(s, rep, { t: tEnd, type: 'shortage', text: s.res.food <= 0 ? '食物見底了，大家餓著肚子工作…' : '飲水用完了，船員口渴難耐…' }); }
   // 3. 受傷復原
   for (const k of Object.keys(s.crew)) { const c = s.crew[k]; if (c.inj && c.inj <= tEnd) { c.inj = 0; c.sick = false; pushEvent(s, rep, { t: tEnd, type: 'recover', who: k, text: `${k} 傷勢痊癒，回到崗位。` }); } }
@@ -113,7 +114,7 @@ export function stepTick(s, t, rep) {
   if (roll < 0.0030) { const p = 6 + Math.floor(amt * 9); addRes(s, 'parts', p, rep); pushEvent(s, rep, { t: tEnd, type: 'crate', text: `海面漂來一箱補給：零件 +${p}。` }); }
   else if (roll < 0.0050) { addRes(s, 'water', 25, rep); pushEvent(s, rep, { t: tEnd, type: 'rain', text: '一場驟雨，接水桶滿了：飲水 +25。' }); }
   else if (!safe && roll < 0.0062) {
-    const loss = 5 + Math.floor(amt * 4); s.cond = Math.max(0, s.cond - loss); const built = FAC_ORDER.filter((f) => s.fac[f].lv && !s.fac[f].dmg); let txt = `風暴來襲，船體受損 −${loss}%`;
+    const loss0 = 5 + Math.floor(amt * 4), loss = +hullDmg(s, loss0).toFixed(1); const built = FAC_ORDER.filter((f) => s.fac[f].lv && !s.fac[f].dmg); let txt = loss > 0 ? `風暴來襲，船體受損 −${loss}%` : '風暴來襲，船體已在保底，沒有再受損';
     if (built.length) { const f = built[Math.floor(pick * built.length)]; s.fac[f].dmg = true; txt += `，${FAC[f].name}故障。`; } else txt += '。';
     pushEvent(s, rep, { t: tEnd, type: 'storm', text: txt }); R.rally(s, tEnd, (e) => pushEvent(s, rep, e), 'storm');
   } else if (!safe && roll < 0.0070) {

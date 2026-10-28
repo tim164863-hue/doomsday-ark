@@ -56,7 +56,7 @@ export function renderPromo(hud) {
     body = `<p class="sub">選一條晉升路線：每一階需要<b>資源 + 稀有藍圖 + 特殊海域材料</b>，開工後改裝 24 / 36 / 48 小時（旗艦停泊）。倉庫放不下整份資源（零件上限 ${PM.capOf(s.fleet, 'parts')}），所以可以<b>分批投入</b>；食物 / 飲水 / 燃料會替船員與航行保留一些。一階一階升，想換分支要先「改裝回基礎船」。</p><div class="pm-grid">${cards}</div>${cur.tier ? `<div class="mb"><button data-a="reset" class="mini">↩︎ 改裝回基礎船（階級歸零，不退費）</button></div>` : ''}`;
   }
   const zl = SZ_ORDER.map((id) => { const z = SPECIAL_ZONES[id]; const ok = PM.meetsNeed(s.fleet, z); return `<span class="zc ${ok ? '' : 'un'}" style="${ok ? `border-color:${z.color};color:${z.color}` : ''}" title="${z.need ? PM.needText(z) : '不需要階級'}">${z.icon}${z.short} ${!z.need ? '自由進出' : ok ? '✓ 可進' : '🔒 ' + PM.needText(z)}${z.need && !z.need.hard ? '（強條件）' : ''}</span>`; }).join('');
-  c.innerHTML = `<h2>⭐ 旗艦晉升 <button class="x" data-x="close">✕</button></h2>${head}${holdH}${body}<h3>特殊海域進入條件</h3><div class="zonebar pm-z">${zl}</div><p class="sub">🔒 = 旗艦階級不夠，海圖出航與手動駕駛都進不去（火焰是強條件：可以進，但危害 ×3）。停泊仍會慢慢磨損，記得工坊／零件。</p>`;
+  c.innerHTML = `<h2>⭐ 旗艦晉升 <button class="x" data-x="close">✕</button></h2>${head}${holdH}${body}<h3>特殊海域進入條件</h3><div class="zonebar pm-z">${zl}</div><p class="sub">🔒 = 旗艦階級不夠，海圖出航與手動駕駛都進不去（火焰是強條件：可以進，但危害 ×3）。停泊仍會慢慢磨損、風暴也會受損，但船體最低停在 20%（不會沉船）；記得用工坊／零件修。</p>`;
   c.querySelector('[data-x=close]').onclick = () => hud.closeModal();
   const A = (sel, fn) => c.querySelectorAll(sel).forEach((b) => (b.onclick = () => fn(b)));
   A('[data-a=plan]', (b) => { hud.play.promoAct('plan', { to: b.dataset.to }); renderPromo(hud); });

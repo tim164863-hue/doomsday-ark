@@ -298,7 +298,7 @@ export class HUD {
   szHtml() {
     const s = this.s, w = s.fleet.world; if (!w || !w.pos) return ''; const sz = w.sz || {}; const n = SZM.PROMO_BP_IDS.filter((k) => s.fleet.bp[k]).length;
     const zs = SZM.SZ_ORDER.map((id) => { const Z = SZM.SPECIAL_ZONES[id], seen = this.chart.szSeen && this.chart.szSeen[id]; return `<span class="zc ${seen ? '' : 'un'}" style="${seen ? `border-color:${Z.color};color:${Z.color}` : ''}" title="${seen ? Z.blurb : '還沒找到'}">${seen ? Z.icon + Z.short : '❓'}${sz.n && sz.n[id] ? ` ×${sz.n[id]}` : ''}</span>`; }).join('');
-    return `<h3>特殊海域・稀有掉落 <small class="dim">稀有藍圖 ${n}/9（旗艦晉升用）</small></h3><div class="zonebar">${zs}</div>${this.matHtml(s)}<p class="sub">五個特殊海域藏在世界地圖上：🌫迷霧、🌀漩渦、🔥火焰、😈地獄、🗿巨石陣。裡面有危害，但會掉落旗艦晉升需要的稀有藍圖與材料。在海圖上找到它們（迷霧只有外緣看得到）。停泊仍會慢慢磨損，記得工坊／零件。</p>`;
+    return `<h3>特殊海域・稀有掉落 <small class="dim">稀有藍圖 ${n}/9（旗艦晉升用）</small></h3><div class="zonebar">${zs}</div>${this.matHtml(s)}<p class="sub">五個特殊海域藏在世界地圖上：🌫迷霧、🌀漩渦、🔥火焰、😈地獄、🗿巨石陣。裡面有危害，但會掉落旗艦晉升需要的稀有藍圖與材料。在海圖上找到它們（迷霧只有外緣看得到）。停泊仍會慢慢磨損、風暴也會受損，但船體最低停在 20%（不會沉船）；記得用工坊／零件修。</p>`;
   }
   /** 頂部 / 膠囊的海域 chip：巨石陣中心 = 開古碑；其他 = 打開海圖 */
   szClick() { const fx = this.game.szFx; if (!fx) return; if (fx.id === 'stonehenge' && fx.depth >= 0.3) { this.openPuzzle(); return; } this.chart.open(); }
