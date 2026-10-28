@@ -16,6 +16,7 @@ import { SHIPS, ZONES, ZONE_ORDER } from '../sim/fleetdefs.js';
 import { buildShipModel } from '../ship/fleetmodels.js';
 import { FacilityView, findSlot, blockRect, FOOT, SC, setFacScale } from './facilities.js';
 import { Avatar } from '../crew/avatar.js';
+import { Player } from '../player.js';
 import { SHIP_CX } from '../ship/config.js';
 import { dampAngle } from '../util.js';
 import { Games } from './games.js';
@@ -324,7 +325,7 @@ export class Play {
   startPilot(id) {
     if (this.pilot) return; if (this.helm.on) { this.helm.stop(); } const ship = F.findShip(this.state, id); if (!ship) return; const i = this.state.fleet.ships.indexOf(ship); const r = F.startPilot(this.state, id, nowSec());
     if (!r.ok) { this.game.ui.toast('⚠️ ' + r.msg); return r; }
-    const b = this.berthOf(ship); const g = this.game; const av = new Avatar('T董'); av.setPose('stand'); const V = this.fleetViews.get(id); const h = this.HELM[ship.type] || [0, 1, 0]; av.group.position.set(h[0], h[1], h[2]); av.group.rotation.y = Math.PI / 2;
+    const b = this.berthOf(ship); const g = this.game; const av = Player.makeAvatar(g); av.setPose('stand'); const V = this.fleetViews.get(id); const h = this.HELM[ship.type] || [0, 1, 0]; av.group.position.set(h[0], h[1], h[2]); av.group.rotation.y = Math.PI / 2;
     if (V && V.home) { const sh = g.ship; av.group.position.set(h[0] * sh.k, h[1] * sh.k, h[2] * sh.k); sh.body.add(av.group); } else V && V.mesh.add(av.group);
     this.pilot = { id, type: ship.type, idx: i, x: b.x, z: b.z, yaw: b.yaw, v: 0, av, cam: new THREE.Vector3(b.x, 2, b.z), homing: false, keepT: 0, max: 7 + SHIPS[ship.type].speed * 5, t0: g.time };
     const V2 = this.fleetViews.get(id); if (V2 && V2.pos) { this.pilot.x = V2.pos.x; this.pilot.z = V2.pos.z; this.pilot.yaw = V2.pos.yaw; }

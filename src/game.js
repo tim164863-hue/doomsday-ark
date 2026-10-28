@@ -20,7 +20,7 @@ import { BASE_Y, DH } from './ship/ship.js';
 import { waveHeight, waveState } from './world/waves.js';
 import { WeatherFX } from './world/weather.js';
 import { Polar } from './world/polar.js';
-import { weatherAt, helmFactor } from './sim/weather.js';
+import { weatherAt, helmFactor, tempOf } from './sim/weather.js';
 import { arkPos } from './sim/world.js';
 import { clock } from './clock.js';
 
@@ -129,7 +129,6 @@ export class Game {
   }
   /** 目前地圖位置（地圖單位）；沒有存檔 / 世界 → null */
   mapPos() { const p = this.play, w = p && p.state && p.state.fleet && p.state.fleet.world; return w && w.pos ? arkPos(w, clock.now()) : null; }
-  /** 視覺用天氣覆寫（截圖 / 試玩）：'storm' | 'rain' | 'snow' | 'blizzard' | 'aurora' | 'clear'，可加 ,n / ,s（北 / 南極）；null 取消。不影響存檔與模擬。 */
   /** 換角色（非船東）：換模型 + 寫進存檔 pl.c。 */
   setChar(id) {
     if (this.owner || !isChar(id)) return false;
@@ -138,12 +137,13 @@ export class Game {
     if (this.play && this.play.state) { this.play.state.pl = { c: id, s: this.crewSeed }; this.play.save(true); }
     return true;
   }
+  /** 視覺用天氣覆寫（截圖 / 試玩）：'storm' | 'rain' | 'snow' | 'blizzard' | 'aurora' | 'clear'，可加 ,n / ,s（北 / 南極）；null 取消。不影響存檔與模擬；氣溫依冷度 / 夜晚 / 暴風換算。 */
   setWx(spec) {
     if (!spec) { this.wxOv = null; this.wxT = 0; return; }
     const parts = String(spec).split(','), k = parts[0], hemi = parts.includes('s') ? 'south' : parts.includes('n') ? 'north' : null;
     const polar = !!hemi, o = { kind: 'clear', snowy: false, i: 1, cold: polar ? 0.9 : 0.1, craw: polar ? 0.9 : 0.1, shelter: 0, night: false, aur: 0, temp: 20, polar: hemi, hemi: hemi || 'north' };
-    if (k === 'storm') o.kind = 'storm'; else if (k === 'blizzard') { o.kind = 'storm'; o.snowy = true; o.cold = o.craw = Math.max(o.cold, 0.7); } else if (k === 'snow') { o.kind = 'snow'; o.snowy = true; o.cold = o.craw = Math.max(o.cold, 0.7); } else if (k === 'rain') o.kind = 'rain'; else if (k === 'aurora') { o.aur = 1; o.cold = o.craw = Math.max(o.cold, 0.8); o.polar = o.polar || 'north'; } else if (k === 'cloudy') o.kind = 'cloudy';
-    if (o.cold > 0.5 && !hemi) o.hemi = 'north'; o.show = k; this.wxOv = o; this.wxT = 0; this.wxFirst = false; this.polar.fast = performance.now() + 25000;
+    if (k === 'storm') o.kind = 'storm'; else if (k === 'blizzard') { o.kind = 'storm'; o.snowy = true; o.cold = o.craw = Math.max(o.cold, 0.7); } else if (k === 'snow') { o.kind = 'snow'; o.snowy = true; o.cold = o.craw = Math.max(o.cold, 0.7); } else if (k === 'rain') o.kind = 'rain'; else if (k === 'aurora') { o.aur = 1; o.cold = o.craw = Math.max(o.cold, 0.8); o.polar = o.polar || 'north'; o.night = true; } else if (k === 'cloudy') o.kind = 'cloudy';
+    if (o.cold > 0.5 && !hemi) o.hemi = 'north'; o.temp = tempOf(o.cold, o.night, o.kind); o.show = k; this.wxOv = o; this.wxT = 0; this.wxFirst = false; this.polar.fast = performance.now() + 25000;
   }
   updateWeather(dt) {
     this.wxT -= dt;

@@ -56,4 +56,8 @@ const run = (s, hours) => { const reps = []; for (let h = 24; h < hours + 24; h 
   ok(R.gradeOf(1) === 'perfect' && R.gradeOf(0.7) === 'good' && R.gradeOf(0.4) === 'ok' && R.gradeOf(0.1) === 'miss', '評級'); ok(R.botReturns(1, 0.5, 0.5) === false && R.botReturns(0, 0.5, 0.5) === true, '打得好對手更難接'); }
 // 13. 自測
 { ok(runSelfTest().length === 0, 'selftest 無問題'); }
+// 14. 舊存檔的 "T董|bot" 鍵 → 中性的 'player' 鍵（不丟資料、重新排序）
+{ const old = { aff: { 'T董|小米': 12.5, '小米|阿鐵': 3 }, feud: { 'T董|阿鐵': 99 }, cool: {}, party: -1, cel: 0, best: { pickle: 5 } }; const g = R.sanitizeRel(old);
+  ok(R.BOSS === 'player' && g.aff[R.pairKey(R.BOSS, '小米')] === 12.5 && !Object.keys(g.aff).some((k) => k.includes('T董')) && g.aff['小米|阿鐵'] === 3 && g.feud[R.pairKey(R.BOSS, '阿鐵')] === 99, '舊 T董 鍵搬到 player，其他鍵不動');
+  const st = newState(3, 1e6); st.rel = old; const v = validateState(JSON.parse(JSON.stringify(st))); ok(R.affOf(v, R.BOSS, '小米') === 12.5, '讀檔後 affOf(BOSS, bot) 還在'); }
 console.log(fails ? `\n${fails} 項失敗` : '\n全部通過'); process.exit(fails ? 1 : 0);

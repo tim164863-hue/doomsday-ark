@@ -11,7 +11,7 @@ import { charById, lookOf, isChar, CHARS } from './crew/characters.js';
 export class Player {
   constructor(game) {
     this.game = game; this.avatar = Player.makeAvatar(game); this.actor = new Actor(game, this.avatar, D.boss, 1.2, 3.2);
-    this.actor.baseSpeed = 2.7; this.actor.speedMul = 1; this.avatar.setPose('stand'); this.key = 'T董'; this.title = game.small ? '船長' : 'T董'; // T董 是船東專屬角色：只有 owner 看得到
+    this.actor.baseSpeed = 2.7; this.actor.speedMul = 1; this.avatar.setPose('stand'); this.key = game.owner ? 'T董' : 'player'; this.title = game.small ? '船長' : 'T董'; // T董 是船東專屬角色：只有 owner 看得到
      // key 是關係表的固定鍵；title 是顯示名稱（訪客稱「船長」）
     this.elevArmed = true; this.stairCd = 0; this.marker = null; this.moving = false; this.deckChangeTime = 0;
     this.makeMarker(); this.placeStart();

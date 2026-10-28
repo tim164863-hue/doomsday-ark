@@ -16,9 +16,10 @@ export const WX = {
   strikeDiv: 180, strikeDmg: 2.5,                // 雷擊：每 tick 機率 i/180，船體 −2.5%
   slowSnow: 0.30, slowStorm: 0.15,              // 航速減損（乘強度）
   fuelCold: 0.02,                               // 暖氣耗油 / tick（乘 cold）
+  fuelReserve: 20, fuelWarn: 40,                // 暖氣只會把燃料耗到保留量（讓方舟一定走得出極地）；低於警告值會提示
   rainWater: 0.1,                               // 接雨水 / tick
   auroraNight: 0.45, auroraGift: 0.004,         // 每晚出現機率；每 tick 恩賜機率
-  luckBp: 1.5, luckHaul: 1.15,
+  luckBp: 1.5, luckHaul: 1.15,   // 極光：藍圖機率 ×1.5、任務收穫 ×1.15（DESIGN-expansion.md 同步）
 };
 const SEED = 20261029;
 const U32 = 4294967296;
@@ -54,9 +55,12 @@ export function weatherAt(t, x, y) {
     const d = Math.floor(t / 86400), nf = (h - 12) / 12;
     if (hash(SEED, 'aur', d, y < C ? 0 : 1) / U32 < WX.auroraNight) aur = smoothstep(0.55, 0.8, craw) * smoothstep(0, 0.08, nf) * smoothstep(1, 0.92, nf);
   }
-  const temp = Math.round(26 - 44 * cold - (night ? 3 : 0) - (kind === 'storm' ? 2 : 0));
+  const temp = tempOf(cold, night, kind);
   return { kind, snowy, i, cold, craw, shelter, night, aur, temp, polar: polarAt(x, y), show: kind === 'storm' ? (snowy ? 'blizzard' : 'storm') : kind === 'snow' ? 'snow' : (aur > 0.3 ? 'aurora' : kind) };
 }
+
+/** 氣溫（°C）：冷度、夜晚、暴風 */
+export const tempOf = (cold, night, kind) => Math.round(26 - 44 * cold - (night ? 3 : 0) - (kind === 'storm' ? 2 : 0));
 
 /** 天氣對遊戲的效果（每 60 s tick）。純函式。 */
 export function effectsOf(wx) {
@@ -88,7 +92,8 @@ export function weatherTick(s, t, tEnd, ev) {
   }
   if (E.hull) s.cond = Math.max(0, s.cond - E.hull);
   if (E.strike && hash(s.seed, 'wxl', ti) / U32 < E.strike) { s.cond = Math.max(0, s.cond - WX.strikeDmg); st.hits = (st.hits | 0) + 1; ev && ev({ t: tEnd, type: 'weather', sub: 'lightning', text: `雷擊！船體 −${WX.strikeDmg}%` }); }
-  if (E.fuel) s.res.fuel = Math.max(0, s.res.fuel - E.fuel);
+  if (E.fuel) { const f0 = s.res.fuel; if (f0 > WX.fuelReserve) s.res.fuel = Math.max(WX.fuelReserve, f0 - E.fuel); const f1 = s.res.fuel; // 低油量提示（只在跨過門檻的那一刻，沒有額外存檔欄位）
+    if (ev && f0 >= WX.fuelWarn && f1 < WX.fuelWarn) ev({ t: tEnd, type: 'weather', sub: 'lowfuel', text: `⛽ 燃料只剩 ${Math.floor(f1)}：極地暖氣耗油，儲備 ${WX.fuelReserve} 以下暖氣不再耗油。請盡快補給或駛離極地！` }); }
   if (E.water) s.res.water = Math.min(RES.water.cap, s.res.water + E.water);
   if (wx.kind === 'storm' && wx.i > 0.3) st.storm = (st.storm | 0) + 1; else if (wx.snowy && wx.kind === 'snow' && wx.i > 0.3) st.snow = (st.snow | 0) + 1;
   if (E.lucky) { st.aur = (st.aur | 0) + 1; if (hash(s.seed, 'wxa', ti) / U32 < WX.auroraGift) { const r2 = hash(s.seed, 'wxg', ti); const n = 6 + (r2 % 7); const k = r2 & 1 ? 'parts' : 'fuel'; s.res[k] = Math.min(RES[k].cap, s.res[k] + n); ev && ev({ t: tEnd, type: 'weather', sub: 'aurora', text: `極光恩賜：${k === 'parts' ? '零件' : '燃料'} +${n}` }); } }

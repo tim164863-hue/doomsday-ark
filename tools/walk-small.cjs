@@ -21,9 +21,10 @@ const TYPES = (process.env.TYPES || 'skiff,speedboat,tug,patrol,icebreaker').spl
     await pg.evaluate((t) => { ark.play.fleetAct('pick', { type: ['patrol', 'icebreaker'].includes(t) ? 'skiff' : t }); if (['patrol', 'icebreaker'].includes(t)) { const f = ark.play.state.fleet; f.ships[0].type = t; f.pick = t; } ark.play.save(true); }, type); console.log("  saved"); await w(500); await closePg(pg); console.log("  closed");
     // 2) 重新載入（不 fresh）：這時才是真正的「小船」家
     console.log("  reopen"); pg = await open("guest=1"); await dismiss(pg); console.log("  opened");
-    const info = await pg.evaluate(() => ({ small: ark.small, type: ark.ship.type, key: ark.player.avatar.key, owner: ark.owner, ch: ark.charId, nd: ark.ship.decks[0].pois.desks.length, ne: ark.ship.decks[0].pois.extraDesks.length, crew: [...ark.crew.bots.values()].map((x) => [x.key, x.avatar.look.model, !!x.info.look]), pl: ark.play.state.pl }));
+    const info = await pg.evaluate(() => ({ small: ark.small, type: ark.ship.type, key: ark.player.avatar.key, pkey: ark.player.key, owner: ark.owner, ch: ark.charId, nd: ark.ship.decks[0].pois.desks.length, ne: ark.ship.decks[0].pois.extraDesks.length, crew: [...ark.crew.bots.values()].map((x) => [x.key, x.avatar.look.model, !!x.info.look]), pl: ark.play.state.pl }));
     const chk = (ok, msg) => { n++; if (!ok) fails.push(`${type}: ${msg}`); };
     chk(info.small && info.type === type && !info.owner, `不是小船家 ${JSON.stringify([info.small, info.type, info.owner])}`);
+    chk(info.pkey === 'player', `玩家鍵不是 T董 (${info.pkey})`);
     chk(info.nd === 0 && info.ne === 0, `甲板上不該有辦公桌 (${info.nd}/${info.ne})`);
     chk(/^P:/.test(info.key) && info.key !== 'P:T董' && info.pl && info.pl.c === info.ch, `玩家角色不是資料庫角色 (${info.key})`);
     chk(info.crew.length >= 2 && info.crew.length <= 3 && info.crew.every((c) => c[2]) && new Set(info.crew.map((c) => c[0])).size === info.crew.length, `船員人數 / 外觀 ${JSON.stringify(info.crew)}`);

@@ -85,13 +85,14 @@ export class HUD {
 
   // ------------------------------------------------------------ 資源列 / 船員列
   refresh(force) {
-    if (!this.play) return; const s = this.s; const r = S.rates(s, s.simT);
+    if (!this.play) return; const s = this.s; const r = S.rates(s, s.simT); const wc = this.game.wxNow; // 極地（冷）時燃料警戒線拉高到 40：暖氣會一直耗油
+    const lowAt = (k) => (k === 'fuel' && wc && wc.cold >= 0.3 ? Math.max(40, RES[k].cap * 0.08) : RES[k].cap * 0.08);
     for (const k of RES_KEYS) {
       const el = this.bar.querySelector(`.rc[data-k="${k}"]`); const net = r[k] - (r.cons[k] || 0); const v = Math.floor(s.res[k]);
       el.querySelector('b').textContent = v; const sm = el.querySelector('small'); sm.textContent = (net >= 0 ? '+' : '') + net.toFixed(1); sm.className = net >= 0 ? 'up' : 'dn';
-      el.classList.toggle('low', s.res[k] < RES[k].cap * 0.08 && (k !== 'parts')); el.title = `${RES[k].name} ${v}/${RES[k].cap}　每分鐘：生產 +${r[k].toFixed(2)}　消耗 −${(r.cons[k] || 0).toFixed(2)}`;
+      el.classList.toggle('low', s.res[k] < lowAt(k) && (k !== 'parts')); el.title = `${RES[k].name} ${v}/${RES[k].cap}　每分鐘：生產 +${r[k].toFixed(2)}　消耗 −${(r.cons[k] || 0).toFixed(2)}`;
     }
-    { const cn = (v) => { v = Math.floor(v); return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : String(v); }; const pv = this.pill.querySelector('.pv'); pv.innerHTML = ['food', 'water', 'fuel'].map((k) => `<span class="${s.res[k] < RES[k].cap * 0.08 ? 'low' : ''}">${RES[k].icon}${cn(s.res[k])}</span>`).join(''); }
+    { const cn = (v) => { v = Math.floor(v); return v >= 1000 ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) + 'k' : String(v); }; const pv = this.pill.querySelector('.pv'); pv.innerHTML = ['food', 'water', 'fuel'].map((k) => `<span class="${s.res[k] < lowAt(k) ? 'low' : ''}">${RES[k].icon}${cn(s.res[k])}</span>`).join(''); }
     const ce = this.bar.querySelector('.rc.cond'); ce.querySelector('b').textContent = Math.round(s.cond) + '%'; const u = ce.querySelector('u'); u.style.width = s.cond + '%'; u.style.background = s.cond < 30 ? '#ff6b5e' : s.cond < 60 ? '#ffc65e' : '#6fd78f'; ce.classList.toggle('low', s.cond < 30);
     const done = s.daily.tasks.filter((t) => t.progress >= t.target && !t.claimed).length; const bt = this.bar.querySelector('#btnTasks .bdg'); bt.textContent = done; bt.classList.toggle('hide', !done);
     const nTr = s.trips.length; const bb = this.bar.querySelector('#btnTrips .bdg'); bb.textContent = nTr; bb.classList.toggle('hide', !nTr);
@@ -256,7 +257,7 @@ export class HUD {
   /** 角色挑選（非船東）：10 位角色；點一下立刻換上，存在存檔的 pl.c。 */
   renderChar() {
     const c = this.modal.querySelector('.mcard'); const cur = this.game.charId; let imgs = null;
-    const html = () => `<h2>🧑‍✈️ 選擇你的角色 <button class="x" data-x="close">✕</button></h2><p class="sub">點一下就會換上，下次登入還是這位。<small>（T董 是船東專屬角色，這裡不會出現）</small></p>
+    const html = () => `<h2>🧑‍✈️ 選擇你的角色 <button class="x" data-x="close">✕</button></h2><p class="sub">點一下就會換上，下次登入還是這位。</p>
     <div class="chargrid">${CHARS.map((ch) => `<button class="chc${ch.id === this.game.charId ? ' on' : ''}" data-c="${ch.id}"><span class="cp">${imgs && imgs[ch.id] ? `<img alt="${ch.name}" src="${imgs[ch.id]}">` : `<i>${ch.tag}</i>`}</span><b>${ch.name}</b><small>${ch.blurb}</small>${ch.id === this.game.charId ? '<em>✔ 使用中</em>' : ''}</button>`).join('')}</div>`;
     const bind = () => { c.querySelector('.x').onclick = () => this.closeModal(); c.querySelectorAll('.chc').forEach((el) => { el.onclick = () => { const id = el.dataset.c; if (id === this.game.charId) return; if (this.game.setChar(id)) { c.innerHTML = html(); bind(); this.ui.toast(`換上「${charById(id).name}」`); } }; }); };
     c.innerHTML = html(); bind();

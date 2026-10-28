@@ -6,7 +6,8 @@
 import { TICK } from './defs.js';
 import { hash, mulberry32 } from './rng.js';
 
-export const BOSS = 'T董';
+export const BOSS = 'player'; // 玩家在關係表裡的中性鍵（舊存檔的 "T董|…" 會在 sanitizeRel 轉成這個）
+const OLD_BOSS = 'T董';
 export const FRIEND = 30, RIVAL = -25, FIGHT_AT = -22;
 export const PARTY_MIN = 21 * 60, PARTY_LEN = 60;              // 當地 21:00–22:00
 export const MEALS = [{ id: 'breakfast', name: '早餐', from: 7 * 60 + 30, to: 8 * 60 + 15 }, { id: 'lunch', name: '午餐', from: 12 * 60, to: 12 * 60 + 45 }, { id: 'dinner', name: '晚餐', from: 18 * 60 + 30, to: 19 * 60 + 15 }];
@@ -19,7 +20,8 @@ export const dayOf = (ts, tz) => Math.floor((ts + tz * 60) / 86400);
 export const mealAt = (min) => MEALS.find((m) => min >= m.from && min < m.to) || null;
 
 export function ensureRel(s) { if (!s.rel || typeof s.rel !== 'object') s.rel = { aff: {}, feud: {}, cool: {}, party: -1, cel: 0, best: {} }; return s.rel; }
-const numMap = (o, lo, hi, max = 400) => { const out = {}; if (!o || typeof o !== 'object') return out; let n = 0; for (const k of Object.keys(o)) { const v = o[k]; if (typeof v !== 'number' || !Number.isFinite(v) || k.length > 60 || k.indexOf('|') < 1) continue; out[k] = r2(clamp(v, lo, hi)); if (++n >= max) break; } return out; };
+const migKey = (k) => { const i = k.indexOf('|'); const a = k.slice(0, i), b = k.slice(i + 1); return a === OLD_BOSS || b === OLD_BOSS ? pairKey(a === OLD_BOSS ? BOSS : a, b === OLD_BOSS ? BOSS : b) : k; };
+const numMap = (o, lo, hi, max = 400) => { const out = {}; if (!o || typeof o !== 'object') return out; let n = 0; for (let k of Object.keys(o)) { const v = o[k]; if (typeof v !== 'number' || !Number.isFinite(v) || k.length > 60 || k.indexOf('|') < 1) continue; k = migKey(k); out[k] = r2(clamp(v, lo, hi)); if (++n >= max) break; } return out; };
 /** 驗證 / 修正讀回的 rel；壞掉回傳 null（呼叫端直接刪掉，之後重建）。 */
 export function sanitizeRel(r) {
   if (!r || typeof r !== 'object' || Array.isArray(r)) return null;

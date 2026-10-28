@@ -2,7 +2,7 @@
 import { newState, simulateTo, syncCrew } from '../src/sim/sim.js';
 import * as F from '../src/sim/fleet.js';
 import * as W from '../src/sim/world.js';
-import { weatherTick, weatherAt, effectsOf, helmFactor, coldAt, coldRaw, polarAt, shelterAt, WX } from '../src/sim/weather.js';
+import { weatherTick, weatherAt, effectsOf, helmFactor, coldAt, coldRaw, polarAt, shelterAt, WX, tempOf } from '../src/sim/weather.js';
 import { bergsAround, bergHit, bergDensity } from '../src/sim/polar.js';
 import { validateState, serialize } from '../src/save/cloud.js';
 import { SAVE_VERSION } from '../src/sim/defs.js';
@@ -85,4 +85,11 @@ const find = (pred, from, step, n) => { for (let i = 0; i < n; i++) { const t = 
   delete j.fleet.world.wx; const v = validateState(j); ok(v && v.fleet.world && !v.fleet.world.wx, '舊存檔沒有 wx 也能讀');
   const j2 = JSON.parse(serialize(s)); j2.fleet.world.wx = { k: '<script>', hits: -5, storm: 'x', aur: 1e12, polar: 99 }; const v2 = validateState(j2); const wx = v2.fleet.world.wx; ok(wx.k === 'clear' && wx.hits === 0 && wx.storm === 0 && wx.aur <= 1e7 && wx.polar <= 3, '壞的 wx 欄位被清理'); }
 { const o = runSelfTest(); ok(o.length === 0, 'selfTest 通過'); }
+{ // 極地暖氣耗油有保留量；跨過 40 時只提示一次
+  const P = { x: 800, y: 130 }; const s = mk(P); s.res.fuel = 60; const evs = []; for (let t = T0; t < T0 + 400 * 3600; t += 60) weatherTick(s, t, t + 60, (e) => evs.push(e));
+  ok(s.res.fuel >= 19.99 && s.res.fuel <= 20.5, `暖氣耗油停在保留量 20（${s.res.fuel.toFixed(2)}）`);
+  ok(evs.filter((e) => e.sub === 'lowfuel').length === 1, '低油量提示只出現一次');
+  const q = mk(P); q.res.fuel = 15; for (let t = T0; t < T0 + 50 * 3600; t += 60) weatherTick(q, t, t + 60, null); ok(q.res.fuel === 15, '已低於保留量 → 暖氣不再扣油'); }
+
+ok(tempOf(0.9, false, 'clear') === -14 && tempOf(0.1, true, 'storm') === 17, 'tempOf 公式'); ok(WX.luckHaul === 1.15, '極光收穫 ×1.15（與文件一致）');
 console.log(fails ? `\n${fails} 項失敗` : '\n全部通過'); process.exit(fails ? 1 : 0);
