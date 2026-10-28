@@ -3,12 +3,14 @@
 const puppeteer = require(process.env.PUPPETEER || '/tmp/shot/node_modules/puppeteer-core');
 const w = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
-  const [base, dev = 'desktop', zl = 'fog,whirlpool,fire,hell,stonehenge', pre = 'sz'] = process.argv.slice(2);
+  const [base, dev = 'desktop', zl = 'fog,whirlpool,fire,hell,stonehenge', pre = 'sz', pick = ''] = process.argv.slice(2);   // pick = 船型（訪客小船，例如 tug / skiff）；不給 = 用 devowner 母船
   const [W, H] = dev === 'mobile' ? [390, 844] : [1280, 760]; const touch = dev === 'mobile';
   const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const pg = await b.newPage(); await pg.setViewport({ width: W, height: H, deviceScaleFactor: 1, hasTouch: touch, isMobile: touch });
   const errs = []; pg.on('pageerror', (e) => errs.push('pageerror: ' + e.message)); pg.on('console', (m) => { if (['error', 'warning'].includes(m.type())) errs.push(m.type() + ': ' + m.text()); });
-  await pg.goto(base + (base.includes('?') ? '&' : '?') + 'help=0&q=low&t=0.5&guest=1&devowner=1&demo=1', { waitUntil: 'domcontentloaded', timeout: 60000 }); await w(6000);
+  const q = pick ? 'help=0&q=low&t=0.5&guest=1' : 'help=0&q=low&t=0.5&guest=1&devowner=1&demo=1';
+  if (pick) { await pg.goto(base + '?' + q + '&fresh=1', { waitUntil: 'domcontentloaded', timeout: 60000 }); await w(5000); await pg.evaluate((t) => { ark.play.fleetAct('pick', { type: t }); ark.play.save(true); }, pick); await w(600); }
+  await pg.goto(base + (base.includes('?') ? '&' : '?') + q, { waitUntil: 'domcontentloaded', timeout: 60000 }); await w(6000);
   for (let i = 0; i < 3; i++) { await pg.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => /開始航行|繼續航行/.test(e.textContent)); if (x) x.click(); }); await w(500); }
   console.log('bundle', await pg.evaluate(() => [...document.scripts].map((s) => s.src.split('/').pop()).join()));
   const shot = async (n) => { const f = `/workspace/doomsday-ark/shots/${n}.png`; await pg.screenshot({ path: f }); console.log('shot', f); };
