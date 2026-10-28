@@ -20,6 +20,9 @@ import { BASE_Y, DH } from './ship/ship.js';
 import { waveHeight, waveState } from './world/waves.js';
 import { WeatherFX } from './world/weather.js';
 import { Polar } from './world/polar.js';
+import { ZoneFX } from './world/zonefx.js';
+import { helmFx, HELM_KU, SPECIAL_ZONES } from './sim/seazones.js';
+import * as WD from './sim/world.js';
 import { weatherAt, helmFactor, tempOf } from './sim/weather.js';
 import { arkPos } from './sim/world.js';
 import { clock } from './clock.js';
@@ -53,7 +56,9 @@ export class Game {
     // 天氣（粒子 / 閃電 / 極光 / 天色）與兩極（冰山、北極熊、企鵝）；強度來自 sim/weather.js 的 weatherAt(遊戲時間, 地圖位置)
     this.wxfx = new WeatherFX(this.scene, this.env, this.quality, this.renderer); this.polar = new Polar(this.scene, this.quality); this.wxNow = null; this.wxT = 0; this.wxOv = null;
     this.wxfx.onThunder = (d) => this.audio.event('thunder', d); this.polar.onSound = (k, x, z) => this.audio.event(k, this.camera.position.distanceTo(_av.set(x, 0, z)));
-    { const q = new URLSearchParams(location.search).get('wx'); if (q) this.setWx(q); }
+    // 特殊海域（迷霧 / 漩渦 / 火焰 / 地獄 / 巨石陣）：畫面與音效；危害由 sim/seazones.js 算（跟畫面無關）
+    this.zonefx = new ZoneFX(this.scene, this.env, this.quality); this.zonefx.onThunder = (d) => this.audio.event('thunder', d); this.szFx = null; this.szOv = null; this.szT = 0; this.szFirst = false;
+    { const q = new URLSearchParams(location.search).get('wx'); if (q) this.setWx(q); const z = new URLSearchParams(location.search).get('sz'); if (z) this.setSz(z); }
     this.player = new Player(this); this.crew = new Crew(this);
     this.controls = new Controls(this, canvas); this.controls.tapCb = (x, y) => this.onTap(x, y); if (this.small) { this.controls.setMode('overview'); this.controls.target.copy(this.controls.tgtOver); }
     const P = new URLSearchParams(location.search);
@@ -69,7 +74,7 @@ export class Game {
     this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
   setQuality(level) {
-    this.qLevel = level; this.quality = QUALITY[level]; this.env.setQuality(this.quality); this.ocean.build(this.quality); this.wxfx.setQuality(this.quality); this.polar.setQuality(this.quality);
+    this.qLevel = level; this.quality = QUALITY[level]; this.env.setQuality(this.quality); this.ocean.build(this.quality); this.wxfx.setQuality(this.quality); this.polar.setQuality(this.quality); this.zonefx.setQuality(this.quality);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, this.quality.dpr)); this.renderer.setSize(this.W, this.H, false);
     this.scene.traverse((o) => { if (o.material) { o.material.needsUpdate = true; } });
   }
@@ -127,6 +132,18 @@ export class Game {
     if (nowMs - this.fpsT0 >= 1000) { this.fps = this.fpsN * 1000 / (nowMs - this.fpsT0); this.fpsT0 = nowMs; this.fpsN = 0; this.autoQuality(); }
     return e;
   }
+  /** 手動駕駛時的「即時」地圖位置（世界座標 + 還沒推送的位移）；其他情況 = mapPos() */
+  mapPosLive() { const p = this.mapPos(), h = this.helm, w = this.play && this.play.state && this.play.state.fleet && this.play.state.fleet.world; if (!p || !h || !w || w.route || !(h.on || h.displaced)) return p; return { x: w.pos.x + (h.x - h.base.x) * HELM_KU, y: w.pos.y + (h.z - h.base.z) * HELM_KU, moving: false }; }
+  /** 視覺用海域覆寫（截圖 / 試玩）：'fog' | 'whirlpool' | 'fire' | 'hell' | 'stonehenge'，可加 ,0.8（深度）；null 取消。不影響存檔與模擬。 */
+  setSz(spec) {
+    if (!spec) { this.szOv = null; this.szT = 0; return; } const [id, d] = String(spec).split(','); const z = SPECIAL_ZONES[id]; if (!z) { this.szOv = null; return; }
+    this.szOv = { id, z, depth: Math.max(0, Math.min(1, d == null ? 1 : +d || 1)), un: 1, speed: 1, pull: 0, lost: 0, trapped: false }; this.szT = 0; this.szFirst = false;
+  }
+  /** 測試 / 截圖用：把方舟直接放到某個特殊海域（u = 離中心的比例 0..1；會存檔）。 */
+  szTeleport(id, u = 0.5) {
+    const z = SPECIAL_ZONES[id], w = this.play && this.play.state && this.play.state.fleet && this.play.state.fleet.world; if (!z || !w) return false;
+    w.route = null; w.pos = { x: z.x + z.r * u, y: z.y }; WD.reveal(w, w.pos.x, w.pos.y, 120); WD.reveal(w, z.x, z.y, z.r + 40); w.hm = 0; this.szT = 0; this.szFirst = false; this.play.save(true); return true;
+  }
   /** 目前地圖位置（地圖單位）；沒有存檔 / 世界 → null */
   mapPos() { const p = this.play, w = p && p.state && p.state.fleet && p.state.fleet.world; return w && w.pos ? arkPos(w, clock.now()) : null; }
   /** 換角色（非船東）：換模型 + 寫進存檔 pl.c。 */
@@ -151,6 +168,8 @@ export class Game {
     const helm = this.helm, w = this.wxNow, hp = helm && (helm.on || helm.displaced) ? helm : null, cam = this.camera.position;
     this.wxfx.update(dt, this.time, this.camera, this.envState, hp);
     this.audio.setWeather(this.wxfx.s);
+    this.szT -= dt; if (this.szT <= 0) { this.szT = 0.5; if (this.szOv) this.szFx = this.szOv; else { const p = this.mapPosLive(), f = this.play && this.play.state && this.play.state.fleet; this.szFx = p && f ? helmFx(f, p.x, p.y) : null; } const z = this.szFx; { const w = this.play && this.play.state && this.play.state.fleet && this.play.state.fleet.world; this.szAnx = !!((z && z.z.haz.mo && z.depth > 0.35) || (w && w.sz && w.sz.mo >= 25)); } this.zonefx.setTarget(z ? z.id : '', z ? z.depth : 0, !this.szFirst); this.szFirst = true; }
+    this.zonefx.update(dt, this.time, cam, hp ? { x: hp.x, z: hp.z } : { x: 0, z: 0 }); this.audio.setZone(this.zonefx.s);
     const hemi = this.wxOv ? this.wxOv.hemi : (this.wxMap && this.wxMap.y > 1000 ? 'south' : 'north');
     this.polar.setCam(cam.x, cam.z); this.polar.update(dt, this.time, hp ? { x: hp.x, z: hp.z } : { x: 0, z: 0 }, w ? w.cold : 0, hemi, this.envState);
   }

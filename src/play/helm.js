@@ -13,6 +13,8 @@ import { clock } from '../clock.js';
 import { waveHeight } from '../world/waves.js';
 import { angDiff } from '../util.js';
 import { helmStep, toWorld, toLocal, HELM_K, clamp } from './helmphys.js';
+import { vortexPush } from '../sim/szfield.js';
+import { SZ } from '../sim/szdata.js';
 export { HELM_K, helmStep };
 const nowSec = () => clock.now();
 function softDot() {
@@ -86,11 +88,13 @@ export class Helm {
       const cfg = this.cfg; const st = { v: this.v, w: this.w, yaw: this.yaw, x: this.x, z: this.z };
       const fuel = this.on ? this.fuelOk() : true; const ip = { thr: fuel ? this.input.thr : 0, rud: this.input.rud };
       const hf = g.wxHelm; if (hf) cfg.vmax *= hf.speed; // 暴風 / 下雪：最高速度下降（跟自動航行 / 離線一樣用 sim/weather.js 的係數）
-      helmStep(st, ip, cfg, dt); this.limit(st); this.iceHit(st, cfg);
+      const sz = g.szFx; if (sz && sz.speed < 1) cfg.vmax *= sz.speed; // 特殊海域（漩渦 / 迷霧）：減速，同 sim/seazones.js
+      helmStep(st, ip, cfg, dt); this.zoneForces(st, dt, time); this.limit(st); this.iceHit(st, cfg); this.zoneHit(st, cfg);
       const ddx = st.x - this.x, ddz = st.z - this.z; if (c.mode !== 'follow' || !this.on) { c.target.x += ddx; c.target.z += ddz; if (c.tgtOver) { c.tgtOver.x += ddx; c.tgtOver.z += ddz; } }
       this.dist0 += Math.hypot(st.x - this.x, st.z - this.z); this.v = st.v; this.w = st.w; this.yaw = st.yaw; this.x = st.x; this.z = st.z;
       const tl = clamp(-this.w * (this.v / cfg.vmax) * (this.g.small ? 1.4 : 2.2), -0.09, 0.09); this.lean += (tl - this.lean) * (1 - Math.exp(-2.2 * dt));
     }
+    { const w = this.p.state && this.p.state.fleet && this.p.state.fleet.world; if (w) { const h = this.on || this.displaced ? 1 : 0; if ((w.hm | 0) !== h) w.hm = h; } }   // 手動駕駛中：漩渦的拉力由這裡（畫面）處理，sim 不重複拉
     this.g.ship.lean = this.lean; this.g.ship.yawOff = this.yaw;
     if (this.on) { this.revT += dt; if (this.revT > 1) { this.revT = 0; this.syncWorld(); } this.hudT += dt; if (this.hudT > 0.1) { this.hudT = 0; this.p.hud.updateHelmBar(this); } this.updateCam(false, dt); }
     this.updateWake(dt, time); this.updateOcean();
@@ -112,6 +116,23 @@ export class Helm {
       const dx = st.x + c * o - b.x, dz = st.z + sn * o - b.z, d = Math.hypot(dx, dz) || 1, need = b.r * 0.85 + r + 0.3; st.x += dx / d * (need - d); st.z += dz / d * (need - d);
       const imp = Math.abs(st.v); st.v *= -0.25; st.w *= 0.5; const now = performance.now();
       if (this.on && imp > 1.2 && now - (this._iceT || 0) > 2000) { this._iceT = now; const s = this.p.state; const dmg = Math.min(2, 0.4 + imp * 0.12); if (s && typeof s.cond === 'number') s.cond = Math.max(0, s.cond - dmg); this.g.ui && this.g.ui.toast('🧊 撞上冰山！船體 −' + dmg.toFixed(1) + '%'); this.g.audio && this.g.audio.event('crash', 10); }
+      break; }
+  }
+  /** 特殊海域的力：漩渦往中心拉 + 場內小漩渦的旋轉推力；迷霧讓船頭慢慢漂（失去方向感） */
+  zoneForces(st, dt, time) {
+    const sz = this.g.szFx; if (!sz || sz.depth <= 0) return; const zf = this.g.zonefx;
+    if (sz.pull > 0) { st.x += sz.vx * sz.pull * dt; st.z += sz.vy * sz.pull * dt; }
+    if (sz.id === 'whirlpool' && zf) { const v = vortexPush(zf.vortexItems(), st.x, st.z); st.x += v.x * dt * sz.depth; st.z += v.z * dt * sz.depth; }
+    if (sz.lost > 0 && Math.abs(st.v) > 0.5) { st.yaw += (Math.sin(time * 0.31) + Math.sin(time * 0.83 + 1.7)) * 0.5 * 0.03 * sz.lost * dt; if (this.on && !this._lostT) this._lostT = 1, this.g.ui && this.g.ui.toast('🌫 迷霧中羅盤亂轉，船頭會慢慢偏掉——小心修正方向。'); }
+    if (sz.trapped && this.on && performance.now() - (this._trapT || 0) > 20000) { this._trapT = performance.now(); this.g.ui && this.g.ui.toast('🌀 被漩渦困在中心！全速往外開（越靠外越輕鬆）。'); }
+  }
+  /** 巨石陣 / 地獄岩柱碰撞：船頭 / 船身 / 船尾三個圓；撞到 → 推出去、反彈、船體小損傷（2 秒冷卻；不會打到保底 20% 以下） */
+  zoneHit(st, cfg) {
+    const zf = this.g.zonefx; if (!zf || !zf.solidCount) return; const c = Math.cos(st.yaw), sn = -Math.sin(st.yaw), r = Math.max(2, cfg.hw * 0.95), L = cfg.len * 0.3;
+    for (const o of [L, 0, -L]) { const b = zf.hit(st.x + c * o, st.z + sn * o, r); if (!b) continue;
+      const dx = st.x + c * o - b.x, dz = st.z + sn * o - b.z, d = Math.hypot(dx, dz) || 1, need = b.r * 0.9 + r + 0.3; st.x += dx / d * (need - d); st.z += dz / d * (need - d);
+      const imp = Math.abs(st.v); st.v *= -0.25; st.w *= 0.5; const now = performance.now();
+      if (this.on && imp > 1.2 && now - (this._rockT || 0) > 2000) { this._rockT = now; const s = this.p.state, sz = this.g.szFx; const dmg = Math.min(3, 0.5 + imp * 0.15) * (sz ? sz.un : 1); if (s && typeof s.cond === 'number') { const b0 = s.cond; s.cond = Math.max(Math.min(b0, SZ.floor), b0 - dmg); const w = s.fleet && s.fleet.world; if (w && w.sz) { w.sz.hull += b0 - s.cond; w.sz.hits++; } } this.g.ui && this.g.ui.toast('🗿 撞上石柱！船體 −' + dmg.toFixed(1) + '%'); this.g.audio && this.g.audio.event('crash', 10); }
       break; }
   }
   /** 世界邊界：地圖位置推出世界外就停船 */

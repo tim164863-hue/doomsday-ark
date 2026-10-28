@@ -12,6 +12,7 @@ import { Mascots } from '../crew/mascots.js';
 import * as S from '../sim/sim.js';
 import { FAC, FAC_ORDER, SITES, TIERS, TICK, RES } from '../sim/defs.js';
 import * as F from '../sim/fleet.js';
+import * as SZM from '../sim/seazones.js';
 import { SHIPS, ZONES, ZONE_ORDER } from '../sim/fleetdefs.js';
 import { buildShipModel } from '../ship/fleetmodels.js';
 import { FacilityView, findSlot, blockRect, FOOT, SC, setFacScale } from './facilities.js';
@@ -147,6 +148,14 @@ export class Play {
       if (ev.sub === 'lightning' && ev.t > nowSec() - 120) { const g = this.game; g.wxfx.strike(90, g.camera); for (const b of bots.slice(0, 2)) say(b, pick(['哇！閃電打到船了！', '好近的雷…檢查一下船體！']), 'mood'); }
       else if (ev.sub === 'polar' && recent) for (const b of bots.slice(0, 2)) say(b, pick(['好冷…快穿外套！', '看！遠處有冰山！']), 'mood');
       else if (ev.sub === 'aurora' && recent) for (const b of bots.slice(0, 2)) say(b, pick(['是極光！太美了！', '快看天空！']), 'mood');
+    }
+    else if (ev.type === 'seazone') {
+      const recent = ev.t > nowSec() - 600, g = this.game;
+      if (ev.sub === 'bp' || ev.sub === 'enter' && recent || recent && ev.sub !== 'strike' && ev.sub !== 'mat' || ev.sub === 'mat' && ev.t > nowSec() - 120) ui.toast(ev.text);
+      if (ev.sub === 'strike' && ev.t > nowSec() - 120) { g.wxfx.strike(90, g.camera); ui.toast(ev.text); for (const b of bots.slice(0, 2)) say(b, pick(['啊！地獄的雷打到船了！', '好燙…船體在冒煙！']), 'mood'); }
+      else if (ev.sub === 'rock' && recent) { g.audio.event('crash', 14); for (const b of bots.slice(0, 2)) say(b, pick(['撞到石頭了！', '這些石柱怎麼會自己移動…']), 'mood'); }
+      else if (ev.sub === 'enter' && recent) { const Z = ev.zone; const L = { fog: ['什麼都看不見…', '這霧好濃，別走散了。'], whirlpool: ['船被捲住了！抓穩！', '水在打轉…快往外開！'], fire: ['海面著火了！！', '好燙！飲水別浪費。'], hell: ['這裡是…地獄？', '快離開這裡，我不想待了…'], stonehenge: ['那些石頭…有人排過它們。', '好神秘的地方。'] }[Z]; if (L) for (const b of bots.slice(0, 2)) say(b, pick(L), 'mood'); }
+      else if (ev.sub === 'bp' && ev.t > nowSec() - 600) for (const b of bots.slice(0, 2)) say(b, pick(['找到稀有藍圖了！', '這張圖紙…是旗艦升級用的！']), 'mood');
     }
     else if (ev.type === 'shortage') { ui.toast('⚠️ ' + ev.text); for (const b of bots.slice(0, 2)) say(b, pick(['肚子好餓…', '水…有沒有水喝？', '補給是不是該補一下了？']), 'mood'); }
     else if (ev.type === 'trip') { ui.toast('🚣 ' + ev.text); const b = this.botOf(ev.who); const tr = ev.injured || []; if (b) setTimeout(() => say(b, ev.fail ? pick(['這次運氣不太好…', '什麼都沒撈到，抱歉。']) : pick(['帶了東西回來囉！', '回來了！這趟不錯。']), 'mood'), 1200); for (const k of tr) { const x = this.botOf(k); if (x) setTimeout(() => say(x, '嘶…受了點傷。', 'mood'), 2400); } }
@@ -367,6 +376,7 @@ export class Play {
     if (name === 'sail') r = F.sailArk(s, a.x, a.y, now);
     else if (name === 'stop') r = F.stopArk(s, now);
     else if (name === 'decide') r = F.decideSeaEvent(s, a.id, a.i, now);
+    else if (name === 'puzzle') r = SZM.puzzleResolve(s, now, !!a.won);
     if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
     this.save(true); this.hud.refresh(true); return r;
   }

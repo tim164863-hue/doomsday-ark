@@ -283,13 +283,14 @@ body.touch kbd { display: none; } body.touch .nt { display: none; } body:not(.to
 
 /* ---- 天氣 chip / 手機膠囊圖示 / 面板一列 ---- */
 #wxChip { white-space: nowrap; }
+#szChip { white-space: nowrap; color: inherit; font-family: inherit; cursor: pointer; } #szChip.hide { display: none; }
 #tlpill .wxi { font-style: normal; font-size: 13px; }
 .scPanel .wxp h4 small { font-weight: 400; opacity: .8; margin-left: 4px; }
 @media (max-width: 700px) {
-  #resbar .rc.wx { grid-column: 1 / -1; overflow: hidden; } #resbar .rc.wx b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+  #resbar .rc.wx, #resbar .rc.sz { grid-column: 1 / -1; overflow: hidden; } #resbar .rc.sz b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; } #resbar .rc.wx b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
   .scSub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; }
 }
-@media (min-width: 701px) { #resbar .rc.wx { display: none !important; } }
+@media (min-width: 701px) { #resbar .rc.wx, #resbar .rc.sz { display: none !important; } }
 /* ---- 角色挑選（非船東）*/
 #modal[data-kind=char] .mcard { max-width: 700px; }
 .chargrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px; }
@@ -298,3 +299,11 @@ body.touch kbd { display: none; } body.touch .nt { display: none; } body:not(.to
 .chc .cp { width: 100%; aspect-ratio: 180 / 230; display: flex; align-items: center; justify-content: center; } .chc .cp img { width: 100%; height: 100%; object-fit: contain; display: block; } .chc .cp i { font-size: 42px; font-style: normal; }
 .chc b { font-size: 12.5px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; } .chc small { font-size: 10.5px; opacity: .68; line-height: 1.25; text-align: center; max-width: 100%; } .chc em { font-style: normal; font-size: 11px; color: #ffd36b; font-weight: 700; }
 @media (max-width: 700px) { .chargrid { grid-template-columns: repeat(3, 1fr); gap: 6px; } .chc { padding: 6px 3px; } .chc .cp { width: 74%; } .chc b { font-size: 12px; } .chc small { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; } #modal[data-kind=char] .mcard p.sub { font-size: 12px; margin: 2px 0 4px; } }
+
+/* ---- 特殊海域 (stage 2) ---- */
+#tlpill .szi { font-style: normal; font-size: 13px; }
+.zc.un { opacity: .5; border-color: var(--line); }
+.matbar { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; } .mt { font-size: 12px; padding: 2px 9px; border-radius: 99px; background: rgba(255,255,255,.07); border: 1px solid var(--line); white-space: nowrap; } .mt i { font-style: normal; margin-right: 3px; } .mt b { margin-left: 5px; color: #ffd36b; } .mt.z { opacity: .45; } .mt.bp { border-color: #c9a85c; }
+.pzg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; } .pzt { font-size: 28px; min-height: 58px; border-radius: 10px; background: rgba(150,130,200,.15); border: 1px solid rgba(180,160,230,.5); color: #e8e0ff; } .pzt:disabled { opacity: .85; } .pzt.lit { background: #8d7bd6; box-shadow: 0 0 18px #b49cff; color: #fff; }
+.pzd { display: flex; gap: 8px; justify-content: center; margin: 6px 0; } .pzd i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #b49cff; } .pzd i.on { background: #b49cff; }
+.mcard .ok { color: #6fe39b; } .mcard .warn { color: #f0a040; }

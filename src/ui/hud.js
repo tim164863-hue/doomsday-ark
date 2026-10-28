@@ -12,6 +12,7 @@ const $ = (h) => { const t = document.createElement('template'); t.innerHTML = h
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 import { clock } from '../clock.js';
 import * as R from '../sim/rel.js';
+import * as SZM from '../sim/seazones.js';
 import { KIND, spotTaken } from '../play/games.js';
 import { CHARS, charById } from '../crew/characters.js';
 import { charPreviews } from './charpreview.js';
@@ -21,7 +22,7 @@ const dur = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(
 const mmss = (sec) => { sec = Math.max(0, Math.ceil(sec)); const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${String(s).padStart(2, '0')}`; };
 const fmt = (n) => (Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10);
 const costHTML = (c, s) => Object.keys(c).map((k) => `<span class="${s && s.res[k] < c[k] ? 'lack' : ''}">${RES[k].icon}${c[k]}</span>`).join(' ');
-const EV_ICON = { storm: '⛈', shortage: '⚠️', trip: '🚣', sick: '🤒', recover: '💪', crate: '🎁', rain: '🌧', build: '🔨', fight: '💢', makeup: '🤝', party: '🎉', celebrate: '🎊', help: '🩹', meal: '🍽' };
+const EV_ICON = { seazone: '🧭', weather: '🌦', storm: '⛈', shortage: '⚠️', trip: '🚣', sick: '🤒', recover: '💪', crate: '🎁', rain: '🌧', build: '🔨', fight: '💢', makeup: '🤝', party: '🎉', celebrate: '🎊', help: '🩹', meal: '🍽' };
 const CAT_ICON = { work: '⌨️', rest: '🛋', off: '😴' };
 const REASON = { focus: '專心工作中', happy: '心情不錯', tired: '有點累了', anxious: '有點不安', bored: '有點無聊' };
 
@@ -34,12 +35,12 @@ export class HUD {
     this.modal = $(`<div id="modal" class="hide"><div class="mcard"></div></div>`);
     this.tagLayer = $(`<div id="tags"></div>`); this.pilotBar = $(`<div id="pilotbar" class="hide"><div class="pn"></div><div class="ps"><u></u></div><small class="pt">WASD / 搖桿　Shift 加速</small><button data-a="home" class="pri">🏠 返港</button></div>`);
     this.helmBar = $(`<div id="helmbar" class="hide"><div class="hn">🚢</div><div class="hk"><b class="kt">0.0</b><small>節</small><b class="hd">000°</b><small class="hp"></small></div><div class="ps" title="油門"><u></u></div><small class="pt">W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車</small><div class="hs"></div><button data-a="stop">⏹ 停車</button><button data-a="exit" class="pri">⚓ 下錨</button></div>`);
-    { const hb = this.bar.querySelector('#btnHelm'); if (hb && game.small) hb.title = '駕駛小船 (G)'; } this.pill = $(`<button id="tlpill" title="資源／選單（點開或收起）"><i>📊</i><span class="pv"></span><i class="wxi"></i><span class="car">▾</span></button>`); this.ui.top.prepend(this.pill); this.pill.onclick = () => { const o = document.body.classList.toggle('tlopen'); this.pill.querySelector('.car').textContent = o ? '▴' : '▾'; this.ui.placeToast && this.ui.placeToast(); };
+    { const hb = this.bar.querySelector('#btnHelm'); if (hb && game.small) hb.title = '駕駛小船 (G)'; } this.pill = $(`<button id="tlpill" title="資源／選單（點開或收起）"><i>📊</i><span class="pv"></span><i class="wxi"></i><i class="szi" style="display:none"></i><span class="car">▾</span></button>`); this.ui.top.prepend(this.pill); this.pill.onclick = () => { const o = document.body.classList.toggle('tlopen'); this.pill.querySelector('.car').textContent = o ? '▴' : '▾'; this.ui.placeToast && this.ui.placeToast(); };
     this.syncJoy(); this._joyT = setInterval(() => { this.syncJoy(); this.syncBottom(); }, 150); this.root.append(this.tagLayer, this.bar, this.crewList, this.prompt, this.modal, this.pilotBar, this.helmBar); this.helmBar.querySelector('[data-a=stop]').onclick = () => { this.play.helm.thr = 0; }; this.helmBar.querySelector('[data-a=exit]').onclick = () => this.play.helm.stop(); this.bar.querySelector('#btnHelm').onclick = () => this.play.helm.toggle(); this.pilotBar.querySelector('[data-a=home]').onclick = () => this.play.stopPilot(true);
     const rcs = this.bar.querySelector('.rcs');
     for (const k of RES_KEYS) rcs.append($(`<div class="rc" data-k="${k}" title="${RES[k].name}"><i>${RES[k].icon}</i><b>0</b><small></small></div>`));
     rcs.append($(`<div class="rc cond" data-k="cond" title="船體狀況"><i>🛠</i><b>0%</b><span class="bar"><u></u></span></div>`));
-    rcs.append($(`<div class="rc wx" data-k="wx" title="目前天氣" style="display:none"><i>🌤</i><b></b></div>`));
+    rcs.append($(`<div class="rc wx" data-k="wx" title="目前天氣" style="display:none"><i>🌤</i><b></b></div><div class="rc sz" data-k="sz" title="特殊海域" style="display:none"><i>🌀</i><b></b></div>`));
     this.bar.querySelector('#btnTasks').onclick = () => this.openModal('tasks'); this.bar.querySelector('#btnTrips').onclick = () => this.openModal('trips'); this.bar.querySelector('#btnFleet').onclick = () => this.openModal('fleet'); this.bar.querySelector('#btnChart').onclick = () => this.chart.toggle(); this.chart = new SeaChart(this);
     this.bar.querySelector('#btnRel').onclick = () => this.openModal('rel');
     { const cb = this.bar.querySelector('#btnChar'); if (cb) cb.onclick = () => this.openModal('char'); }
@@ -207,7 +208,7 @@ export class HUD {
   openModal(kind, payload) { this.modalKind = kind; this.payload = payload || this.payload; this.modal.classList.remove('hide'); this.modal.dataset.kind = kind; this.renderModal(); }
   closeModal() { if (this.modalKind === 'fleet' && !this.pvBar) this.play && this.play.clearPreview(); this.modalKind = null; this.modal.classList.add('hide'); this.modalOpenedAt = 0; }
   refreshModal(force) { if (this.modalKind === 'fleet') this.renderFleetLive(force); else if (this.modalKind === 'tasks') this.renderTasksLive(); else if (this.modalKind === 'trips') this.renderTripsLive(); }
-  renderModal() { const c = this.modal.querySelector('.mcard'); c.scrollTop = 0; if (this.modalKind === 'report') this.renderReport(); else if (this.modalKind === 'tasks') this.renderTasks(); else if (this.modalKind === 'trips') this.renderTrips(); else if (this.modalKind === 'fleet') this.renderFleet(); else if (this.modalKind === 'pick') this.renderPick(); else if (this.modalKind === 'rel') this.renderRel(); else if (this.modalKind === 'char') this.renderChar(); }
+  renderModal() { const c = this.modal.querySelector('.mcard'); c.scrollTop = 0; if (this.modalKind === 'report') this.renderReport(); else if (this.modalKind === 'tasks') this.renderTasks(); else if (this.modalKind === 'trips') this.renderTrips(); else if (this.modalKind === 'fleet') this.renderFleet(); else if (this.modalKind === 'pick') this.renderPick(); else if (this.modalKind === 'rel') this.renderRel(); else if (this.modalKind === 'char') this.renderChar(); else if (this.modalKind === 'puzzle') this.renderPuzzle(); }
   logEvent(ev) { this.log.unshift(ev); if (this.log.length > 10) this.log.pop(); }
 
   // -- 離線報告
@@ -282,6 +283,39 @@ export class HUD {
   }
   hidePvBar() { if (this.pvBar) { this.pvBar.remove(); this.pvBar = null; } }
   fleetSig() { const f = this.s.fleet; return JSON.stringify([f.ships.map((x) => [x.id, x.name, x.lv, x.state, x.auto, x.zone, Math.round(x.hp), x.m && x.m.zone]), f.bp, RES_KEYS.map((k) => Math.floor(this.s.res[k] / 5)), f.pick, f.home]); }
+  // ---- 特殊海域：材料 / 稀有藍圖 / 古碑謎題
+  /** 材料列 + 稀有藍圖（艦隊視窗與海圖面板共用） */
+  matHtml(s) {
+    const m = (s.fleet && s.fleet.mat) || {}; const bp = (s.fleet && s.fleet.bp) || {};
+    const mats = SZM.MAT_ORDER.map((k) => { const M = SZM.MATERIALS[k], Z = SZM.SPECIAL_ZONES[M.zone]; return `<span class="mt ${m[k] ? '' : 'z'}" title="${M.name}（${Z.name}）"><i>${M.icon}</i>${M.name}<b>${m[k] | 0}</b></span>`; }).join('');
+    const bps = SZM.PROMO_BP_IDS.map((k) => `<span class="mt bp ${bp[k] ? '' : 'z'}" title="${SZM.PROMO_BP[k].name}">${bp[k] ? '🗺️' : '🔒'}${SZM.PROMO_BP[k].name.replace('藍圖', '')}</span>`).join('');
+    return `<div class="matbar">${mats}</div><div class="matbar">${bps}</div>`;
+  }
+  szHtml() {
+    const s = this.s, w = s.fleet.world; if (!w || !w.pos) return ''; const sz = w.sz || {}; const n = SZM.PROMO_BP_IDS.filter((k) => s.fleet.bp[k]).length;
+    const zs = SZM.SZ_ORDER.map((id) => { const Z = SZM.SPECIAL_ZONES[id], seen = this.chart.szSeen && this.chart.szSeen[id]; return `<span class="zc ${seen ? '' : 'un'}" style="${seen ? `border-color:${Z.color};color:${Z.color}` : ''}" title="${seen ? Z.blurb : '還沒找到'}">${seen ? Z.icon + Z.short : '❓'}${sz.n && sz.n[id] ? ` ×${sz.n[id]}` : ''}</span>`; }).join('');
+    return `<h3>特殊海域・稀有掉落 <small class="dim">稀有藍圖 ${n}/9（旗艦晉升用）</small></h3><div class="zonebar">${zs}</div>${this.matHtml(s)}<p class="sub">五個特殊海域藏在世界地圖上：🌫迷霧、🌀漩渦、🔥火焰、😈地獄、🗿巨石陣。裡面有危害，但會掉落旗艦晉升需要的稀有藍圖與材料。在海圖上找到它們（迷霧只有外緣看得到）。</p>`;
+  }
+  /** 頂部 / 膠囊的海域 chip：巨石陣中心 = 開古碑；其他 = 打開海圖 */
+  szClick() { const fx = this.game.szFx; if (!fx) return; if (fx.id === 'stonehenge' && fx.depth >= 0.3) { this.openPuzzle(); return; } this.chart.open(); }
+  openPuzzle() { const c = SZM.puzzleCan(this.s, nowSec()); if (!c.ok) { this.ui.toast('🗿 ' + c.why); return; } this.chart.close(); this.pz = { phase: 'ready', day: c.day, seq: SZM.puzzleSeq(this.s, c.day), got: [], lit: -1 }; this.openModal('puzzle'); }
+  renderPuzzle() {
+    const c = this.modal.querySelector('.mcard'), P = this.pz; if (!P) { this.closeModal(); return; } const SYM = ['◆', '●', '▲', '■', '★', '☾'];
+    const tiles = SYM.map((y, i) => `<button class="pzt ${P.lit === i ? 'lit' : ''}" data-i="${i}" ${P.phase === 'input' ? '' : 'disabled'}>${y}</button>`).join('');
+    const dots = P.seq.map((_, i) => `<i class="${i < P.got.length ? 'on' : ''}"></i>`).join('');
+    const body = P.phase === 'ready' ? `<p class="sub">古碑會依序亮起 ${P.seq.length} 個符文。記住順序，再照樣點一遍。<br><b>每天只能讀一次</b>（失敗也算），答對有古碑殘片，還有機會得到科研 T3 藍圖。</p><div class="mb"><button class="pri" data-a="go">🗿 開始讀碑</button><button data-x="close">先不要</button></div>`
+      : P.phase === 'show' ? '<p class="sub">看仔細…</p>' : P.phase === 'input' ? `<p class="sub">輪到你了：依序點擊符文</p><div class="pzd">${dots}</div>` : `<p class="${P.won ? 'ok' : 'warn'}">${P.msg}</p><div class="mb"><button class="pri" data-x="close">好</button></div>`;
+    c.innerHTML = `<h2>🗿 古碑 <button class="x" data-x="close">✕</button></h2><div class="pzg">${tiles}</div>${body}`;
+    c.querySelectorAll('[data-x=close]').forEach((b) => (b.onclick = () => { this.pz = null; this.closeModal(); }));
+    const go = c.querySelector('[data-a=go]'); if (go) go.onclick = () => this.pzShow();
+    c.querySelectorAll('.pzt').forEach((b) => (b.onclick = () => this.pzTap(+b.dataset.i)));
+  }
+  pzShow() { const P = this.pz; P.phase = 'show'; P.lit = -1; this.renderPuzzle(); let i = 0; const step = () => { if (!this.pz || this.pz !== P || this.modalKind !== 'puzzle') return; if (i >= P.seq.length) { P.phase = 'input'; P.lit = -1; P.got = []; this.renderPuzzle(); return; } P.lit = P.seq[i++]; this.renderPuzzle(); setTimeout(() => { if (this.pz === P) { P.lit = -1; this.renderPuzzle(); setTimeout(step, 220); } }, 620); }; setTimeout(step, 500); }
+  pzTap(i) {
+    const P = this.pz; if (!P || P.phase !== 'input') return; P.got.push(i); P.lit = i; const k = P.got.length - 1; const bad = P.seq[k] !== i, done = P.got.length >= P.seq.length;
+    if (bad || done) { const r = this.play.worldAct('puzzle', { won: !bad }); P.phase = 'done'; P.won = !!(r && r.won); P.msg = (r && r.msg) || '…'; P.lit = -1; this.renderPuzzle(); return; }
+    this.renderPuzzle(); setTimeout(() => { if (this.pz === P) { P.lit = -1; if (this.modalKind === 'puzzle') this.renderPuzzle(); } }, 180);
+  }
   renderFleet() {
     const c = this.modal.querySelector('.mcard'); const s = this.s; const f = s.fleet; this.fleetSigV = this.fleetSig();
     const flag = f.flagship ? `<div class="shipc flag"><div class="sh"><span class="ic">${FLAGSHIP.icon}</span><div><b>${FLAGSHIP.name}</b><em>旗艦</em><small>${FLAGSHIP.role}</small></div></div><div class="strow"><span class="st">💨 ${FLAGSHIP.speed}</span><span class="st">📦 ${FLAGSHIP.cargo}</span><span class="st">🛡 ${FLAGSHIP.hull}</span><span class="st">🎯 ${FLAGSHIP.fp}</span><span class="st zn">${ZONE_ORDER.map((z) => ZONES[z].icon).join('')}</span></div></div>` : '';
@@ -294,6 +328,7 @@ export class HUD {
       <p class="sub">小船在你離線時也會自動出海（閒置任務）：依船的戰力挑海域，帶回資源，偶爾發現稀有藍圖。燃料至少會替方舟留 ${15}。艦隊上限 ${FLEET_MAX} 艘。</p>
       ${flag}<div id="flShips">${ships}</div>
       <h3>船塢・藍圖 <small class="dim">已取得 ${known}/5 張藍圖 — 出海探索與閒置任務都有機會找到</small></h3><div class="dockgrid" id="flDock">${dock}</div>
+      ${this.szHtml()}
       <h3>海域</h3><div class="zonebar">${zones}</div><p class="sub">更遠的海域收穫更多、也更危險；潛艇能下深淵，破冰船能闖冰海。世界地圖在 🧭 海圖（按 M）：方舟可以航行、探索迷霧、決定海上事件。</p>`;
     c.querySelector('.x').onclick = () => this.closeModal(); c.querySelector('[data-a=chart]').onclick = () => this.chart.open();
     const op = c.querySelector('[data-a=openpick]'); if (op) op.onclick = () => this.openModal('pick');

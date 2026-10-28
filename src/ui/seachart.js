@@ -7,11 +7,16 @@ import { SHIPS, ZONES, ZONE_ORDER, WORLD } from '../sim/fleetdefs.js';
 import { clock } from '../clock.js';
 import { weatherAt, coldRaw, KINDS, effectsOf, WX } from '../sim/weather.js';
 
+import { SPECIAL_ZONES, SZ_ORDER, zoneAtPoint, routeZones, MATERIALS } from '../sim/szdata.js';
+import { unprepared, seaStatus } from '../sim/seazones.js';
+
 const nowSec = () => clock.now();
 const $ = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstElementChild; };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const mmss = (sec) => { sec = Math.max(0, Math.ceil(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`; };
 const hex = (c) => (typeof c === 'number' ? '#' + c.toString(16).padStart(6, '0') : String(c));
+
+const szShort = (Z) => { const h = Z.haz, L = []; if (h.slow) L.push(`航速 −${Math.round(h.slow * 100)}%`); if (h.pull) L.push('被拉向中心'); if (h.drift) L.push('偏航'); if (h.hull) L.push('船體受損'); if (h.water) L.push('飲水蒸發'); if (h.strike) L.push('落雷'); if (h.mo) L.push('士氣下滑'); if (h.stuck) L.push('卡住 +30 分'); if (h.rock) L.push('撞石柱'); return L.join('、'); };
 
 export class SeaChart {
   constructor(hud) {
@@ -47,8 +52,9 @@ export class SeaChart {
     if (!W.insideWorld(x, y)) { this.sel = null; this.conf.classList.add('hide'); return; }
     const p = W.arkPos(w, now); const c = W.routeCost(p.x, p.y, x, y); const [gx, gy] = W.cellOf(x, y); const seen = W.fogHas(w, gx, gy);
     this.sel = { x: Math.round(x), y: Math.round(y), c, seen, zone: seen ? W.zoneAt(x, y) : null };
-    const zl = seen ? W.zoneLabel(this.sel.zone) : '❓未知海域'; const lack = this.s.res.fuel < c.fuel + 15;
-    this.conf.innerHTML = `<div class="cf"><b>航向 (${this.sel.x}, ${this.sel.y})</b> · ${zl}<small>距離 ${Math.round(c.dist)} · ⛽${c.fuel}${lack ? '（燃料不足）' : ''} · 約 ${c.minutes} 分鐘（離線也會抵達）</small></div><div class="cb"><button class="pri" data-a="go" ${lack ? 'disabled' : ''}>⚓ 出航</button><button data-a="no">取消</button></div>`;
+    const zl = seen ? W.zoneLabel(this.sel.zone) : '❓未知海域'; this.buildMini(w); const rz = routeZones(p.x, p.y, x, y).filter((id) => this.szSeen && this.szSeen[id]);
+    const warn = rz.map((id) => { const Z = SPECIAL_ZONES[id]; return `<small class="szw" style="color:${Z.color}">⚠ 航線穿過 ${Z.icon}${Z.name}：${szShort(Z)}${unprepared(this.s.fleet, Z) ? '（旗艦階級未達建議，危害 ×1.5）' : ''}</small>`; }).join(''); const lack = this.s.res.fuel < c.fuel + 15;
+    this.conf.innerHTML = `<div class="cf"><b>航向 (${this.sel.x}, ${this.sel.y})</b> · ${zl}<small>距離 ${Math.round(c.dist)} · ⛽${c.fuel}${lack ? '（燃料不足）' : ''} · 約 ${c.minutes} 分鐘（離線也會抵達）</small>${warn}</div><div class="cb"><button class="pri" data-a="go" ${lack ? 'disabled' : ''}>⚓ 出航</button><button data-a="no">取消</button></div>`;
     this.conf.classList.remove('hide'); this.conf.querySelector('[data-a=no]').onclick = () => { this.sel = null; this.conf.classList.add('hide'); };
     this.conf.querySelector('[data-a=go]').onclick = () => { const r = this.hud.play.worldAct('sail', { x: this.sel.x, y: this.sel.y }); if (r && r.ok) { this.sel = null; this.conf.classList.add('hide'); this.refresh(true); } };
   }
@@ -56,11 +62,11 @@ export class SeaChart {
   // ---- 每幀繪製
   loop() { if (!this.open_) return; this.draw(); this.refresh(); requestAnimationFrame(() => this.loop()); }
   buildMini(w) {
-    if (this.fogKey === w.fog + '|' + (w.pos ? 1 : 0)) return; this.fogKey = w.fog + '|' + (w.pos ? 1 : 0); const g = this.mini.getContext('2d'); const img = g.createImageData(WORLD.grid, WORLD.grid); const zg = W.zoneGrid(); const pol = [0, 0]; this.polSeen = pol;
+    if (this.fogKey === w.fog + '|' + (w.pos ? 1 : 0)) return; this.fogKey = w.fog + '|' + (w.pos ? 1 : 0); const g = this.mini.getContext('2d'); const img = g.createImageData(WORLD.grid, WORLD.grid); const zg = W.zoneGrid(); const pol = [0, 0]; this.polSeen = pol; const szs = {}; this.szSeen = szs;
     for (let cy = 0; cy < WORLD.grid; cy++) for (let cx = 0; cx < WORLD.grid; cx++) {
       const i = (cy * WORLD.grid + cx) * 4; const [px, py] = W.cellCenter(cx, cy); const out = !W.insideWorld(px, py);
       if (out) { img.data.set([4, 8, 14, 255], i); continue; }
-      if (W.fogHas(w, cx, cy)) { const c = hex(ZONES[ZONE_ORDER[zg[cy * WORLD.grid + cx]]].color); const n = parseInt(c.slice(1), 16); const sh = 0.82 + ((cx * 7 + cy * 13) % 5) * 0.035; const cr = coldRaw(px, py), ic = Math.max(0, Math.min(1, (cr - 0.25) / 0.65)) * 0.72; if (cr >= WX.circle) pol[py < 1000 ? 0 : 1] = 1; img.data.set([(((n >> 16) & 255) * sh * 0.8) * (1 - ic) + 214 * ic, (((n >> 8) & 255) * sh * 0.8) * (1 - ic) + 236 * ic, ((n & 255) * sh * 0.8) * (1 - ic) + 250 * ic, 255], i); }
+      if (W.fogHas(w, cx, cy)) { const c = hex(ZONES[ZONE_ORDER[zg[cy * WORLD.grid + cx]]].color); const n = parseInt(c.slice(1), 16); const sh = 0.82 + ((cx * 7 + cy * 13) % 5) * 0.035; const cr = coldRaw(px, py), ic = Math.max(0, Math.min(1, (cr - 0.25) / 0.65)) * 0.72; if (cr >= WX.circle) pol[py < 1000 ? 0 : 1] = 1; const rgb = [(((n >> 16) & 255) * sh * 0.8) * (1 - ic) + 214 * ic, (((n >> 8) & 255) * sh * 0.8) * (1 - ic) + 236 * ic, ((n & 255) * sh * 0.8) * (1 - ic) + 250 * ic]; const sh2 = zoneAtPoint(px, py); if (sh2) { szs[sh2.id] = 1; const m = 0.4 + 0.45 * sh2.depth, T = sh2.z.tint; for (let q = 0; q < 3; q++) rgb[q] = rgb[q] * (1 - m) + T[q] * m * sh; } img.data.set([rgb[0], rgb[1], rgb[2], 255], i); }
       else { const j = ((cx * 31 + cy * 17) % 4); img.data.set([17 + j, 30 + j, 46 + j, 255], i); }
     }
     g.putImageData(img, 0, 0);
@@ -81,6 +87,9 @@ export class SeaChart {
     if (w.spawn) { const [sx, sy] = this.toScreen(w.spawn.x, w.spawn.y); g.fillStyle = '#ffd36b'; g.font = '13px sans-serif'; g.textAlign = 'center'; g.fillText('🏠', sx + 14, sy - 10); g.textAlign = 'left'; }
     // 海域名（只標已看過的）
     g.font = 'bold 12px sans-serif'; g.textAlign = 'center'; for (const z of ZONE_ORDER) { if (!w.seen[z]) continue; const cen = this.zoneLabelPos(z, w); if (!cen) continue; const [lx, ly] = this.toScreen(cen[0], cen[1]); g.fillStyle = '#ffffffb0'; g.fillText(`${ZONES[z].icon}${ZONES[z].name}`, lx, ly - 30); } g.textAlign = 'left';
+    // 特殊海域：已看過的畫虛線圈 + 名稱（迷霧只有外緣被揭開後才看得到）
+    { const t = performance.now() / 1000; g.textAlign = 'center'; g.lineWidth = 2; for (const id of SZ_ORDER) { if (!this.szSeen || !this.szSeen[id]) continue; const Z = SPECIAL_ZONES[id]; const [zx, zy] = this.toScreen(Z.x, Z.y); const rr = Z.r * v.k; if (zx + rr < 0 || zy + rr < 0 || zx - rr > this.W || zy - rr > this.H) continue; g.setLineDash([7, 6]); g.lineDashOffset = -t * 6; g.strokeStyle = Z.color + 'cc'; g.beginPath(); g.arc(zx, zy, rr, 0, 7); g.stroke(); g.setLineDash([]); g.lineDashOffset = 0;
+      const un = unprepared(this.s.fleet, Z); g.font = 'bold 12px sans-serif'; const lab = `${Z.icon}${Z.short}${un ? ' ⚠' : ''}`; g.lineWidth = 3; g.strokeStyle = '#050b14'; g.strokeText(lab, zx, zy + 4); g.fillStyle = Z.color; g.fillText(lab, zx, zy + 4); g.lineWidth = 2; } g.textAlign = 'left'; }
     // 極地名（只標已看過的極圈）與各區天氣圖示（只標已揭開的 400×400 區塊中心；晴 / 多雲不畫）
     g.font = 'bold 12px sans-serif'; g.textAlign = 'center'; g.fillStyle = '#e6f6ffd0'; if (this.polSeen && this.polSeen[0]) { const [lx, ly] = this.toScreen(1000, 120); g.fillText('🐻‍❄️ 北極', lx, ly); } if (this.polSeen && this.polSeen[1]) { const [lx, ly] = this.toScreen(1000, 1890); g.fillText('🐧 南極', lx, ly); }
     { const wxc = this.wxCells(w, now); g.font = '17px sans-serif'; for (const c of wxc) { const [sx, sy] = this.toScreen(c.x, c.y); if (sx < -20 || sy < -20 || sx > this.W + 20 || sy > this.H + 20) continue; g.globalAlpha = 0.45 + 0.4 * c.i; g.fillText(c.icon, sx, sy + 6); } g.globalAlpha = 1; } g.textAlign = 'left';
@@ -120,7 +129,7 @@ export class SeaChart {
     if (!this.open_) return; const s = this.s, w = s.fleet.world, now = nowSec(); const ark = W.arkPos(w, now); const zone = W.zoneAt(ark.x, ark.y);
     this.el.querySelector('.scSub').textContent = `${W.zoneLabel(zone)} · (${Math.round(ark.x)}, ${Math.round(ark.y)}) · 已探索 ${Math.round(W.fogCount(w) / (Math.PI * 980 * 980 / 625) * 100)}%`;
     const wxn = weatherAt(now, ark.x, ark.y); const K = KINDS[wxn.show] || KINDS[wxn.kind]; this.el.querySelector('.scSub').textContent += ` · ${K.icon}${wxn.temp}°`;
-    const evs = FL.pendingEvents(s, now); const sail = s.fleet.ships.filter((x) => x.state === 'sail'); const sig = JSON.stringify([evs.map((x) => x.id + ':' + x.m.ev.k), sail.map((x) => x.id), !!w.route, Math.floor(s.res.fuel / 5), wxn.show, Math.round(wxn.i * 5), Math.floor(now / 600)]);
+    const evs = FL.pendingEvents(s, now); const sail = s.fleet.ships.filter((x) => x.state === 'sail'); const sig = JSON.stringify([evs.map((x) => x.id + ':' + x.m.ev.k), sail.map((x) => x.id), !!w.route, Math.floor(s.res.fuel / 5), wxn.show, Math.round(wxn.i * 5), Math.floor(now / 600), (() => { const h = zoneAtPoint(ark.x, ark.y); return h ? h.id + Math.round(h.depth * 4) : ''; })(), JSON.stringify(s.fleet.mat || 0), Object.keys(s.fleet.bp || {}).length, Object.keys(this.szSeen || {}).join()]);
     if (force || sig !== this.panelSig) { this.panelSig = sig; this.renderPanel(evs, sail, ark, w); if (evs.length && !this._panelUser && this.panel.classList.contains('collapsed')) this.setPanel(true); }
     const eta = this.panel.querySelector('[data-arketa]'); if (eta && w.route) eta.textContent = `剩 ${mmss(w.route.t1 - now)}`;
     this.panel.querySelectorAll('[data-eta]').forEach((el) => { const sh = FL.findShip(s, +el.dataset.id); if (sh && sh.m) el.textContent = `返航 剩 ${mmss(sh.m.end - now)}`; });
@@ -132,6 +141,13 @@ export class SeaChart {
     const st = w.wx || {}; const rec = [st.hits ? `⚡雷擊 ${st.hits}` : '', st.storm ? `⛈暴風 ${st.storm} 刻` : '', st.snow ? `🌨降雪 ${st.snow} 刻` : '', st.aur ? `🌌極光 ${st.aur} 刻` : ''].filter(Boolean).join('　');
     return `<div class="pk wxp"><h4>${K.icon} 天氣：${K.name} <small>${wx.temp}°C${wx.polar ? ' · ' + (wx.polar === 'north' ? '🐻‍❄️北極圈' : '🐧南極圈') : ''}</small></h4><p>${L.length ? L.join(' · ') : '平穩，沒有特別影響。'}</p>${rec ? `<small class="dim">${rec}</small>` : ''}</div>`;
   }
+  /** 特殊海域：目前所在的危害 + 已發現清單 + 材料 / 稀有藍圖；巨石陣中心有古碑按鈕 */
+  szPanel(w, ark, now) {
+    const s = this.s, st = seaStatus(s, now); this.buildMini(w); const seen = this.szSeen || {}; const cur = st && st.h; const sz = w.sz || {};
+    let here = ''; if (cur) { const Z = cur.z; const pz = Z.id === 'stonehenge' && cur.depth >= 0.3; here = `<p style="color:${Z.color}"><b>${Z.icon} 正在 ${Z.name}（深度 ${Math.round(cur.depth * 100)}%）</b><br><small>${szShort(Z)}${st.un ? ' · ⚠ 旗艦階級未達建議，危害 ×1.5' : ''}</small></p>${pz ? '<div class="mb"><button data-a="pz">🗿 讀古碑（每天一次）</button></div>' : ''}`; }
+    const chips = SZ_ORDER.map((id) => { const Z = SPECIAL_ZONES[id]; return `<span class="zc ${seen[id] ? '' : 'un'}" style="${seen[id] ? `border-color:${Z.color};color:${Z.color}` : ''}" title="${seen[id] ? Z.blurb : '還沒找到'}">${seen[id] ? Z.icon + Z.short : '❓'}</span>`; }).join('');
+    return `<div class="pk szp"><h4>🧭 特殊海域 <small>${SZ_ORDER.filter((i) => seen[i]).length}/5</small></h4>${here}<div class="zonebar">${chips}</div>${this.hud.matHtml(s)}<p class="dim">${cur ? '' : '迷霧、漩渦、火焰、地獄、巨石陣：危險，但掉稀有藍圖與晉升材料。'}${sz.n && Object.keys(sz.n).length ? '' : ''}</p></div>`;
+  }
   renderPanel(evs, sail, ark, w) {
     const s = this.s; const now = nowSec();
     const evHtml = evs.map((sh) => { const E = eventInfo(sh.m); return `<div class="evc" data-id="${sh.id}"><div class="eh">${E.icon} <b>${E.name}</b> <small>${SHIPS[sh.type].icon}${esc(sh.name)}</small></div><p>${E.text}</p><div class="eo">${E.opts.map((o, i) => `<button data-a="ev" data-i="${i}"><b>${o.t}</b><small>${o.d}</small></button>`).join('')}</div><small class="dim">不選擇 = 照原計畫（自動）。</small></div>`; }).join('');
@@ -139,8 +155,9 @@ export class SeaChart {
     const ms = sail.map((sh) => `<div class="msn" data-id="${sh.id}"><span>${SHIPS[sh.type].icon}</span><div><b>${esc(sh.name)}</b> → ${ZONES[sh.m.zone].icon}${ZONES[sh.m.zone].name}<small data-eta data-id="${sh.id}"></small></div></div>`).join('') || '<p class="dim">目前沒有船在海上。</p>';
     const seen = ZONE_ORDER.map((z) => `<span class="zc ${w.seen[z] ? '' : 'un'}" style="${w.seen[z] ? `border-color:${hex(ZONES[z].color)};color:${hex(ZONES[z].color)}` : ''}">${w.seen[z] ? ZONES[z].icon + ZONES[z].name : '❓'}</span>`).join('');
     this.panel.innerHTML = `${evHtml}<div class="pk"><h4>⚓ 方舟 ${w.route ? `<small data-arketa></small>` : '<small>停泊中</small>'}</h4><p>${w.route ? `航向 (${Math.round(w.route.x1)}, ${Math.round(w.route.y1)}) ${(() => { const [gx, gy] = W.cellOf(w.route.x1, w.route.y1); return W.fogHas(w, gx, gy) ? W.zoneLabel(W.zoneAt(w.route.x1, w.route.y1)) : '❓未知海域'; })()}` : '點地圖任意位置，決定下一個目的地。'}</p><p class="dim">航速 ${WORLD.arkSpeed}/分 · 每 ${Math.round(1 / WORLD.fuelPerUnit)} 單位耗 ⛽1 · 目前 ⛽${Math.floor(s.res.fuel)}</p>${w.route ? '<div class="mb"><button data-a="stop">⏹ 就地停泊（燃料不退）</button></div>' : ''}</div>
-      ${this.wxHtml(w, ark, now)}<div class="pk"><h4>🚢 海上任務</h4>${ms}${done}</div><div class="pk"><h4>🗺 已發現海域</h4><div class="zonebar">${seen}</div><p class="dim">方舟停在遠海域旁，該海域的任務會更快、收穫更多。船出任務時會順便揭開目的地附近的迷霧。</p></div>`;
+      ${this.wxHtml(w, ark, now)}${this.szPanel(w, ark, now)}<div class="pk"><h4>🚢 海上任務</h4>${ms}${done}</div><div class="pk"><h4>🗺 已發現海域</h4><div class="zonebar">${seen}</div><p class="dim">方舟停在遠海域旁，該海域的任務會更快、收穫更多。船出任務時會順便揭開目的地附近的迷霧。</p></div>`;
     this.panel.querySelectorAll('[data-a=ev]').forEach((b) => { b.onclick = () => { const id = +b.closest('.evc').dataset.id; this.hud.play.worldAct('decide', { id, i: +b.dataset.i }); this.refresh(true); }; });
+    const pzb = this.panel.querySelector('[data-a=pz]'); if (pzb) pzb.onclick = () => this.hud.openPuzzle();
     const st = this.panel.querySelector('[data-a=stop]'); if (st) st.onclick = () => { this.hud.play.worldAct('stop', {}); this.refresh(true); };
   }
 }

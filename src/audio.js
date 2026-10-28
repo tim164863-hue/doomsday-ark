@@ -4,6 +4,7 @@
 //   · 海豚：躍出水面時的點擊聲（短促帶通雜訊）+ 口哨（正弦上下滑音），依距離衰減。
 //   · 鯨魚：浮上海面時的低頻長鳴（兩個低頻正弦滑音 + 緩慢顫音 + 延遲迴響）。
 //   · 天氣（setWeather，由 game 每幀餵入）：雨聲（白噪音高低通）、風聲（棕噪音帶通 + 緩慢起伏）、極光（四個泛音正弦 + 慢顫音）；天氣結束 20 秒後整組停止並斷開。
+//   · 特殊海域（setZone）：迷霧 / 漩渦 / 火焰 / 地獄 / 巨石陣各一組循環音 + 偶發事件（霧笛、爆裂聲、石鐘）；全部合成，離開 20 秒後整組停止。
 //   · 雷聲（thunder：近處霹靂 + 低頻滾動 + 距離延遲）、企鵝叫聲、北極熊低吼。
 // 瀏覽器自動播放規則：AudioContext 在第一次使用者手勢（pointerdown / keydown / touchend）後才建立；
 // 分頁切到背景時 suspend，回來 resume；音量與開關存在 localStorage 'ark.sound'。
@@ -54,7 +55,7 @@ export class AudioFX {
     if (!this.on) return; const c = this.ctx; this.day = dayF; this.nextGull -= dt;
     if (this.wave) { const W = this.wxT || ZERO; const tg = Math.max(0.2, 0.5 + Math.min(0.5, Math.abs(spd || 0) * 0.04) + 0.3 * W.storm - 0.25 * W.snow); if (Math.abs(tg - (this._wg == null ? -1 : this._wg)) > 0.02) { this._wg = tg; this.wave.gain.setTargetAtTime(tg, c.currentTime, 0.5); } } // 只在目標值有明顯變化時才排程
     if (this.nextGull <= 0) { this.nextGull = rnd(9, 24); if (dayF > 0.5 && !(this.wxT && (this.wxT.storm > 0.25 || this.wxT.rain > 0.3 || this.wxT.snow > 0.3))) this.gull(rnd(0.5, 1)); }
-    this.wxStep(dt);
+    this.wxStep(dt); this.zoneStep(dt);
   }
   out(pan, gain) { const c = this.ctx; const g = c.createGain(); g.gain.value = gain; if (c.createStereoPanner) { const p = c.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); g.connect(p); p.connect(this.master); } else g.connect(this.master); return g; }
   gull(vol = 1) {
@@ -93,6 +94,63 @@ export class AudioFX {
     const rain = Math.max(T.rain, T.storm * 0.9) * (T.snow > 0.5 ? 0.15 : 1), wind = Math.min(1, 0.12 + T.storm * 0.9 + T.snow * 0.55 + T.rain * 0.3) * (need > 0.02 ? 1 : 0);
     const set = (k, node, v) => { if (Math.abs(v - (g[k] == null ? -1 : g[k])) > 0.015) { g[k] = v; node.gain.setTargetAtTime(v, c.currentTime, 0.8); } };
     set('rain', this.wx.rain, rain * 0.5); set('wind', this.wx.wind, wind * 0.55); set('aur', this.wx.aur, T.aurora * 0.07);
+  }
+  // ------------------------------------------------------------ 特殊海域（程序合成；強度 = zonefx 的深度 k）
+  //  迷霧：低沉的氣墊 + 兩個失諧的空心音 / 漩渦：帶通噪音繞著掃頻 + 低頻咕嚕 / 火焰：低吼 + 隨機爆裂聲 / 地獄：低頻鋸齒嗡鳴 + 滾動悶雷 / 巨石陣：共鳴的和弦 + 偶爾的石鐘聲
+  setZone(z) { this.zT = z; }
+  zoneStep(dt) {
+    const T = this.zT, c = this.ctx; const id = T && T.k > 0.02 ? T.id : '';
+    if (id) this.zIdle = 0; else this.zIdle = (this.zIdle || 0) + dt;
+    if (!this.zn && id) this.buildZone(); if (this.zn && this.zIdle > 20) { this.teardownZone(); return; } if (!this.zn) return;
+    const g = this.zn.tg; for (const k of Object.keys(this.zn.bus)) { const v = k === id ? Math.min(1, T.k * 1.3) : 0; if (Math.abs(v - (g[k] == null ? -1 : g[k])) > 0.015) { g[k] = v; this.zn.bus[k].gain.setTargetAtTime(v, c.currentTime, 1.2); } }
+    if (!id) return; this.zn.ev -= dt; if (this.zn.ev > 0) return;
+    if (id === 'fire' || id === 'hell') { this.zn.ev = rnd(0.06, id === 'fire' ? 0.35 : 0.8); this.crackle(T.k * (id === 'fire' ? 1 : 0.7)); }
+    else if (id === 'stonehenge') { this.zn.ev = rnd(4, 9); this.stoneBell(T.k); }
+    else if (id === 'fog') { this.zn.ev = rnd(7, 15); this.foghorn(T.k); }
+    else this.zn.ev = rnd(3, 6);
+  }
+  buildZone() {
+    const c = this.ctx, nodes = [], srcs = []; const track = (n) => { nodes.push(n); return n; };
+    const bus = {}; const mkBus = (k) => { const gn = track(c.createGain()); gn.gain.value = 0; gn.connect(this.master); bus[k] = gn; return gn; };
+    const loop = (buf, rate) => { const s = c.createBufferSource(); s.buffer = buf; s.loop = true; s.playbackRate.value = rate; srcs.push(s); s.start(); return s; };
+    const lfo = (target, depth, hz) => { const o = c.createOscillator(); o.frequency.value = hz; const d = track(c.createGain()); d.gain.value = depth; o.connect(d); d.connect(target); o.start(); srcs.push(o); };
+    const osc = (type, f, a, out) => { const o = c.createOscillator(); o.type = type; o.frequency.value = f; const e = track(c.createGain()); e.gain.value = a; o.connect(e); e.connect(out); o.start(); srcs.push(o); return o; };
+    const filt = (type, f, q) => { const n = track(c.createBiquadFilter()); n.type = type; n.frequency.value = f; n.Q.value = q; return n; };
+    const brown = this._wxBrown || (this._wxBrown = this.noiseBuf(5, true)), white = this._zWhite || (this._zWhite = this.noiseBuf(3, false));
+    // 迷霧：空心的低音 + 失諧的兩個音，很慢的顫音
+    { const o = mkBus('fog'), lp = filt('lowpass', 280, 0.7); const b = loop(brown, 0.7); b.connect(lp); const gg = track(c.createGain()); gg.gain.value = 0.35; lp.connect(gg); gg.connect(o);
+      const f1 = osc('sine', 110, 0.06, o), f2 = osc('sine', 164.8 * 1.012, 0.04, o); osc('triangle', 82.4, 0.04, o); lfo(f1.frequency, 0.6, 0.09); lfo(f2.frequency, 0.9, 0.07); lfo(gg.gain, 0.12, 0.11); }
+    // 漩渦：帶通噪音（頻率繞圈掃）+ 咕嚕
+    { const o = mkBus('whirlpool'), bp = filt('bandpass', 380, 1.4); const b = loop(brown, 1.1); b.connect(bp); const gg = track(c.createGain()); gg.gain.value = 0.9; bp.connect(gg); gg.connect(o); lfo(bp.frequency, 260, 0.3); lfo(gg.gain, 0.35, 0.3);
+      const w = filt('bandpass', 2400, 0.8); const sw = loop(white, 1); sw.connect(w); const wg = track(c.createGain()); wg.gain.value = 0.07; w.connect(wg); wg.connect(o); lfo(wg.gain, 0.05, 0.3); lfo(w.frequency, 900, 0.3);
+      const gl = filt('bandpass', 170, 5); const s2 = loop(brown, 0.5); s2.connect(gl); const g2 = track(c.createGain()); g2.gain.value = 0.9; gl.connect(g2); g2.connect(o); lfo(g2.gain, 0.5, 0.9); }
+    // 火焰：低吼 + 高頻嘶嘶（爆裂聲另外用 crackle 事件）
+    { const o = mkBus('fire'), lp = filt('lowpass', 420, 0.5); const b = loop(brown, 1.3); b.connect(lp); const gg = track(c.createGain()); gg.gain.value = 0.85; lp.connect(gg); gg.connect(o); lfo(gg.gain, 0.3, 0.37);
+      const hp = filt('highpass', 3000, 0.5); const w = loop(white, 1); w.connect(hp); const wg = track(c.createGain()); wg.gain.value = 0.025; hp.connect(wg); wg.connect(o); lfo(wg.gain, 0.02, 2.3); }
+    // 地獄：低頻鋸齒嗡鳴（兩個略微失諧）+ 滾動的悶雷
+    { const o = mkBus('hell'), lp = filt('lowpass', 150, 1.2); lp.connect(o); const a = osc('sawtooth', 41, 0.35, lp), b2 = osc('sawtooth', 41 * 1.011, 0.3, lp), c2 = osc('sawtooth', 61.7, 0.12, lp); lfo(a.frequency, 0.8, 0.13); lfo(c2.frequency, 1.2, 0.17); lfo(lp.frequency, 40, 0.07);
+      const r = filt('lowpass', 180, 0.6); const rb = loop(brown, 0.55); rb.connect(r); const rg = track(c.createGain()); rg.gain.value = 1.1; r.connect(rg); rg.connect(o); lfo(rg.gain, 0.5, 0.21); }
+    // 巨石陣：共鳴的五度和弦，慢慢呼吸
+    { const o = mkBus('stonehenge'); for (const [f, a] of [[98, 0.1], [147, 0.07], [196.6, 0.05], [293.7, 0.03]]) { const e = track(c.createGain()); e.gain.value = 0; e.connect(o); const q = osc('sine', f * (1 + (Math.random() - 0.5) * 0.004), 1, e); lfo(e.gain, a * 0.8, 0.05 + Math.random() * 0.08); e.gain.value = a; } const lp = filt('lowpass', 200, 0.7); const b = loop(brown, 0.6); b.connect(lp); const gg = track(c.createGain()); gg.gain.value = 0.35; lp.connect(gg); gg.connect(o); }
+    this.zn = { nodes, srcs, bus, tg: {}, ev: 2 };
+  }
+  teardownZone() { const w = this.zn; this.zn = null; if (!w) return; for (const s of w.srcs) { try { s.stop(); } catch (e) { /* 已停 */ } } for (const n of w.nodes) { try { n.disconnect(); } catch (e) { /* 已斷開 */ } } }
+  /** 火焰 / 地獄的爆裂聲：短促高通噪音，隨機左右 */
+  crackle(k) {
+    const c = this.ctx, t = c.currentTime + 0.01, out = this.out(rnd(-0.8, 0.8), 0.12 * k * rnd(0.4, 1)); const s = c.createBufferSource(); s.buffer = this._clickBuf || (this._clickBuf = this.noiseBuf(0.05, false)); const hp = c.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = rnd(1400, 5200); hp.Q.value = 1.2;
+    const e = c.createGain(); e.gain.setValueAtTime(1, t); e.gain.exponentialRampToValueAtTime(0.0001, t + rnd(0.02, 0.06)); s.connect(hp); hp.connect(e); e.connect(out); s.start(t); s.stop(t + 0.07); setTimeout(() => { try { out.disconnect(); } catch (er) { /* 已斷開 */ } }, 400);
+  }
+  /** 巨石陣：石鐘（五聲音階的正弦 + 兩個泛音，長衰減） */
+  stoneBell(k) {
+    const c = this.ctx, t = c.currentTime + 0.02, out = this.out(rnd(-0.6, 0.6), 0.16 * k), f = [196, 220, 261.6, 293.7, 329.6, 392][Math.floor(Math.random() * 6)], len = 3.6; const nodes = [out];
+    for (const [m, a, d] of [[1, 1, len], [2.76, 0.35, len * 0.6], [5.4, 0.12, len * 0.35]]) { const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f * m; const e = c.createGain(); e.gain.setValueAtTime(0.0001, t); e.gain.exponentialRampToValueAtTime(a, t + 0.01); e.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(e); e.connect(out); o.start(t); o.stop(t + d + 0.05); nodes.push(e); }
+    setTimeout(() => { for (const n of nodes) { try { n.disconnect(); } catch (er) { /* 已斷開 */ } } }, (len + 1) * 1000);
+  }
+  /** 迷霧：遠處的低沉霧笛（兩個低音，緩起緩落） */
+  foghorn(k) {
+    const c = this.ctx, t = c.currentTime + 0.05, out = this.out(rnd(-0.7, 0.7), 0.2 * k), len = 2.6; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.connect(out); const nodes = [out, lp];
+    for (const f of [rnd(70, 88), rnd(70, 88) * 1.5]) { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 1.04, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.5); const e = c.createGain(); e.gain.setValueAtTime(0.0001, t); e.gain.exponentialRampToValueAtTime(0.5, t + 0.7); e.gain.exponentialRampToValueAtTime(0.0001, t + len); o.connect(e); e.connect(lp); o.start(t); o.stop(t + len + 0.05); nodes.push(e); }
+    setTimeout(() => { for (const n of nodes) { try { n.disconnect(); } catch (er) { /* 已斷開 */ } } }, (len + 1) * 1000);
   }
   buildWx() {
     const c = this.ctx, nodes = [], srcs = []; const track = (n) => { nodes.push(n); return n; };

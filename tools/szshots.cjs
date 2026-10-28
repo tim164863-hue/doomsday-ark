@@ -1,0 +1,24 @@
+// 特殊海域截圖 / 主控台檢查。用法: node tools/szshots.cjs <baseUrl> <desktop|mobile> [zone,zone,...] [prefix]
+// 用 ark.szTeleport() 把方舟放進海域（除錯用，會存檔到這個瀏覽器的 localStorage，不影響別人）。
+const puppeteer = require(process.env.PUPPETEER || '/tmp/shot/node_modules/puppeteer-core');
+const w = (ms) => new Promise((r) => setTimeout(r, ms));
+(async () => {
+  const [base, dev = 'desktop', zl = 'fog,whirlpool,fire,hell,stonehenge', pre = 'sz'] = process.argv.slice(2);
+  const [W, H] = dev === 'mobile' ? [390, 844] : [1280, 760]; const touch = dev === 'mobile';
+  const b = await puppeteer.launch({ executablePath: '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
+  const pg = await b.newPage(); await pg.setViewport({ width: W, height: H, deviceScaleFactor: 1, hasTouch: touch, isMobile: touch });
+  const errs = []; pg.on('pageerror', (e) => errs.push('pageerror: ' + e.message)); pg.on('console', (m) => { if (['error', 'warning'].includes(m.type())) errs.push(m.type() + ': ' + m.text()); });
+  await pg.goto(base + (base.includes('?') ? '&' : '?') + 'help=0&q=low&t=0.5&guest=1&devowner=1&demo=1', { waitUntil: 'domcontentloaded', timeout: 60000 }); await w(6000);
+  for (let i = 0; i < 3; i++) { await pg.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => /開始航行|繼續航行/.test(e.textContent)); if (x) x.click(); }); await w(500); }
+  console.log('bundle', await pg.evaluate(() => [...document.scripts].map((s) => s.src.split('/').pop()).join()));
+  const shot = async (n) => { const f = `/workspace/doomsday-ark/shots/${n}.png`; await pg.screenshot({ path: f }); console.log('shot', f); };
+  for (const z of zl.split(',')) {
+    await pg.evaluate((z) => { ark.hud.closeModal(); ark.hud.chart.close(); ark.szTeleport(z, 0.35); if (ark.helm.on) ark.helm.stop(); ark.helm.start(); ark.helm.thr = 0.25; for (let i = 0; i < 60; i++) ark.step(0.1); }, z); await w(3500);
+    await pg.evaluate(() => { for (let i = 0; i < 40; i++) ark.step(0.1); ark.ui.updSz(); }); await w(1500);
+    console.log(z, JSON.stringify(await pg.evaluate(() => ({ fx: ark.szFx && { id: ark.szFx.id, d: +ark.szFx.depth.toFixed(2) }, zfx: ark.zonefx && { id: ark.zonefx.id, entries: ark.zonefx.entries, solid: ark.zonefx.solid, on: ark.helm.on, v: ark.helm.v }, chip: document.querySelector('#szChip').textContent, fps: ark.fps }))));
+    await shot(`${pre}-${z}-${dev}`);
+  }
+  // 海圖
+  await pg.evaluate(() => { ark.hud.chart.open(); }); await w(1500); await shot(`${pre}-chart-${dev}`);
+  console.log('console:', errs.join('\n') || 'none'); await b.close();
+})();

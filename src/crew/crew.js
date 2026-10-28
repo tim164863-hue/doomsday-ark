@@ -67,7 +67,7 @@ class Bot {
   }
   get deckObj() { return this.game.ship.decks[this.actor.deck]; }
   say(text, dur = 3.4, kind = 'chat') { this.speech = { text, until: this.game.time + dur, kind }; }
-  setMoodNow() { const e = this.game.envState; this.mood = this.moodForce && this.moodForce.until > Date.now() ? this.moodForce.m : this.cheerUntil > Date.now() ? 'happy' : this.hurt ? 'tired' : computeMood(this.info, { nightF: e.nightF, dayF: e.dayF, workedMin: this.info.cat === 'work' ? (Date.now() - this.workStart) / 60000 : 0, sleeping: this.sleeping, playing: this.playing }); }
+  setMoodNow() { const e = this.game.envState; this.mood = this.moodForce && this.moodForce.until > Date.now() ? this.moodForce.m : this.cheerUntil > Date.now() ? 'happy' : this.hurt ? 'tired' : this.game.szAnx && !this.sleeping ? 'anxious' : computeMood(this.info, { nightF: e.nightF, dayF: e.dayF, workedMin: this.info.cat === 'work' ? (Date.now() - this.workStart) / 60000 : 0, sleeping: this.sleeping, playing: this.playing }); }
   worldPos(out = new THREE.Vector3()) { return this.avatar.group.getWorldPosition(out); }
 
   // ---- 佔位
