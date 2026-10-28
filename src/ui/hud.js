@@ -5,7 +5,7 @@ import { MOODS } from '../crew/mood.js';
 import * as S from '../sim/sim.js';
 import * as FL from '../sim/fleet.js';
 import { SeaChart } from './seachart.js';
-import { BattleUI } from './battleui.js';
+import { PvpBattleUI as BattleUI } from './raidui.js';
 import { SHIPS, SHIP_ORDER, STARTERS, ZONES, ZONE_ORDER, FLAGSHIP, FLEET_MAX, LV_MAX } from '../sim/fleetdefs.js';
 import { RES, RES_KEYS, FAC, FAC_ORDER, SITES, TIERS, LV_MULT, MAX_LV, REPAIR_FAC_COST, REPAIR_HULL, STATUS_BONUS } from '../sim/defs.js';
 
@@ -25,7 +25,7 @@ const dur = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(
 const mmss = (sec) => { sec = Math.max(0, Math.ceil(sec)); const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${String(s).padStart(2, '0')}`; };
 const fmt = (n) => (Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10);
 const costHTML = (c, s) => Object.keys(c).map((k) => `<span class="${s && s.res[k] < c[k] ? 'lack' : ''}">${RES[k].icon}${c[k]}</span>`).join(' ');
-const EV_ICON = { seazone: '🧭', battle: '⚔️', weather: '🌦', storm: '⛈', shortage: '⚠️', trip: '🚣', sick: '🤒', recover: '💪', crate: '🎁', rain: '🌧', build: '🔨', fight: '💢', makeup: '🤝', party: '🎉', celebrate: '🎊', help: '🩹', meal: '🍽' };
+const EV_ICON = { raid: '🏴‍☠️', seazone: '🧭', battle: '⚔️', weather: '🌦', storm: '⛈', shortage: '⚠️', trip: '🚣', sick: '🤒', recover: '💪', crate: '🎁', rain: '🌧', build: '🔨', fight: '💢', makeup: '🤝', party: '🎉', celebrate: '🎊', help: '🩹', meal: '🍽' };
 const CAT_ICON = { work: '⌨️', rest: '🛋', off: '😴' };
 const REASON = { focus: '專心工作中', happy: '心情不錯', tired: '有點累了', anxious: '有點不安', bored: '有點無聊' };
 
@@ -226,12 +226,13 @@ export class HUD {
     } else {
       const sm = S.summarize(rep); const lost = rep.capped ? '（超過 48 小時的部分不計）' : '';
       const rows = RES_KEYS.map((k) => `<tr><td>${RES[k].icon} ${RES[k].name}</td><td class="up">+${Math.round(rep.produced[k])}</td><td class="dn">−${Math.round(rep.consumed[k])}</td><td><b>${sm.net[k] >= 0 ? '+' : ''}${Math.round(sm.net[k])}</b></td><td class="now">${Math.floor(s.res[k])}</td></tr>`).join('');
-      const evs = rep.events.filter((e) => !(e.type === 'trip' && rep.trips.length)).slice(-10).map((e) => `<li><span class="ei">${EV_ICON[e.type] || '•'}</span><span class="et">${hm(e.t)}</span>${esc(e.text)}</li>`).join('') || '<li class="dim">一切平靜，沒有特別的事。</li>';
+      const evs = rep.events.filter((e) => e.type !== 'raid' && !(e.type === 'trip' && rep.trips.length)).slice(-10).map((e) => `<li><span class="ei">${EV_ICON[e.type] || '•'}</span><span class="et">${hm(e.t)}</span>${esc(e.text)}</li>`).join('') || '<li class="dim">一切平靜，沒有特別的事。</li>';
       const inj = sm.injuries.length ? `<p class="warn">🤕 受傷：${sm.injuries.map(esc).join('、')}</p>` : '';
+      const raids = rep.events.filter((e) => e.type === 'raid').slice(-8); const raidH = raids.length ? `<h3>🏴‍☠️ 離線時被突襲</h3><ul class="evl pvlog">${raids.map((e) => `<li><span class="ei">🏴‍☠️</span><span class="et">${hm(e.t)}</span>${esc(e.text.replace(/^[^ ]+ /, ''))}</li>`).join('')}</ul>` : '';
       const trips = rep.trips.length ? `<h3>🚣 出海成果</h3><ul class="evl">${rep.trips.map((tr) => `<li><span class="ei">${tr.fail ? '🌫' : '📦'}</span>${esc(tr.text)}</li>`).join('')}</ul>` : '';
       c.innerHTML = `<h2>🌅 你不在的時候…</h2><p class="sub">離線 <b>${dur(away)}</b>，已補算 ${rep.ticks} 分鐘的航行 ${lost}</p>
       <table class="rt"><tr><th></th><th>生產</th><th>消耗</th><th>淨變化</th><th>目前</th></tr>${rows}</table>
-      <div class="cndl">🛠 船體狀況 ${Math.round(s.cond)}%</div>${inj}${trips}<h3>📜 發生的事</h3><ul class="evl">${evs}</ul>${rep.newDay ? '<p class="note">📋 新的一天，每日任務已更新。</p>' : ''}
+      <div class="cndl">🛠 船體狀況 ${Math.round(s.cond)}%</div>${inj}${raidH}${trips}<h3>📜 發生的事</h3><ul class="evl">${evs}</ul>${rep.newDay ? '<p class="note">📋 新的一天，每日任務已更新。</p>' : ''}
       <div class="mb"><button data-x="tasks">📋 今日任務</button><button class="pri" data-x="close">繼續航行</button></div>`;
     }
     c.querySelectorAll('[data-x]').forEach((b) => (b.onclick = () => { if (b.dataset.x === 'tasks') this.openModal('tasks'); else this.closeModal(); }));

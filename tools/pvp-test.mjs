@@ -66,22 +66,22 @@ const pubAt = (t, o = {}) => { const d = D0(); const p = P.pubOf(d, UD, t, own(d
   const st = P.raidStart(a, pub, UD, UA, now, o, false); ok(st.ok && a.fleet.world.pv.att && st.claim.food === 32, '開始突襲：記下目標與宣稱量');
   const id = a.fleet.world.pv.att.id;
   // 偽造 / 錯誤報告
-  const forged = (rep) => { const x = JSON.parse(JSON.stringify(a)); const r = P.raidSubmit(x, now + 40, rep, o, UA, B.arenaWin, g); return { x, r }; };
+  const forged = (rep) => { const x = JSON.parse(JSON.stringify(a)); const r = P.raidSubmit(x, now + 40, rep, o, UA); return { x, r }; };
   { const { r } = forged({ id: 'other', won: true, t: 30, shots: 30, hits: 30, loss: 0 }); ok(!r.ok, '別場的戰報被忽略'); }
   { const { x, r } = forged({ id, won: true, t: 0.5, shots: 1, hits: 1, loss: 0 }); ok(r.ok && !r.win && x.res.food === a.res.food && x.fleet.world.pv.out.length === 0, '太快打贏（不合理）→ 沒有戰利品、沒有 raid 文件'); }
   { const { x, r } = forged({ id, won: true, t: 40, shots: 100, hits: 100, loss: 0 }); ok(!r.win && x.res.food === a.res.food, '射擊次數超過冷卻允許 → 無效'); }
   { const { x, r } = forged({ id, won: false, t: 75, shots: 60, hits: 5, loss: 18 }); ok(r.ok && !r.win && x.cond === 82 && x.res.food === a.res.food, '輸 / 時間到：沒有掠奪，船體 −18%'); ok(x.fleet.world.pv.cd > now, '輸了也要冷卻 15 分鐘'); }
-  { const lo = JSON.parse(JSON.stringify(a)); lo.cond = 25; const r = P.raidSubmit(lo, now + 40, { id, won: false, t: 75, shots: 60, hits: 5, loss: 40 }, o, UA, B.arenaWin, g); ok(lo.cond === SZ.floor, `攻擊方船體停在 ${SZ.floor}%（沿用階段④的保底）`); const l2 = JSON.parse(JSON.stringify(a)); l2.cond = 12; P.raidSubmit(l2, now + 40, { id, won: false, t: 75, shots: 60, hits: 5, loss: 40 }, o, UA, B.arenaWin, g); ok(l2.cond === 12, '已低於 20% 不會被抬高'); }
+  { const lo = JSON.parse(JSON.stringify(a)); lo.cond = 25; const r = P.raidSubmit(lo, now + 40, { id, won: false, t: 75, shots: 60, hits: 5, loss: 40 }, o, UA); ok(lo.cond === SZ.floor, `攻擊方船體停在 ${SZ.floor}%（沿用階段④的保底）`); const l2 = JSON.parse(JSON.stringify(a)); l2.cond = 12; P.raidSubmit(l2, now + 40, { id, won: false, t: 75, shots: 60, hits: 5, loss: 40 }, o, UA); ok(l2.cond === 12, '已低於 20% 不會被抬高'); }
   // 真的打一場
   const ar = A.createArena(7, 1, g, o); playBot(ar, 1, 3); const m = A.arenaMetrics(ar);
-  if (ar.over === 'win') { const x = JSON.parse(JSON.stringify(a)); const r = P.raidSubmit(x, now + 60, { id, ...m }, o, UA, B.arenaWin, g);
+  if (ar.over === 'win') { const x = JSON.parse(JSON.stringify(a)); const r = P.raidSubmit(x, now + 60, { id, ...m }, o, UA);
     ok(r.ok && r.win && r.doc && x.res.food === a.res.food + 32 && r.doc.loot.food === 32 && r.doc.attacker === UA && r.doc.defender === UD, '機器人打贏守衛艦 → 拿到宣稱量、產生 raid 文件');
     ok(x.fleet.world.pv.out.length === 1 && x.fleet.world.pv.pb[UD] === P.bucketOf(now) && !x.fleet.world.pv.att, '文件進 outbox、記下已打過這個目標');
-    ok(x.fleet.world.pv.cd > now + 800, '贏了也有冷卻'); ok(P.raidSubmit(x, now + 61, { id, ...m }, o, UA, B.arenaWin, g).ok === false, '同一場戰報不能重複領獎');
+    ok(x.fleet.world.pv.cd > now + 800, '贏了也有冷卻'); ok(P.raidSubmit(x, now + 61, { id, ...m }, o, UA).ok === false, '同一場戰報不能重複領獎');
     ok(P.canRaid(x, pub, UD, UA, now + 4000, false).why === 'done', '同一目標 6 小時內只能打一次'); ok(P.canRaid(x, pub, UD, UA, now + 7 * H, false).why !== 'done', '6 小時過後可以再打');
-    const full = JSON.parse(JSON.stringify(a)); full.res.food = P.PV ? 500 : 0; P.raidStart(full, pub, UD, UA, now, o, false); const rr = P.raidSubmit(full, now + 60, { id, ...m }, o, UA, B.arenaWin, g); ok(full.res.food <= 500, '自己的倉庫上限照樣有效（不會爆倉）');
+    const full = JSON.parse(JSON.stringify(a)); full.res.food = P.PV ? 500 : 0; P.raidStart(full, pub, UD, UA, now, o, false); const rr = P.raidSubmit(full, now + 60, { id, ...m }, o, UA); ok(full.res.food <= 500, '自己的倉庫上限照樣有效（不會爆倉）');
   } else ok(false, `機器人沒打贏守衛艦（${ar.over}）`);
-  const stale = JSON.parse(JSON.stringify(a)); ok(!P.raidSubmit(stale, now + 400, { id, ...m }, o, UA, B.arenaWin, g).ok, '超過 150 秒的戰報作廢');
+  const stale = JSON.parse(JSON.stringify(a)); ok(!P.raidSubmit(stale, now + 400, { id, ...m }, o, UA).ok, '超過 150 秒的戰報作廢');
   const b2 = mk(UA, { x: 1030, y: 1000 }); P.raidStart(b2, pub, UD, UA, now, own(b2), false); ok(P.canRaid(b2, pub, 'uidOther2', UA, now + 5, false).why === 'busy' && P.canRaid(b2, pub, UD, UA, now + 5, false).ok, '有一場進行中時不能同時開另一場（同一個目標可以重來）'); }
 
 // ---- 防守方：決定性離線結算
@@ -166,7 +166,7 @@ const withInbox = (s, docs) => { P.pvIngest(s, docs, UD, false); return s; };
   const farS = mk('uidFar', { x: 1600, y: 1000 }); const fc = new PvpClient(be('uidFar'), { uid: 'uidFar', owner: false, now }); ok((await fc.scan(farS, true)).length === 0, '很遠的玩家掃不到對方（不同搜尋格）');
   // 打一場 → raid 文件 → 防守方抄進存檔
   const o = own(aS); const pub = l3[0].pub; const st = P.raidStart(aS, pub, UD, UA, clockT, o, false); ok(st.ok, '開始突襲'); const g = P.guardFoe(o, pub, '守衛艦'); const ar = A.createArena(9, 1, g, o); playBot(ar, 1, 2); const m = A.arenaMetrics(ar);
-  const r = P.raidSubmit(aS, clockT + 50, { id: aS.fleet.world.pv.att.id, ...m }, o, UA, B.arenaWin, g); ok(r.win && r.doc, '打贏、取得 raid 文件');
+  const r = P.raidSubmit(aS, clockT + 50, { id: aS.fleet.world.pv.att.id, ...m }, o, UA); ok(r.win && r.doc, '打贏、取得 raid 文件');
   clockT += 50; ok((await aC.flush(aS)) === 1 && store.raids.size === 1 && aS.fleet.world.pv.out.length === 0, '送出 raid 文件（唯一的跨使用者寫入），outbox 清空');
   const key = [...store.raids.keys()][0]; ok(key === `${UD}/${UA}_${P.bucketOf(clockT)}`, `文件路徑 raids/{defender}/in/{attacker}_{bucket}（${key}）`);
   // 防守方上線

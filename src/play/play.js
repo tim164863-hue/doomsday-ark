@@ -14,6 +14,10 @@ import { FAC, FAC_ORDER, SITES, TIERS, TICK, RES } from '../sim/defs.js';
 import * as F from '../sim/fleet.js';
 import * as SZM from '../sim/seazones.js';
 import * as BTL from '../sim/battle.js';
+import * as PVP from '../sim/pvp.js';
+import * as W from '../sim/world.js';
+import { PvpClient } from '../save/pvpnet.js';
+import { cloud } from '../save/cloud.js';
 import { SHIPS, ZONES, ZONE_ORDER } from '../sim/fleetdefs.js';
 import { buildShipModel } from '../ship/fleetmodels.js';
 import { FacilityView, findSlot, blockRect, FOOT, SC, setFacScale } from './facilities.js';
@@ -51,6 +55,7 @@ export class Play {
       }
     } else {
       t = nowSec(); if (st.lastSeen > t) st.lastSeen = t;
+      await this.pvpPrepare(st, boot);   // 階段⑤：先把「離線時被突襲」的文件抄進收件匣，再補算（決定性結算在 simulateTo 裡）
       away = Math.max(0, t - (st.lastSeen || st.simT)); rep = S.simulateTo(st, t);
     }
     F.ensureFleet(st, this.game.owner); st.fleet = F.sanitizeFleet(st.fleet) || F.newFleet(this.game.owner);
@@ -64,7 +69,7 @@ export class Play {
     addEventListener('pagehide', () => this.save(true)); addEventListener('beforeunload', () => this.save(true));
     this.mascots = new Mascots(this.game, this);
     this.games = new Games(this); this.games.init(); this.social = new Social(this); this.game.crew.social = this.social;
-    this.ready = true; this.save(boot.needPush); this.tierSync(false);
+    this.ready = true; this.save(boot.needPush); this.tierSync(false); this.pvpStart(boot);
     hud.attach(this); this.onCrew(); this.pickWatch();
     // 載入完成後顯示離線報告（等說明視窗關閉）
     const tryShow = () => { if (!this.hud.helpOpen()) { const r = this.pendingReport; this.pendingReport = null; if (r && r.first && !this.game.owner && this.state.fleet && !this.state.fleet.pick) { /* 新訪客：先選船（pickWatch），不先跳歡迎視窗 */ } else if (r && (r.first || (r.rep && r.away >= 120))) this.hud.showReport(r); } else setTimeout(tryShow, 600); };
@@ -128,6 +133,7 @@ export class Play {
     this.updateTarget(); this.updateBoats(g.time); this.updatePilot(dt, g.time); this.updateFleet(g.time);
     if (this.hudAcc >= 0.25) { this.hudAcc = 0; this.hud.refresh(); }
     if (this.saveAcc >= 10) { this.saveAcc = 0; this.save(); }
+    this.pvAcc = (this.pvAcc || 0) + dt; if (this.pvAcc >= 20) { this.pvAcc = 0; this.pvpBeat(false); }
     this.syncAcc = (this.syncAcc || 0) + dt; if (this.syncAcc >= 600) { this.syncAcc = 0; this.resync(); }
   }
   /** 分頁被丟到背景很久後回來：用同一套模擬補算，顯示報告 */
@@ -146,7 +152,8 @@ export class Play {
   onEvent(ev) {
     const ui = this.game.ui; const bots = [...this.game.crew.bots.values()].filter((b) => !b.away && !b.sleeping && !b.inBath);
     const say = (b, txt, kind = 'chat') => b && b.say(txt, 4.8, kind);
-    if (ev.type === 'storm') { ui.toast('⛈ ' + ev.text); for (const b of bots.slice(0, 3)) say(b, pick(['好大的浪！抓穩！', '船在晃，東西快固定好！', '風暴來了…']), 'mood'); }
+    if (ev.type === 'raid') ui.toast(ev.text);
+    else if (ev.type === 'storm') { ui.toast('⛈ ' + ev.text); for (const b of bots.slice(0, 3)) say(b, pick(['好大的浪！抓穩！', '船在晃，東西快固定好！', '風暴來了…']), 'mood'); }
     else if (ev.type === 'weather') {
       const recent = ev.t > nowSec() - 600; if (ev.sub !== 'lightning' || recent) ui.toast(ev.text);
       if (ev.sub === 'lightning' && ev.t > nowSec() - 120) { const g = this.game; g.wxfx.strike(90, g.camera); for (const b of bots.slice(0, 2)) say(b, pick(['哇！閃電打到船了！', '好近的雷…檢查一下船體！']), 'mood'); }
@@ -403,6 +410,32 @@ export class Play {
     let n = 0; try { n = +(sessionStorage.getItem('ark.tierReload') || 0); } catch (e) { /* ignore */ } if (n >= 2) return;
     try { sessionStorage.setItem('ark.tierReload', String(n + 1)); localStorage.setItem(TIER_KEY, want); } catch (e) { return; }
     if (announce) this.game.ui.toast('🛠 旗艦進塢整備中…船身馬上變大！'); setTimeout(() => location.reload(), announce ? 2200 : 300);
+  }
+  // ------------------------------------------------------------ 階段⑤：玩家對戰（PvP）。全部是「盡力而為」：雲端壞掉 / 訪客 / 船東 → 安靜地關閉，不影響遊戲本身。
+  async pvpPrepare(st, boot) {
+    this.pvpMake(boot); if (!this.pvc.enabled || !st.fleet || !st.fleet.world) return;
+    try { await Promise.race([this.pvc.pull(st, true), new Promise((r) => setTimeout(r, 3500))]); } catch (e) { /* 收件匣讀不到就下次再抓 */ }
+  }
+  pvpMake(boot) { const uid = boot.user && boot.user.uid; return (this.pvc = new PvpClient(uid && !boot.owner ? cloud.pvp : null, { uid, owner: !!boot.owner, now: nowSec })); }
+  pvpStart(boot) {
+    if (!this.pvc) this.pvpMake(boot);
+    this.pvAcc = 0; this.pvpBeat(true);
+    addEventListener('visibilitychange', () => { if (document.hidden && this.pvc.enabled) this.pvc.publish(this.state, F.combatOf(this.state), true).catch(() => {}); });
+    if (import.meta.env.DEV) import('./pvdev.js').then((m) => m.pvDevInit(this));
+  }
+  async pvpBeat(first) {
+    const pc = this.pvc; if (!pc || !pc.enabled || this.pvBusy) return; this.pvBusy = true;
+    try { const s = this.state, own = F.combatOf(s); await pc.publish(s, own, !!first); await pc.flush(s); const n = await pc.pull(s, false); if (n > 0) this.tickLive(); } catch (e) { /* ignore */ } finally { this.pvBusy = false; }
+  }
+  pvpScan(force) { return this.pvc ? this.pvc.scan(this.state, force) : Promise.resolve([]); }
+  pvpSig() { const pc = this.pvc, pv = PVP.pvOf(this.state); return JSON.stringify([pc ? [pc.why, pc.scanning, pc.scanned, pc.err ? 1 : 0, pc.list.map((e) => e.uid + e.c.why + Math.round((e.c.dist || 0) / 4))] : 0, pv ? [pv.log.length, pv.sh > nowSec(), pv.in.length, pv.out.length, pv.att ? pv.att.id : 0, pv.cd > nowSec(), pv.st.won, pv.st.atk] : 0]); }
+  /** raidStart { uid } / raidSubmit { rep } / raidAbort：把存檔動作集中在這裡（跟 worldAct 一樣會存檔、更新 HUD） */
+  pvpAct(name, a = {}) {
+    const s = this.state, now = nowSec(), pc = this.pvc; let r = { ok: false, msg: '玩家對戰目前不能用' }; if (!pc) return r; const own = F.combatOf(s);
+    if (name === 'raidStart') { const e = pc.list.find((x) => x.uid === a.uid); r = !e ? { ok: false, msg: '目標已經不在附近了，請重新掃描' } : PVP.raidStart(s, e.pub, e.uid, pc.uid, now, own, pc.owner); if (r.ok) r.foe = PVP.attFoe(r.att); }
+    else if (name === 'raidSubmit') { r = PVP.raidSubmit(s, now, a.rep, own, pc.uid); if (r.doc) pc.flush(s).then(() => this.save(true)).catch(() => {}); if (r.msg) this.game.ui.toast(r.msg); }
+    else if (name === 'raidAbort') { const pv = PVP.pvOf(s); if (pv) pv.att = null; r = { ok: true }; }
+    this.save(true); this.hud.refresh(true); return r;
   }
   worldAct(name, a = {}) {
     const s = this.state; let r = null; const now = nowSec();

@@ -13,7 +13,7 @@
 import { hash } from './rng.js';
 import { clamp } from '../util.js';
 import { arkPos, cellOf, fogHas } from './world.js';
-import { foeStats } from './battle.js';
+import { foeStats, arenaWin } from './battle.js';
 import { hullDmg } from './szdata.js';
 import { resCap } from './promo.js';
 import { RES, RES_KEYS } from './defs.js';
@@ -141,12 +141,13 @@ export const WHY = { guest: '登入後才能參加玩家對戰', owner: '船東�
  * 贏（過 arenaWin 合理性檢查）→ 掠奪 att.claim（受自己資源上限限制）、產生 raid 文件（回傳 doc，由呼叫端 create 到雲端；失敗會放進 pv.out 重送）。
  * 輸 / 時間到 / 撤離（won:false）→ 沒有掠奪；船體損失 = 砲戰場實際傷害（一律用 hullDmg，保底 20%）。
  */
-export function raidSubmit(s, now, rep, own, selfUid, arenaWin, foe) {
+export const attFoe = (a) => { const f = foeStats({ k: 'pirate', lv: a.lv, nm: '守衛艦 ' + a.h }); return { ...f, icon: '⚓', name: '守衛艦 ' + a.h, guard: true }; };
+export function raidSubmit(s, now, rep, own, selfUid) {
   const pv = pvOf(s), a = pv && pv.att; if (!a) return { ok: false, msg: '沒有進行中的突襲' };
   if (!rep || rep.id !== a.id) return { ok: false, msg: '這份戰報不屬於目前這場突襲，已忽略' };
   if (now > a.t0 + PV.atkTtl) { pv.att = null; return { ok: false, msg: '突襲時間已過' }; }
   pv.att = null; pv.cd = Math.floor(now + PV.atkCool); pv.st.atk++;
-  const w = arenaWin(rep, foe, own);
+  const w = arenaWin(rep, attFoe(a), own);
   if (!w) { const h = hullDmg(s, num(rep && rep.loss) ? clamp(rep.loss, 0, 100) : 0); return { ok: true, win: false, hull: +h.toFixed(1), msg: `⚓ 突襲 ${a.h} 失敗，沒有搶到東西${h > 0 ? `，船體 −${h.toFixed(0)}%` : ''}` }; }
   const hull = hullDmg(s, w.loss), got = {};
   for (const k of PV.lootKeys) { const c = a.claim[k] | 0; if (c < 1) continue; const b = s.res[k]; s.res[k] = Math.min(resCap(s, k), b + c); const g = Math.round(s.res[k] - b); if (g > 0) got[k] = g; }
