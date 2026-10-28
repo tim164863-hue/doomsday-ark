@@ -8,8 +8,9 @@ import * as W from './world.js';
 import * as R from './rel.js';
 import { HOME_TYPES } from '../ship/homespec.js';
 import { sanSz, sanMat } from './seazones.js';
+import { sanBt } from './battle.js';
 import { PROMO_BP_IDS } from './szdata.js';
-import { resCap, sanFlag, promoTick, tradeMul } from './promo.js';
+import { resCap, sanFlag, promoTick, tradeMul, flagStats } from './promo.js';
 import { planEvent, decide as decideEvent, pending as evPending, EVENTS } from './seaevents.js';
 
 const BP_IDS = SHIP_ORDER.filter((k) => !SHIPS[k].free);   // 需要藍圖的船
@@ -47,6 +48,12 @@ export function sanitizeFleet(f) {
 export function shipStats(ship) {
   const B = SHIPS[ship.type]; const lv = ship.lv || 1;
   return { speed: +(B.speed * LV_SPEED[lv]).toFixed(2), cargo: Math.round(B.cargo * LV_STAT[lv]), hull: Math.round(B.hull * LV_STAT[lv]), fp: B.fp + (lv - 1) * (B.fp ? 1 : 0), zones: B.zones };
+}
+/** 海戰用的己方數值（階段④）：擁有者 = 旗艦階級；訪客 = 自己小船放大後的戰力（船員拿起步槍上陣）再套階級倍率，不然小船一碰就沉。 */
+export function combatOf(s) {
+  const f = s.fleet, fs = flagStats(f); let fp = fs.fp, hull = fs.hull;
+  if (f.flagship !== 'cruise') { const hs = homeShip(f); if (hs) { const b = shipStats(hs), r0 = fs.row; fp = (4 + b.fp * 1.5) * r0.fp / 8; hull = (300 + b.hull * 2) * r0.hull / 500; } }
+  return { fp, hull, cond: s.cond, branch: fs.branch, spd: fs.spd, scoutK: fs.scoutK, haz: fs.haz, trade: fs.trade };
 }
 export const shipPower = (ship) => { const st = shipStats(ship); return st.fp * 10 + st.hull / 10 + st.cargo / 20; };
 export function missionMinutes(ship, zone) { return Math.max(5, Math.round(ZONES[zone].min / shipStats(ship).speed)); }
@@ -177,6 +184,7 @@ function sanWorld(w) {
   o.fog = typeof w.fog === 'string' && w.fog.length <= 1400 && /^[A-Za-z0-9+/=]*$/.test(w.fog) ? w.fog : ''; o.seen = {}; for (const z of ZONE_ORDER) if (w.seen && w.seen[z]) o.seen[z] = 1; o.pos = pt(w.pos); o.explored = n(w.explored) ? Math.max(0, w.explored | 0) : 0;
   if (w.wx && typeof w.wx === 'object') { const c = (v) => (n(v) ? Math.max(0, Math.min(1e7, v | 0)) : 0); o.wx = { k: ['clear', 'storm', 'blizzard', 'snow', 'aurora'].includes(w.wx.k) ? w.wx.k : 'clear', hits: c(w.wx.hits), storm: c(w.wx.storm), snow: c(w.wx.snow), aur: c(w.wx.aur), polar: c(w.wx.polar) & 3 }; }
   { const sz = sanSz(w.sz); if (sz) o.sz = sz; }
+  { const bt = sanBt(w.bt); if (bt) o.bt = bt; }
   const r = w.route; if (r && n(r.x0) && n(r.y0) && n(r.x1) && n(r.y1) && n(r.t0) && n(r.t1)) o.route = { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, t0: r.t0, t1: r.t1, fuel: n(r.fuel) ? r.fuel : 0 };
   return o;
 }

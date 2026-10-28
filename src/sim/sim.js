@@ -3,7 +3,8 @@
 // 因此「離線一次補算」與「線上逐格推進」結果完全相同。
 import { TICK, MAX_OFFLINE, SAVE_VERSION, RES, RES_KEYS, USE, SHIP_FUEL_USE, LV_MULT, MAX_LV, FAC, FAC_ORDER, REPAIR_FAC_COST, REPAIR_HULL, START, STATUS_BONUS, TIERS, SITES, TASKS } from './defs.js';
 import { hash, mulberry32 } from './rng.js';
-import { fleetTick, tripBlueprint, grantBlueprint } from './fleet.js';
+import { fleetTick, tripBlueprint, grantBlueprint, combatOf } from './fleet.js';
+import { battleTick } from './battle.js';
 import { worldTick } from './world.js';
 import { resCap } from './promo.js';
 import { weatherTick } from './weather.js';
@@ -93,6 +94,7 @@ export function stepTick(s, t, rep) {
   weatherTick(s, t, tEnd, (e) => pushEvent(s, rep, e), sea.slow);   // 天氣：暴風 / 雷擊 / 雪減速 / 低溫耗油 / 極光（決定性；s.fleet.world 不存在就略過）
   seaTick(s, t, tEnd, (e) => pushEvent(s, rep, e), sea);   // 迷霧 / 漩渦 / 火焰 / 地獄 / 巨石陣（決定性；沒有世界地圖就略過）
   worldTick(s, tEnd, (e) => pushEvent(s, rep, e));   // 世界：方舟航行 / 揭開迷霧 / 抵達
+  battleTick(s, t, tEnd, (e) => pushEvent(s, rep, e), () => combatOf(s));   // 階段④：海怪 / 海盜遭遇（決定性；沒有世界地圖就略過）
   fleetTick(s, t, tEnd, rep);   // 艦隊：建造 / 返航 / 閒置自動出航（s.fleet 不存在時什麼都不做）
   // 2. 生產 / 消耗
   const r = rates(s, tEnd); const n = Object.keys(s.crew).length + 1;

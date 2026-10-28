@@ -2,6 +2,7 @@
 // 玩家在線上可以在海圖替那艘船做決定；沒做決定 = 照原計畫（閒置玩法不變）。決定只改 m（任務）本身，所以離線補算仍然一致。
 import { tbl } from '../util.js';
 import { hash, mulberry32 } from './rng.js';
+import { autoBattle, foeStats } from './battle.js';
 
 // opt: res=收穫倍率, dmg=額外船體損傷, bp=額外藍圖機率, risk=失敗機率（會被火力降低；失敗：收穫再 ×0.6、再 −8% 船體）, delay=延後返航(分鐘)
 export const EVENTS = tbl({
@@ -15,6 +16,8 @@ export const EVENTS = tbl({
     opts: [{ t: '撞開碎冰', d: '更快、收穫 +15%，船體受損', res: 1.15, dmg: 9, risk: 0.25 }, { t: '繞行', d: '多花 12 分鐘，平安', res: 1, delay: 12, dmg: -2 }] },
   glow:    { icon: '🕳️', name: '深淵異光', zones: ['abyss'], text: '海面下有一圈幽藍的光在脈動，聲納讀數很怪。',
     opts: [{ t: '下潛調查', d: '收穫 +60%，可能有藍圖，風險高', res: 1.6, dmg: 10, bp: 0.2, risk: 0.45 }, { t: '保持距離記錄', d: '收穫 +10%', res: 1.1 }] },
+  battle:  { icon: '🐍', name: '海怪來襲', zones: ['reef', 'ruins', 'ice', 'abyss'], text: '浪裡鑽出一條巨大的海蛇，緊貼著船身繞圈。',
+    opts: [{ t: '開砲迎戰', d: '用這艘船的火力打（階段④海戰規則）：贏了收穫 +30%，輸了 −40% 且受傷', battle: true }, { t: '全速逃離', d: '收穫 −5%，多半甩得掉', res: 0.95, dmg: 2, risk: 0.2 }, { t: '丟貨引開牠', d: '收穫 −20%，全身而退', res: 0.8 }] },
   whale:   { icon: '🐋', name: '鯨魚擱淺的訊號', zones: ['near', 'reef', 'ice', 'abyss'], text: '一頭大鯨魚在附近緩緩盤旋，似乎在帶路。',
     opts: [{ t: '跟著牠', d: '多花 6 分鐘，收穫 +25%', res: 1.25, delay: 6, risk: 0.05 }, { t: '保持航向', d: '照原計畫', res: 1 }] },
 });
@@ -35,11 +38,16 @@ export function decide(seed, ship, st, choice, nowSec, bpPool) {
   const m = ship.m; if (!m || !m.ev) return { ok: false, msg: '沒有待決定的事件' };
   if (m.ev.c !== -1) return { ok: false, msg: '已經決定過了' }; if (!pending(m, nowSec)) return { ok: false, msg: '事件已過或還沒發生' };
   const E = EVENTS[m.ev.k]; const o = E.opts[choice]; if (!o) return { ok: false, msg: '沒有這個選項' };
-  const rnd = mulberry32(hash(seed, 'evd', ship.id, ship.n, choice)); let res = o.res || 1; let dmg = o.dmg || 0; let bad = false;
-  const risk = (o.risk || 0) / (o.fp ? 1 + st.fp * 0.35 : 1 + st.fp * 0.08 + st.hull / 600); if (risk > 0 && rnd() < risk) { bad = true; res *= 0.6; dmg += 8; }
+  const rnd = mulberry32(hash(seed, 'evd', ship.id, ship.n, choice)); let res = o.res || 1; let dmg = o.dmg || 0; let bad = false; let btx = '';
+  if (o.battle) {   // 艦隊小船遇到海蛇：用跟方舟海戰同一個決定性對戰（小船以放大後的戰力參戰，見 fleet.combatOf）
+    const lv = { reef: 1, ruins: 1.15, ice: 1.3, abyss: 1.5 }[m.zone] || 1, own = { fp: 0.8 + st.fp * 1.5, hull: 90 + st.hull * 2.5, cond: 100, branch: null, spd: st.speed, scoutK: 1, haz: 0, trade: 0 };
+    const out = autoBattle(seed, own, foeStats({ k: 'serpent', lv }), hash('fev', ship.id, ship.n)); btx = out.kind;
+    if (out.kind === 'win') { res = 1.3; dmg = Math.round(out.loss * 0.4); } else if (out.kind === 'draw') { res = 1; dmg = Math.round(out.loss * 0.4); } else if (out.kind === 'fled') { res = 0.95; dmg = 1; } else { res = 0.6; dmg = Math.round(out.loss * 0.4) + 6; bad = true; }
+  }
+  const risk = o.battle ? 0 : (o.risk || 0) / (o.fp ? 1 + st.fp * 0.35 : 1 + st.fp * 0.08 + st.hull / 600); if (risk > 0 && rnd() < risk) { bad = true; res *= 0.6; dmg += 8; }
   for (const k in m.res) m.res[k] = Math.round(m.res[k] * res); m.dmg = Math.max(0, Math.round(m.dmg + dmg));
   if (o.delay) m.end += o.delay * 60; let gotBp = false;
   if (o.bp && !bad && !m.bp && bpPool && bpPool.length && rnd() < o.bp) { m.bp = bpPool[Math.floor(rnd() * bpPool.length)]; gotBp = true; }
-  m.ev.c = choice; m.ev.bad = bad; const text = `${E.icon}${E.name}：${o.t} → ${bad ? '不太順利…' : '順利！'}${gotBp ? '（似乎找到了藍圖的線索）' : ''}`; m.ev.txt = text;
+  m.ev.c = choice; m.ev.bad = bad; const text = `${E.icon}${E.name}：${o.t} → ${o.battle ? ({ win: '擊退了牠！', draw: '兩敗俱傷…', fled: '對方沒追上來', lose: '被打得很慘…', caught: '被打得很慘…' }[btx] || '') : bad ? '不太順利…' : '順利！'}${gotBp ? '（似乎找到了藍圖的線索）' : ''}`; m.ev.txt = text;
   return { ok: true, msg: text, bad, gotBp };
 }
