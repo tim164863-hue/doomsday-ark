@@ -196,7 +196,7 @@
 - 此段與既有 `DESIGN-fleet.md` 第 3 節的 Firestore 規則草案合併；規則新增部分同樣只是文字，不部署。
 
 ### 5.1 實作紀錄（階段⑤，已實作）
-- 程式：`src/sim/pvp.js`（規則 / 決定性結算 / 掃描與突襲的純函式）、`src/save/pvpnet.js`（Firestore 層 + 記憶體替身 + 規則的 JS 鏡像 + 客戶端排程）、`src/ui/raidui.js`（海圖「附近的船」卡片、突襲砲戰場）、`tools/pvp-test.mjs`（188 項檢查）、DEV 專用 `src/play/pvdev.js`（假玩家，正式版不含）。對階段④檔案**零修改**（`battle.js / arena.js / arenabot.js / btrisk.js / szdata.js / weather.js / battleui.js` 位元組相同）；只有 `sim.js`（+1 行 `pvTick` 呼叫）、`fleet.js`（+1 行 `sanPv`）、`hud.js`（+1 行換成 `PvpBattleUI` 子類別 + 回來報告的突襲段落）、`seachart.js`、`play.js`、`cloud.js` 的接線。
+- 程式：`src/sim/pvp.js`（規則 / 決定性結算 / 掃描與突襲的純函式）、`src/save/pvpnet.js`（Firestore 層 + 記憶體替身 + 規則的 JS 鏡像 + 客戶端排程）、`src/ui/raidui.js`（海圖「附近的船」卡片、突襲砲戰場）、`tools/pvp-test.mjs`（207 項檢查）、DEV 專用 `src/play/pvdev.js`（假玩家，正式版不含）。對階段④檔案**零修改**（`battle.js / arena.js / arenabot.js / btrisk.js / szdata.js / weather.js / battleui.js` 位元組相同）；只有 `sim.js`（+1 行 `pvTick` 呼叫）、`fleet.js`（+1 行 `sanPv`）、`hud.js`（+1 行換成 `PvpBattleUI` 子類別 + 回來報告的突襲段落）、`seachart.js`、`play.js`、`cloud.js` 的接線。
 - **相遇條件**：只有同一張世界地圖上、距離 ≤ 80、而且那格迷霧已被攻擊者揭開、對方離線 ≥ 10 分鐘、沒有護盾、攻擊者自己不在冷卻的玩家才能被突襲。掃描：`presence` 的 100×100 區塊 `cells array-contains-any`（3×3 鄰近區塊，limit 24）。
 - **戰鬥**：攻擊者打一場階段④的砲戰場（`createArena` / `stepArena` / `arenaWin`），對手是「守衛艦」（`foeStats({k:'pirate'})`，等級依雙方 fp 比例 0.6–1.9）。贏 = 戰利品（每種 ≤ 防守者存量 8% 與 `lootCap(fp)`，且總和 ≥ 5），輸 / 超時 / 偽造 = 沒有戰利品，只有砲戰場的船體損傷（20% 底線）和 15 分鐘冷卻；撤離免費。
 - **防守者（離線結算，決定性）**：收件匣文件登入時在 `simulateTo` **之前**抄進 `fleet.world.pv.in`（`seen` 去重），`pvTick` 依 (t, id) 排序、在第一個 `tEnd >= raid.t` 的 tick 結算：每種損失 = min(宣稱, 現存 8%, `lootCap`, 當日（UTC）首次被突襲時存量的 20% 扣掉已損失)；結算後啟動 12 小時護盾，護盾內的突襲作廢；船體 −2~6%（用 `hash('pvh', seed, id)`，最低 50%，不會把更低的船體拉高）。結果寫入 `pv.log` + 事件（回來時的歡迎視窗有「🏴‍☠️ 離線時被突襲」段落，海圖卡片留最近 5 筆）。一次補算 = 分段補算 = 逐 tick（有測試）。
@@ -237,4 +237,5 @@
 - 7 天的過濾在 `list` 無法放進規則（需要複合索引）；掃描時由客戶端過濾，`get` 與 raid create 由規則強制。
 - 目前**沒有「刪除帳號」的介面**；唯一類似的路徑是 `CloudAdapter.clear()`（刪雲端存檔，沒有接到任何按鈕），已一併刪除 presence。之後若加刪帳號功能，請呼叫 `play.pvpWipe()` 或 `cloud.pvp.delPresence(uid)`。
 - 沒有 TTL → 過期文件不會自動清除（只有本人隱身 / 登出會刪自己的 presence）。
+- 隱身 / 登出的刪除（第 15 輪）：刪除失敗時 `PvpClient.wipePending` 立旗標，隱身中（或已登出）的每個 beat 都會 `retryWipe()` 重試，成功才清旗標（旗標只在記憶體，重開頁面後由下一次隱身 / 登出處理）。`wipe()` 會先等還在路上的 `putPresence` 落地再刪，`publish()` 落地後也會再檢查 `hid` / 登出並補刪，所以「隱身 / 登出正好撞上發布」不會讓 presence 復活。登出用 `wipe({ final: true })`，之後這個 client 不再公開。
 - 規則仍是提案、未部署；120 秒的 raid `t` 限制（第 13 輪的已知取捨）沒有改。

@@ -67,7 +67,7 @@ export function createMemoryPvp(store, as, now, owners = []) {
   const chk = () => { if (cfg.fail) throw new Error('network'); };
   return {
     store: S, calls, cfg, as,
-    async putPresence(uid, doc) { chk(); calls.put++; const full = { ...doc, ut: now() }; /* = serverTimestamp() */ const e = ruleCheckPresence({ auth: as, uid, doc: full, nowSec: now(), isOwnerUid: owners.includes(as), prev: S.presence.get(uid) || null }); if (e) throw new Error('rules-denied:' + e); S.presence.set(uid, JSON.parse(JSON.stringify(full))); },
+    async putPresence(uid, doc) { chk(); if (cfg.putGate) await cfg.putGate; /* 測試用：把「寫入還在路上」卡住 */ calls.put++; const full = { ...doc, ut: now() }; /* = serverTimestamp() */ const e = ruleCheckPresence({ auth: as, uid, doc: full, nowSec: now(), isOwnerUid: owners.includes(as), prev: S.presence.get(uid) || null }); if (e) throw new Error('rules-denied:' + e); S.presence.set(uid, JSON.parse(JSON.stringify(full))); },
     async delPresence(uid) { chk(); calls.del = (calls.del || 0) + 1; if (uid !== as) throw new Error('rules-denied:not-owner-of-doc'); S.presence.delete(uid); },
     async near(blocks, limit = PV.scanMax) { chk(); calls.near++; if (!(limit <= RULE.listPresence)) throw new Error('rules-denied:list-limit'); const out = []; for (const [uid, d] of S.presence) { if (d.cells.some((c) => blocks.includes(c))) out.push({ uid, ...JSON.parse(JSON.stringify(d)) }); if (out.length >= limit) break; } return out; },
     async putRaid(def, id, doc) {
@@ -91,14 +91,19 @@ export function firestorePvp(fs, db) {
 
 /** 客戶端排程：節流、失敗不丟例外（PvP 壞掉不能影響遊戲本身） */
 export class PvpClient {
-  constructor(backend, { uid, owner, now }) { this.be = backend; this.uid = uid || null; this.owner = !!owner; this.now = now || (() => Date.now() / 1000); this.last = null; this.pubAt = 0; this.scanAt = 0; this.pullAt = 0; this.list = []; this.err = ''; this.scanning = false; this.scanned = false; this.counts = { pub: 0, scan: 0, pull: 0, raid: 0 }; }
+  constructor(backend, { uid, owner, now }) { this.be = backend; this.uid = uid || null; this.owner = !!owner; this.now = now || (() => Date.now() / 1000); this.last = null; this.pubAt = 0; this.scanAt = 0; this.pullAt = 0; this.list = []; this.err = ''; this.scanning = false; this.scanned = false; this.counts = { pub: 0, scan: 0, pull: 0, raid: 0 }; this.wipePending = false; this.sealed = false; this.flight = null; }
   get enabled() { return !!(this.be && this.uid && !this.owner); }
   get why() { return !this.uid ? 'guest' : this.owner ? 'owner' : !this.be ? 'offline' : ''; }
   async publish(s, own, force) {
     if (!this.enabled) return false; const pv0 = pvOf(s); if (!pv0 || !pv0.nt || pv0.hid) return false;   // 還沒看過隱私說明（nt）或正在隱身（hid）→ 什麼都不公開
     const now = this.now(); const pub = pubOf(s, this.uid, now, own, this.owner); if (!pub) return false;
     const gap = now - this.pubAt; if (!force && !(gap >= PV.pubGap || (pubChanged(this.last, pub) && gap >= 30))) return false;
-    try { await this.be.putPresence(this.uid, pub); this.last = pub; this.pubAt = now; this.counts.pub++; this.err = ''; return true; } catch (e) { this.err = String(e && e.message || e); return false; }
+    if (this.sealed) return false;
+    let ok = false; const fl = this.be.putPresence(this.uid, pub); this.flight = fl;   // 記下「還在路上的寫入」，wipe() 會等它先落地再刪
+    try { await fl; this.last = pub; this.pubAt = now; this.counts.pub++; this.err = ''; ok = true; } catch (e) { this.err = String(e && e.message || e); } finally { if (this.flight === fl) this.flight = null; }
+    // 寫入在路上時玩家剛好隱身 / 登出 → 剛落地的 presence 要馬上刪掉（不能讓它活下來）
+    const pvN = pvOf(s); if (ok && (this.sealed || (pvN && pvN.hid))) { await this.wipe(); return false; }
+    return ok;
   }
   /** 隱身開關：開 = 立刻刪掉自己的 presence 並停止公開；關 = 重新公開。有突襲正在進行 / 結果還沒送出時不能開（否則規則會因為沒有 presence 擋掉那份文件）。 */
   async setHidden(s, on) {
@@ -106,12 +111,18 @@ export class PvpClient {
     if (on && (pv.att || pv.out.length)) return { ok: false, msg: '還有突襲正在進行或結果還沒送出，稍後再開隱身' };
     pv.hid = on ? 1 : 0; pv.nt = 1;
     if (on) { const ok = await this.wipe(); return { ok: true, msg: ok ? '🕶 已隱身：你的公開資料已刪除，別人看不到你（你也暫時不能出手）' : '🕶 已隱身（雲端暫時連不上，之後會再刪除你的公開資料）', pending: !ok }; }
-    this.last = null; this.pubAt = 0; return { ok: true, msg: '已取消隱身，會重新出現在附近玩家的海圖上' };
+    this.last = null; this.pubAt = 0; this.wipePending = false; return { ok: true, msg: '已取消隱身，會重新出現在附近玩家的海圖上' };
   }
   /** 刪掉自己的 presence（隱身 / 登出 / 刪除帳號時）。失敗回傳 false（不丟例外）。 */
-  async wipe() {
-    if (!this.enabled) return false; this.last = null; this.pubAt = 0;
-    try { await this.be.delPresence(this.uid); this.err = ''; return true; } catch (e) { this.err = String(e && e.message || e); return false; }
+  async wipe(opt) {
+    if (!this.enabled) return false; if (opt && opt.final) this.sealed = true;   // final（登出 / 刪帳號）：之後這個 client 不再公開任何東西
+    this.last = null; this.pubAt = 0;
+    if (this.flight) { try { await this.flight; } catch (e) { /* 寫入失敗就沒有東西要刪 */ } }   // 先等還在路上的 putPresence 落地，刪除才是最後一步
+    try { await this.be.delPresence(this.uid); this.err = ''; this.wipePending = false; return true; } catch (e) { this.err = String(e && e.message || e); this.wipePending = true; return false; }
+  }
+  /** 每個 beat 呼叫：隱身中且上次刪除失敗 → 重試，成功才清掉旗標。回傳是否有重試。 */
+  async retryWipe(s) {
+    const pv = pvOf(s); if (!this.enabled || !this.wipePending || !((pv && pv.hid) || this.sealed)) return false; await this.wipe(); return true;
   }
   /** 掃描附近（≤24 次讀取）。回傳整理過的清單（含是否能出手與原因），不能出手的也列出來讓玩家看懂原因。 */
   async scan(s, force) {

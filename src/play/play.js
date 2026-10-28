@@ -426,12 +426,12 @@ export class Play {
   }
   async pvpBeat(first) {
     const pc = this.pvc; if (!pc || !pc.enabled || this.pvBusy) return; this.pvBusy = true;
-    try { const s = this.state, own = F.combatOf(s); this.pvpNotice(); await pc.publish(s, own, !!first); await pc.flush(s, own); const n = await pc.pull(s, false); if (n > 0) this.tickLive(); } catch (e) { /* ignore */ } finally { this.pvBusy = false; }
+    try { const s = this.state, own = F.combatOf(s); this.pvpNotice(); await pc.retryWipe(s); await pc.publish(s, own, !!first); await pc.flush(s, own); const n = await pc.pull(s, false); if (n > 0) this.tickLive(); } catch (e) { /* ignore */ } finally { this.pvBusy = false; }
   }
   /** 隱身開關（海圖卡片 / 帳號選單共用）。回傳 { ok, msg } */
   async pvpHide(on) { const pc = this.pvc; if (!pc || !pc.enabled) return { ok: false, msg: '登入後才有玩家對戰' }; const r = await pc.setHidden(this.state, !!on); this.save(true); this.hud.refresh(true); return r; }
   /** 登出 / 刪帳號前：刪掉自己公開的 presence（最多等 3 秒，失敗不擋登出） */
-  async pvpWipe() { const pc = this.pvc; if (!pc || !pc.enabled) return false; try { return await Promise.race([pc.wipe(), new Promise((r) => setTimeout(() => r(false), 3000))]); } catch (e) { return false; } }
+  async pvpWipe() { const pc = this.pvc; if (!pc || !pc.enabled) return false; try { return await Promise.race([pc.wipe({ final: true }), new Promise((r) => setTimeout(() => r(false), 3000))]); } catch (e) { return false; } }
   /** 首次登入的隱私說明：看完之前不公開任何東西。有別的視窗開著就等下一次（每 20 秒檢查一次）。 */
   pvpNotice() {
     const pc = this.pvc, s = this.state; if (!pc || !pc.enabled || this.pvNoticeOpen) return; const pv = PVP.ensurePv(s); if (!pv || pv.nt) return;

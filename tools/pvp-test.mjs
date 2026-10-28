@@ -298,6 +298,39 @@ const withInbox = (s, docs) => { ingest(s, docs, UD, false); return s; };
     const badBe = be(UP); badBe.cfg.fail = true; const bw = new PvpClient(badBe, { uid: UP, owner: false, now }); ok((await bw.wipe()) === false, '網路失敗時 wipe() 回傳 false、不丟例外');
     ok(!(await new PvpClient(null, { uid: null, owner: false, now }).wipe()) && !(await new PvpClient(be(OWNER_UIDS[0]), { uid: OWNER_UIDS[0], owner: true, now }).wipe()), '訪客 / 船東：wipe 什麼都不做');
     ok(await denied(() => be('someoneElse').delPresence(UP), 'not-owner'), '規則（鏡像）：只有本人能刪自己的 presence');
+    // ---- 第 15 輪：隱身的兩個漏洞（刪除失敗不重試 / 隱身與正在進行的發布互相競爭）
+    { const UR = 'uidRetry', rS = NT(mk(UR, { x: 1030, y: 1000 })), rB = be(UR), rC = new PvpClient(rB, { uid: UR, owner: false, now });
+      ok(await rC.publish(rS, own(rS), true) && store.presence.has(UR), '（前提）已公開 presence'); rB.cfg.fail = true;
+      const h = await rC.setHidden(rS, true); ok(h.ok && h.pending === true && rS.fleet.world.pv.hid === 1 && store.presence.has(UR) && rC.wipePending === true, '雲端失敗時開隱身：pending:true、wipePending 旗標立起、presence 還在');
+      let tries = 0; for (let i = 0; i < 3; i++) { clockT += 20; if (await rC.retryWipe(rS)) tries++; } ok(tries === 3 && store.presence.has(UR) && rC.wipePending === true, '網路還沒好：每個 beat 都重試、旗標保持、presence 還在');
+      rB.cfg.fail = false; let ret = 0; for (let i = 0; i < 5; i++) { clockT += 20; if (await rC.retryWipe(rS)) ret++; }
+      ok(!store.presence.has(UR) && rC.wipePending === false && ret === 1, '網路恢復後的第一個 beat 就刪掉 presence，旗標清掉，之後 4 個 beat 不再多送刪除');
+      ok(!(await rC.publish(rS, own(rS), true)) && !store.presence.has(UR), '重試成功後仍在隱身：不會被重新公開');
+      // 沒有隱身時（hid = 0）不重試：旗標存在也不動
+      rC.wipePending = true; rS.fleet.world.pv.hid = 0; const dl = rB.calls.del || 0; ok(!(await rC.retryWipe(rS)) && (rB.calls.del || 0) === dl, 'hid = 0 時 retryWipe 什麼都不做'); await rC.setHidden(rS, true); ok(rC.wipePending === false, '（對照）成功隱身後旗標是清的');
+      rC.wipePending = true; await rC.setHidden(rS, false); ok(rC.wipePending === false, '取消隱身會清掉待刪旗標'); }
+    { const UI = 'uidInflight', iS = NT(mk(UI, { x: 1030, y: 1000 })), iB = be(UI), iC = new PvpClient(iB, { uid: UI, owner: false, now });
+      let rel; iB.cfg.putGate = new Promise((r) => { rel = r; });
+      const pubP = iC.publish(iS, own(iS), true); await Promise.resolve(); ok(!!iC.flight && !store.presence.has(UI), '（前提）putPresence 還在路上、presence 還沒落地');
+      const hidP = iC.setHidden(iS, true); await Promise.resolve(); rel(); iB.cfg.putGate = null; const [pr, hr] = await Promise.all([pubP, hidP]);
+      ok(hr.ok && iS.fleet.world.pv.hid === 1 && !store.presence.has(UI) && pr === false, '隱身發生在發布進行中：寫入落地後 presence 仍被刪掉（不會復活），publish 回傳 false'); ok(iC.flight === null && iC.wipePending === false, '…沒有殘留的 in-flight / 待刪旗標');
+      // 就算 wipe 沒有等到 flight（例如 3 秒逾時之後才落地），publish 自己落地後會再檢查 hid 並刪除
+      clockT += 20; await iC.setHidden(iS, false); iB.cfg.putGate = new Promise((r) => { rel = r; }); const p2 = iC.publish(iS, own(iS), true); await Promise.resolve();
+      iS.fleet.world.pv.hid = 1; const fl = iC.flight; iC.flight = null; ok(await iC.wipe() && !store.presence.has(UI), '（模擬）wipe 沒等到 flight：先刪成功'); rel(); iB.cfg.putGate = null; ok((await p2) === false && !store.presence.has(UI), '…put 隨後落地，publish 自己的再檢查把它刪掉'); void fl;
+      // 落地後的那次刪除又失敗 → 留下待刪旗標，之後的 beat 會補刪
+      clockT += 20; iS.fleet.world.pv.hid = 0; iC.last = null; iC.pubAt = 0; iB.cfg.putGate = new Promise((r) => { rel = r; }); const p3 = iC.publish(iS, own(iS), true); await Promise.resolve(); iS.fleet.world.pv.hid = 1; iC.flight = null; rel(); iB.cfg.putGate = null;
+      const realDel = iB.delPresence; iB.delPresence = async () => { throw new Error('network'); }; ok((await p3) === false && store.presence.has(UI) && iC.wipePending === true, '落地後的刪除失敗 → presence 暫時還在，但 wipePending 立起'); iB.delPresence = realDel;
+      clockT += 20; ok(await iC.retryWipe(iS) && !store.presence.has(UI) && iC.wipePending === false, '下一個 beat 補刪成功'); }
+    { const UO = 'uidSignout', oS = NT(mk(UO, { x: 1030, y: 1000 })), oB = be(UO), oC = new PvpClient(oB, { uid: UO, owner: false, now });
+      let rel; oB.cfg.putGate = new Promise((r) => { rel = r; }); const pubP = oC.publish(oS, own(oS), true); await Promise.resolve();
+      const wipeP = oC.wipe({ final: true }); await Promise.resolve(); rel(); oB.cfg.putGate = null; const [pr, wr] = await Promise.all([pubP, wipeP]);
+      ok(wr === true && pr === false && !store.presence.has(UO), '登出發生在發布進行中：寫入落地後 presence 仍被刪掉，登出後不留任何資料');
+      clockT += 20; ok(!(await oC.publish(oS, own(oS), true)) && !store.presence.has(UO), '登出之後這個 client 不再公開（sealed）');
+      // 登出時刪除失敗 → 之後的 beat 仍會重試（不需要 hid）
+      const UQ = 'uidSignout2', qS = NT(mk(UQ, { x: 1030, y: 1000 })), qB = be(UQ), qC = new PvpClient(qB, { uid: UQ, owner: false, now }); await qC.publish(qS, own(qS), true);
+      qB.cfg.fail = true; ok((await qC.wipe({ final: true })) === false && store.presence.has(UQ) && qC.wipePending === true, '登出時雲端失敗：presence 還在、旗標立起'); qB.cfg.fail = false; clockT += 20;
+      ok(await qC.retryWipe(qS) && !store.presence.has(UQ) && qC.wipePending === false, '登出後的 beat 補刪成功'); } 
+
     // 幽靈船：掃描不列出超過 7 天沒上線的
     const UQ = 'uidGhost'; store.presence.set(UQ, { ...store.presence.get(UD), h: P.handleOf(UQ), ls: clockT - 8 * 86400, t: clockT - 8 * 86400 }); store.presence.set(UD, { ...store.presence.get(UD), ls: clockT - 2 * H });
     const sc = await new PvpClient(be(UA), { uid: UA, owner: false, now }).scan(aS, true); ok(sc.some((x) => x.uid === UD) && !sc.some((x) => x.uid === UQ), '掃描：超過 7 天沒上線的幽靈船不列出'); }
