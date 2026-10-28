@@ -89,6 +89,31 @@ export function helmFx(f, x, y) {
   return { id: h.id, z: h.z, depth: dep, u: h.u, speed: 1 - clamp((hz.slow || 0) * dep, 0, 0.9), pull: hz.pull ? hz.pull * dep / 60 / HELM_KU : 0, vx: (h.z.x - x) / d, vy: (h.z.y - y) / d, lost: hz.drift ? dep : 0, un: unprepared(f, h.z) ? SZ.unprep : 1, trapped: !!(hz.pull && h.u < SZ.trapU) };
 }
 
+/** 手動駕駛：漩渦對船的總「向內」速度（公尺 / 秒，場景 x/z）。pull（向中心）+ push（局部漩渦場）合成後，總量不超過
+ *  當下最高速（已含漩渦減速 / 天氣）的 SZ.pullCap（40%），所以每種船都能開出去，淨外向速度 ≥ 60% × vmaxEff。 */
+export function whirlDrift(fx, push, vmaxEff) {
+  if (!fx || !(fx.pull > 0)) return { x: 0, z: 0 }; let x = fx.vx * fx.pull + (push ? push.x : 0) * fx.depth, z = fx.vy * fx.pull + (push ? push.z : 0) * fx.depth;
+  const cap = SZ.pullCap * Math.max(0, vmaxEff), m = Math.hypot(x, z); if (m > cap && m > 1e-9) { x *= cap / m; z *= cap / m; } return { x, z };
+}
+/** 漩渦救援（燃料不夠自己開出去時）：拖船把方舟拖到漩渦外緣；收 10 零件（不夠就收光）。只在漩渦裡、而且燃料不足以出航時可用。 */
+export const RESCUE = { parts: 10, out: 1.04 };
+function rescueGeo(s, nowSec) {
+  const f = s.fleet, w = f && f.world; if (!w || !w.pos) return null; const p = arkPos(w, Math.max(s.simT, nowSec)); const h = zoneAtPoint(p.x, p.y); if (!h || h.id !== 'whirlpool') return null;
+  const z = h.z, d = h.d || 0.01, ux = d > 0.5 ? (p.x - z.x) / d : 1, uy = d > 0.5 ? (p.y - z.y) / d : 0; let q = { x: z.x + ux * z.r * RESCUE.out, y: z.y + uy * z.r * RESCUE.out };
+  if (!insideWorld(q.x, q.y)) q = { x: z.x - ux * z.r * RESCUE.out, y: z.y - uy * z.r * RESCUE.out };
+  const dist = Math.hypot(q.x - p.x, q.y - p.y); return { w, p, q, need: dist * WORLD.fuelPerUnit + 15 };
+}
+export function rescueCan(s, nowSec) {
+  const g = rescueGeo(s, nowSec); if (!g) return { ok: false, why: '只有在漩渦海域裡才需要救援' };
+  if (s.res.fuel >= g.need) return { ok: false, why: '燃料夠，直接在海圖重新出航（或手動駕駛）就能開出去' }; return { ok: true, need: g.need };
+}
+export function rescueDo(s, nowSec) {
+  const c = rescueCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; const g = rescueGeo(s, nowSec), f = s.fleet, w = f.world;
+  const pay = Math.min(RESCUE.parts, Math.floor(s.res.parts)); s.res.parts -= pay; w.route = null; w.pos = { x: g.q.x, y: g.q.y }; w.hm = 0;
+  const sz = ensureSz(w); sz.tr = 0; s.log.push({ t: Math.max(s.simT, nowSec), type: 'seazone', sub: 'rescue', text: `🛟 拖船把方舟拖出漩渦${pay ? `（花了 🔩${pay}）` : ''}。` });
+  return { ok: true, msg: `🛟 拖船把方舟拖出漩渦${pay ? `（花了 🔩${pay}）` : ''}。補點燃料再出航吧。`, pay };
+}
+
 // ---------------------------------------------------------------- 古碑謎題（海上巨石陣中心；每個遊戲日一次，贏了掉古碑殘片、有機會掉科研 T3 藍圖）
 export const PZ = { symbols: 6, len: 4, day: 86400 };
 export const puzzleDay = (nowSec) => Math.floor(nowSec / PZ.day);
@@ -99,9 +124,9 @@ export function puzzleCan(s, nowSec) {
   if (w.sz && w.sz.pz === puzzleDay(nowSec)) return { ok: false, why: '今天已經讀過古碑了，明天再來' };
   return { ok: true, day: puzzleDay(nowSec) };
 }
-/** 玩家解完（或失敗）謎題。每天只能一次（失敗也算）。 */
-export function puzzleResolve(s, nowSec, won) {
-  const c = puzzleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; const f = s.fleet, w = f.world, sz = ensureSz(w); sz.pz = c.day;
+/** 玩家解完（或失敗）謎題。input = 玩家依序點的符文（陣列）；在這裡對照當天的正確順序，不信任用戶端說「贏了」。每天只能一次（失敗也算）。 */
+export function puzzleResolve(s, nowSec, input) {
+  const c = puzzleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; const seq = puzzleSeq(s, c.day); const won = Array.isArray(input) && input.length === seq.length && seq.every((v, i) => input[i] === v); const f = s.fleet, w = f.world, sz = ensureSz(w); sz.pz = c.day;
   if (!won) return { ok: true, won: false, msg: '🗿 古碑沉默了…符文黯淡下去（今天不能再試）。' };
   const m = f.mat || (f.mat = {}); const add = Math.min(2, SZ.matCap - (m.rune | 0)); if (add > 0) { m.rune = (m.rune | 0) + add; sz.d.stonehenge = (sz.d.stonehenge | 0) + add; }
   let bp = null; if (!f.bp.bp_sci3 && hash(s.seed, 'pzb', c.day) / U32 < 0.25) { f.bp.bp_sci3 = 1; bp = 'bp_sci3'; sz.d.bp = (sz.d.bp | 0) + 1; }

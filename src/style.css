@@ -307,3 +307,5 @@ body.touch kbd { display: none; } body.touch .nt { display: none; } body:not(.to
 .pzg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0; } .pzt { font-size: 28px; min-height: 58px; border-radius: 10px; background: rgba(150,130,200,.15); border: 1px solid rgba(180,160,230,.5); color: #e8e0ff; } .pzt:disabled { opacity: .85; } .pzt.lit { background: #8d7bd6; box-shadow: 0 0 18px #b49cff; color: #fff; }
 .pzd { display: flex; gap: 8px; justify-content: center; margin: 6px 0; } .pzd i { width: 12px; height: 12px; border-radius: 50%; border: 1px solid #b49cff; } .pzd i.on { background: #b49cff; }
 .mcard .ok { color: #6fe39b; } .mcard .warn { color: #f0a040; }
+/* 360 寬：特殊海域圖示出現時，頂欄不能超出螢幕 */
+@media (max-width: 380px) { #top { gap: 4px; } #tlpill { padding: 5px 6px; gap: 3px; font-size: 10.5px; } #tlpill .pv { gap: 3px; } #top .tools { gap: 3px; } #top .tools button { padding: 5px 5px; min-width: 28px; } #tlpill, #top .tools { min-width: 0; } }

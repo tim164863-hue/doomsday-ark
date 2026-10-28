@@ -19,7 +19,7 @@ export const PAL = {
   fog: { sky: [0.66, 0.72, 0.78], skyAmt: 0.85, fog: [0.72, 0.77, 0.82], fogAmt: 0.9, fogMul: 15, dim: 0.35, wDeep: [0.1, 0.14, 0.16], wSh: [0.28, 0.36, 0.38], wAmt: 0.6, glow: 0, star: 0.95 },
   whirlpool: { sky: [0.13, 0.3, 0.34], skyAmt: 0.6, fog: [0.14, 0.28, 0.31], fogAmt: 0.5, fogMul: 1.4, dim: 0.28, wDeep: [0.005, 0.07, 0.09], wSh: [0.05, 0.33, 0.34], wAmt: 0.7, glow: 0, star: 0.6 },
   fire: { sky: [1.0, 0.4, 0.1], skyAmt: 0.75, fog: [0.95, 0.36, 0.1], fogAmt: 0.65, fogMul: 2.4, dim: 0.3, wDeep: [0.22, 0.05, 0.02], wSh: [0.95, 0.33, 0.05], wAmt: 0.5, glow: 1, star: 0.9 },
-  hell: { sky: [0.3, 0.02, 0.04], skyAmt: 0.92, fog: [0.2, 0.025, 0.03], fogAmt: 0.72, fogMul: 3.2, dim: 0.82, wDeep: [0.03, 0.0, 0.0], wSh: [0.42, 0.05, 0.01], wAmt: 0.7, glow: 1, star: 1 },
+  hell: { sky: [0.26, 0.02, 0.035], skyAmt: 0.78, fog: [0.17, 0.022, 0.026], fogAmt: 0.62, fogMul: 3.0, dim: 0.78, wDeep: [0.03, 0.0, 0.0], wSh: [0.36, 0.045, 0.01], wAmt: 0.55, glow: 1, star: 1 },
   stonehenge: { sky: [0.42, 0.34, 0.64], skyAmt: 0.65, fog: [0.38, 0.32, 0.56], fogAmt: 0.55, fogMul: 1.9, dim: 0.3, wDeep: [0.05, 0.04, 0.15], wSh: [0.2, 0.17, 0.42], wAmt: 0.5, glow: 0, star: 0.4 },
 };
 // 粒子：col 顏色、size 大小、vy 垂直速度（m/s）、sw 水平擾動、spin 繞轉、add 是否加色、h 最大高度、n 數量比例

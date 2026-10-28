@@ -29,6 +29,6 @@ export function stoneHit(items, sx, sz, sr) { for (const b of items) if (FIELD[b
 /** 手動駕駛：站在漩渦場裡的局部推力（公尺 / 秒，場景座標）：向內 + 旋轉。items = vortexAround 的結果 */
 export function vortexPush(items, x, z) {
   let px = 0, pz = 0; for (const v of items) { const dx = v.x - x, dz = v.z - z, d = Math.hypot(dx, dz); if (d > v.r * 1.6 || d < 0.5) continue; const k = (1 - d / (v.r * 1.6)); const nx = dx / d, nz = dz / d;
-    px += (nx * 1.1 + -nz * 1.6) * k * 2.2; pz += (nz * 1.1 + nx * 1.6) * k * 2.2; }
-  const m = Math.hypot(px, pz); if (m > 3.5) { px *= 3.5 / m; pz *= 3.5 / m; } return { x: px, z: pz };
+    px += (nx * 1.1 + -nz * 1.6) * k * 1.2; pz += (nz * 1.1 + nx * 1.6) * k * 1.2; }
+  const m = Math.hypot(px, pz); if (m > 2) { px *= 2 / m; pz *= 2 / m; } return { x: px, z: pz };
 }

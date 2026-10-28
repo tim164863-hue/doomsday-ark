@@ -313,7 +313,7 @@ export class HUD {
   pzShow() { const P = this.pz; P.phase = 'show'; P.lit = -1; this.renderPuzzle(); let i = 0; const step = () => { if (!this.pz || this.pz !== P || this.modalKind !== 'puzzle') return; if (i >= P.seq.length) { P.phase = 'input'; P.lit = -1; P.got = []; this.renderPuzzle(); return; } P.lit = P.seq[i++]; this.renderPuzzle(); setTimeout(() => { if (this.pz === P) { P.lit = -1; this.renderPuzzle(); setTimeout(step, 220); } }, 620); }; setTimeout(step, 500); }
   pzTap(i) {
     const P = this.pz; if (!P || P.phase !== 'input') return; P.got.push(i); P.lit = i; const k = P.got.length - 1; const bad = P.seq[k] !== i, done = P.got.length >= P.seq.length;
-    if (bad || done) { const r = this.play.worldAct('puzzle', { won: !bad }); P.phase = 'done'; P.won = !!(r && r.won); P.msg = (r && r.msg) || '…'; P.lit = -1; this.renderPuzzle(); return; }
+    if (bad || done) { const r = this.play.worldAct('puzzle', { seq: P.got.slice() }); P.phase = 'done'; P.won = !!(r && r.won); P.msg = (r && r.msg) || '…'; P.lit = -1; this.renderPuzzle(); return; }
     this.renderPuzzle(); setTimeout(() => { if (this.pz === P) { P.lit = -1; if (this.modalKind === 'puzzle') this.renderPuzzle(); } }, 180);
   }
   renderFleet() {

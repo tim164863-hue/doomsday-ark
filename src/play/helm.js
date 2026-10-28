@@ -14,6 +14,7 @@ import { waveHeight } from '../world/waves.js';
 import { angDiff } from '../util.js';
 import { helmStep, toWorld, toLocal, HELM_K, clamp } from './helmphys.js';
 import { vortexPush } from '../sim/szfield.js';
+import { whirlDrift } from '../sim/seazones.js';
 import { SZ } from '../sim/szdata.js';
 export { HELM_K, helmStep };
 const nowSec = () => clock.now();
@@ -89,7 +90,7 @@ export class Helm {
       const fuel = this.on ? this.fuelOk() : true; const ip = { thr: fuel ? this.input.thr : 0, rud: this.input.rud };
       const hf = g.wxHelm; if (hf) cfg.vmax *= hf.speed; // 暴風 / 下雪：最高速度下降（跟自動航行 / 離線一樣用 sim/weather.js 的係數）
       const sz = g.szFx; if (sz && sz.speed < 1) cfg.vmax *= sz.speed; // 特殊海域（漩渦 / 迷霧）：減速，同 sim/seazones.js
-      helmStep(st, ip, cfg, dt); this.zoneForces(st, dt, time); this.limit(st); this.iceHit(st, cfg); this.zoneHit(st, cfg);
+      helmStep(st, ip, cfg, dt); this.zoneForces(st, dt, time, cfg); this.limit(st); this.iceHit(st, cfg); this.zoneHit(st, cfg);
       const ddx = st.x - this.x, ddz = st.z - this.z; if (c.mode !== 'follow' || !this.on) { c.target.x += ddx; c.target.z += ddz; if (c.tgtOver) { c.tgtOver.x += ddx; c.tgtOver.z += ddz; } }
       this.dist0 += Math.hypot(st.x - this.x, st.z - this.z); this.v = st.v; this.w = st.w; this.yaw = st.yaw; this.x = st.x; this.z = st.z;
       const tl = clamp(-this.w * (this.v / cfg.vmax) * (this.g.small ? 1.4 : 2.2), -0.09, 0.09); this.lean += (tl - this.lean) * (1 - Math.exp(-2.2 * dt));
@@ -105,7 +106,7 @@ export class Helm {
     this._was = true; const [rx, rz] = this.rootXZ(); sh.root.position.x = rx; sh.root.position.z = rz; if (this.g.small) sh.root.rotation.y = this.yaw;
   }
   homeWorld(p) { return this.world(p); }
-  fuelOk() { const s = this.p.state; if (!s || !s.res) return true; if (s.res.fuel < 1) { this.edgeT += 1; if (this.edgeT === 1 || this.edgeT % 600 === 0) this.g.ui && this.g.ui.toast('⛽ 燃料用完了，船只能滑行'); return false; } this.edgeT = 0; return true; }
+  fuelOk() { const s = this.p.state; if (!s || !s.res) return true; if (s.res.fuel < 1) { this.edgeT += 1; if (this.edgeT === 1 || this.edgeT % 600 === 0) this.g.ui && this.g.ui.toast((this.g.szFx && this.g.szFx.id === 'whirlpool' ? '⛽ 燃料用完了，船被漩渦拉住——打開海圖 🧭 呼叫拖船救援' : '⛽ 燃料用完了，船只能滑行')); return false; } this.edgeT = 0; return true; }
   fuelOk0() { const s = this.p.state; return !!(s && s.res && s.res.fuel >= 1); }
   /** 引擎本身的耗油（跟地圖航程的耗油分開算；累積到整數才扣，HUD 另外顯示小數） */
   burn(a) { const s = this.p.state; this.fuelUsed += a; if (s && s.res) s.res.fuel = Math.max(0, s.res.fuel - a); }
@@ -119,12 +120,11 @@ export class Helm {
       break; }
   }
   /** 特殊海域的力：漩渦往中心拉 + 場內小漩渦的旋轉推力；迷霧讓船頭慢慢漂（失去方向感） */
-  zoneForces(st, dt, time) {
+  zoneForces(st, dt, time, cfg) {
     const sz = this.g.szFx; if (!sz || sz.depth <= 0) return; const zf = this.g.zonefx;
-    if (sz.pull > 0) { st.x += sz.vx * sz.pull * dt; st.z += sz.vy * sz.pull * dt; }
-    if (sz.id === 'whirlpool' && zf) { const v = vortexPush(zf.vortexItems(), st.x, st.z); st.x += v.x * dt * sz.depth; st.z += v.z * dt * sz.depth; }
+    if (sz.id === 'whirlpool') { const d = whirlDrift(sz, zf ? vortexPush(zf.vortexItems(), st.x, st.z) : null, cfg ? cfg.vmax : 7); st.x += d.x * dt; st.z += d.z * dt; }   // 拉力 + 局部漩渦合起來 ≤ 最高速 40%
     if (sz.lost > 0 && Math.abs(st.v) > 0.5) { st.yaw += (Math.sin(time * 0.31) + Math.sin(time * 0.83 + 1.7)) * 0.5 * 0.03 * sz.lost * dt; if (this.on && !this._lostT) this._lostT = 1, this.g.ui && this.g.ui.toast('🌫 迷霧中羅盤亂轉，船頭會慢慢偏掉——小心修正方向。'); }
-    if (sz.trapped && this.on && performance.now() - (this._trapT || 0) > 20000) { this._trapT = performance.now(); this.g.ui && this.g.ui.toast('🌀 被漩渦困在中心！全速往外開（越靠外越輕鬆）。'); }
+    if (sz.trapped && this.on && performance.now() - (this._trapT || 0) > 20000) { this._trapT = performance.now(); this.g.ui && this.g.ui.toast('🌀 被漩渦困在中心！全速往外開（越靠外越輕鬆），也可以在海圖重新出航。'); }
   }
   /** 巨石陣 / 地獄岩柱碰撞：船頭 / 船身 / 船尾三個圓；撞到 → 推出去、反彈、船體小損傷（2 秒冷卻；不會打到保底 20% 以下） */
   zoneHit(st, cfg) {

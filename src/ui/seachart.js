@@ -8,7 +8,7 @@ import { clock } from '../clock.js';
 import { weatherAt, coldRaw, KINDS, effectsOf, WX } from '../sim/weather.js';
 
 import { SPECIAL_ZONES, SZ_ORDER, zoneAtPoint, routeZones, MATERIALS } from '../sim/szdata.js';
-import { unprepared, seaStatus } from '../sim/seazones.js';
+import { unprepared, seaStatus, rescueCan, RESCUE } from '../sim/seazones.js';
 
 const nowSec = () => clock.now();
 const $ = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstElementChild; };
@@ -129,7 +129,7 @@ export class SeaChart {
     if (!this.open_) return; const s = this.s, w = s.fleet.world, now = nowSec(); const ark = W.arkPos(w, now); const zone = W.zoneAt(ark.x, ark.y);
     this.el.querySelector('.scSub').textContent = `${W.zoneLabel(zone)} · (${Math.round(ark.x)}, ${Math.round(ark.y)}) · 已探索 ${Math.round(W.fogCount(w) / (Math.PI * 980 * 980 / 625) * 100)}%`;
     const wxn = weatherAt(now, ark.x, ark.y); const K = KINDS[wxn.show] || KINDS[wxn.kind]; this.el.querySelector('.scSub').textContent += ` · ${K.icon}${wxn.temp}°`;
-    const evs = FL.pendingEvents(s, now); const sail = s.fleet.ships.filter((x) => x.state === 'sail'); const sig = JSON.stringify([evs.map((x) => x.id + ':' + x.m.ev.k), sail.map((x) => x.id), !!w.route, Math.floor(s.res.fuel / 5), wxn.show, Math.round(wxn.i * 5), Math.floor(now / 600), (() => { const h = zoneAtPoint(ark.x, ark.y); return h ? h.id + Math.round(h.depth * 4) : ''; })(), JSON.stringify(s.fleet.mat || 0), Object.keys(s.fleet.bp || {}).length, Object.keys(this.szSeen || {}).join()]);
+    const evs = FL.pendingEvents(s, now); const sail = s.fleet.ships.filter((x) => x.state === 'sail'); const sig = JSON.stringify([evs.map((x) => x.id + ':' + x.m.ev.k), sail.map((x) => x.id), !!w.route, Math.floor(s.res.fuel / 5), Math.floor(s.res.parts / 10), wxn.show, Math.round(wxn.i * 5), Math.floor(now / 600), (() => { const h = zoneAtPoint(ark.x, ark.y); return h ? h.id + Math.round(h.depth * 4) : ''; })(), JSON.stringify(s.fleet.mat || 0), Object.keys(s.fleet.bp || {}).length, Object.keys(this.szSeen || {}).join()]);
     if (force || sig !== this.panelSig) { this.panelSig = sig; this.renderPanel(evs, sail, ark, w); if (evs.length && !this._panelUser && this.panel.classList.contains('collapsed')) this.setPanel(true); }
     const eta = this.panel.querySelector('[data-arketa]'); if (eta && w.route) eta.textContent = `剩 ${mmss(w.route.t1 - now)}`;
     this.panel.querySelectorAll('[data-eta]').forEach((el) => { const sh = FL.findShip(s, +el.dataset.id); if (sh && sh.m) el.textContent = `返航 剩 ${mmss(sh.m.end - now)}`; });
@@ -144,7 +144,7 @@ export class SeaChart {
   /** 特殊海域：目前所在的危害 + 已發現清單 + 材料 / 稀有藍圖；巨石陣中心有古碑按鈕 */
   szPanel(w, ark, now) {
     const s = this.s, st = seaStatus(s, now); this.buildMini(w); const seen = this.szSeen || {}; const cur = st && st.h; const sz = w.sz || {};
-    let here = ''; if (cur) { const Z = cur.z; const pz = Z.id === 'stonehenge' && cur.depth >= 0.3; here = `<p style="color:${Z.color}"><b>${Z.icon} 正在 ${Z.name}（深度 ${Math.round(cur.depth * 100)}%）</b><br><small>${szShort(Z)}${st.un ? ' · ⚠ 旗艦階級未達建議，危害 ×1.5' : ''}</small></p>${pz ? '<div class="mb"><button data-a="pz">🗿 讀古碑（每天一次）</button></div>' : ''}`; }
+    let here = ''; if (cur) { const Z = cur.z; const pz = Z.id === 'stonehenge' && cur.depth >= 0.3; here = `<p style="color:${Z.color}"><b>${Z.icon} 正在 ${Z.name}（深度 ${Math.round(cur.depth * 100)}%）</b><br><small>${szShort(Z)}${st.un ? ' · ⚠ 旗艦階級未達建議，危害 ×1.5' : ''}</small></p>${pz ? '<div class="mb"><button data-a="pz">🗿 讀古碑（每天一次）</button></div>' : ''}${Z.id === 'whirlpool' ? (() => { const rc = rescueCan(s, now); return rc.ok ? `<p class="warn">⛽ 燃料不夠開出去（要 ⛽${Math.ceil(rc.need)}）。</p><div class="mb"><button data-a="rescue">🛟 呼叫拖船（🔩${RESCUE.parts}）</button></div>` : '<p class="dim">開出漩渦：全速往外、或在海圖重新出航；燃料用完時可呼叫拖船。</p>'; })() : ''}`; }
     const chips = SZ_ORDER.map((id) => { const Z = SPECIAL_ZONES[id]; return `<span class="zc ${seen[id] ? '' : 'un'}" style="${seen[id] ? `border-color:${Z.color};color:${Z.color}` : ''}" title="${seen[id] ? Z.blurb : '還沒找到'}">${seen[id] ? Z.icon + Z.short : '❓'}</span>`; }).join('');
     return `<div class="pk szp"><h4>🧭 特殊海域 <small>${SZ_ORDER.filter((i) => seen[i]).length}/5</small></h4>${here}<div class="zonebar">${chips}</div>${this.hud.matHtml(s)}<p class="dim">${cur ? '' : '迷霧、漩渦、火焰、地獄、巨石陣：危險，但掉稀有藍圖與晉升材料。'}${sz.n && Object.keys(sz.n).length ? '' : ''}</p></div>`;
   }
@@ -157,6 +157,7 @@ export class SeaChart {
     this.panel.innerHTML = `${evHtml}<div class="pk"><h4>⚓ 方舟 ${w.route ? `<small data-arketa></small>` : '<small>停泊中</small>'}</h4><p>${w.route ? `航向 (${Math.round(w.route.x1)}, ${Math.round(w.route.y1)}) ${(() => { const [gx, gy] = W.cellOf(w.route.x1, w.route.y1); return W.fogHas(w, gx, gy) ? W.zoneLabel(W.zoneAt(w.route.x1, w.route.y1)) : '❓未知海域'; })()}` : '點地圖任意位置，決定下一個目的地。'}</p><p class="dim">航速 ${WORLD.arkSpeed}/分 · 每 ${Math.round(1 / WORLD.fuelPerUnit)} 單位耗 ⛽1 · 目前 ⛽${Math.floor(s.res.fuel)}</p>${w.route ? '<div class="mb"><button data-a="stop">⏹ 就地停泊（燃料不退）</button></div>' : ''}</div>
       ${this.wxHtml(w, ark, now)}${this.szPanel(w, ark, now)}<div class="pk"><h4>🚢 海上任務</h4>${ms}${done}</div><div class="pk"><h4>🗺 已發現海域</h4><div class="zonebar">${seen}</div><p class="dim">方舟停在遠海域旁，該海域的任務會更快、收穫更多。船出任務時會順便揭開目的地附近的迷霧。</p></div>`;
     this.panel.querySelectorAll('[data-a=ev]').forEach((b) => { b.onclick = () => { const id = +b.closest('.evc').dataset.id; this.hud.play.worldAct('decide', { id, i: +b.dataset.i }); this.refresh(true); }; });
+    const rsb = this.panel.querySelector('[data-a=rescue]'); if (rsb) rsb.onclick = () => { this.hud.play.worldAct('rescue', {}); this.refresh(true); };
     const pzb = this.panel.querySelector('[data-a=pz]'); if (pzb) pzb.onclick = () => this.hud.openPuzzle();
     const st = this.panel.querySelector('[data-a=stop]'); if (st) st.onclick = () => { this.hud.play.worldAct('stop', {}); this.refresh(true); };
   }

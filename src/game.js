@@ -58,7 +58,7 @@ export class Game {
     this.wxfx.onThunder = (d) => this.audio.event('thunder', d); this.polar.onSound = (k, x, z) => this.audio.event(k, this.camera.position.distanceTo(_av.set(x, 0, z)));
     // 特殊海域（迷霧 / 漩渦 / 火焰 / 地獄 / 巨石陣）：畫面與音效；危害由 sim/seazones.js 算（跟畫面無關）
     this.zonefx = new ZoneFX(this.scene, this.env, this.quality); this.zonefx.onThunder = (d) => this.audio.event('thunder', d); this.szFx = null; this.szOv = null; this.szT = 0; this.szFirst = false;
-    { const q = new URLSearchParams(location.search).get('wx'); if (q) this.setWx(q); const z = new URLSearchParams(location.search).get('sz'); if (z) this.setSz(z); }
+    { const q = new URLSearchParams(location.search).get('wx'); if (q) this.setWx(q); if (import.meta.env.DEV) { const z = new URLSearchParams(location.search).get('sz'); if (z) this.setSz(z); } }
     this.player = new Player(this); this.crew = new Crew(this);
     this.controls = new Controls(this, canvas); this.controls.tapCb = (x, y) => this.onTap(x, y); if (this.small) { this.controls.setMode('overview'); this.controls.target.copy(this.controls.tgtOver); }
     const P = new URLSearchParams(location.search);
@@ -136,11 +136,13 @@ export class Game {
   mapPosLive() { const p = this.mapPos(), h = this.helm, w = this.play && this.play.state && this.play.state.fleet && this.play.state.fleet.world; if (!p || !h || !w || w.route || !(h.on || h.displaced)) return p; return { x: w.pos.x + (h.x - h.base.x) * HELM_KU, y: w.pos.y + (h.z - h.base.z) * HELM_KU, moving: false }; }
   /** 視覺用海域覆寫（截圖 / 試玩）：'fog' | 'whirlpool' | 'fire' | 'hell' | 'stonehenge'，可加 ,0.8（深度）；null 取消。不影響存檔與模擬。 */
   setSz(spec) {
+    if (!import.meta.env.DEV) return;   // 只有開發模式（vite dev）才有；正式版整段會被拿掉
     if (!spec) { this.szOv = null; this.szT = 0; return; } const [id, d] = String(spec).split(','); const z = SPECIAL_ZONES[id]; if (!z) { this.szOv = null; return; }
     this.szOv = { id, z, depth: Math.max(0, Math.min(1, d == null ? 1 : +d || 1)), un: 1, speed: 1, pull: 0, lost: 0, trapped: false }; this.szT = 0; this.szFirst = false;
   }
   /** 測試 / 截圖用：把方舟直接放到某個特殊海域（u = 離中心的比例 0..1；會存檔）。 */
   szTeleport(id, u = 0.5) {
+    if (!import.meta.env.DEV) return false;   // 只有開發模式才有
     const z = SPECIAL_ZONES[id], w = this.play && this.play.state && this.play.state.fleet && this.play.state.fleet.world; if (!z || !w) return false;
     w.route = null; w.pos = { x: z.x + z.r * u, y: z.y }; WD.reveal(w, w.pos.x, w.pos.y, 120); WD.reveal(w, z.x, z.y, z.r + 40); w.hm = 0; this.szT = 0; this.szFirst = false; this.play.save(true); return true;
   }

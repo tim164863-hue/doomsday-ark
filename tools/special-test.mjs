@@ -2,11 +2,12 @@
 import { newState, simulateTo, syncCrew } from '../src/sim/sim.js';
 import * as F from '../src/sim/fleet.js';
 import * as W from '../src/sim/world.js';
+import { arkPos } from '../src/sim/world.js';
 import { SPECIAL_ZONES, SZ_ORDER, SZ, MATERIALS, MAT_ORDER, PROMO, PROMO_BP, PROMO_BP_IDS, zoneAtPoint, routeZones } from '../src/sim/szdata.js';
-import { seaPre, seaTick, helmFx, puzzleSeq, puzzleCan, puzzleResolve, unprepared, moraleMul, sanSz, sanMat, HELM_KU } from '../src/sim/seazones.js';
+import { seaPre, seaTick, helmFx, puzzleSeq, puzzleDay, puzzleCan, puzzleResolve, whirlDrift, rescueCan, rescueDo, RESCUE, unprepared, moraleMul, sanSz, sanMat, HELM_KU } from '../src/sim/seazones.js';
 import { HELM_K } from '../src/play/helmphys.js';
 import { stonesAround, stoneHit, vortexAround, fieldAround } from '../src/sim/szfield.js';
-import { WORLD } from '../src/sim/fleetdefs.js';
+import { WORLD, SHIPS } from '../src/sim/fleetdefs.js';
 import { validateState, serialize } from '../src/save/cloud.js';
 import { SAVE_VERSION } from '../src/sim/defs.js';
 let fails = 0; const ok = (c, m) => { if (!c) { fails++; console.log('✗', m); } else console.log('✓', m); };
@@ -99,10 +100,26 @@ const base4 = mk({ x: 1000, y: 1000 }); simulateTo(base4, T0 + 4 * H); const bas
   const v = vortexAround(0, 0, 500, 1); ok(v.length > 2 && v.every((q) => q.r > 15), `漩渦場（${v.length} 個）`); for (const k of ['flame', 'lava', 'orb']) ok(fieldAround(k, 0, 0, 400, 1).length > 4, `${k} 場有東西`); }
 // ---- 古碑謎題
 { const z = SPECIAL_ZONES.stonehenge; const s = mk({ x: z.x, y: z.y }); simulateTo(s, T0 + 2 * H); const seq = puzzleSeq(s, 5), seq2 = puzzleSeq(s, 5); ok(seq.length === 4 && JSON.stringify(seq) === JSON.stringify(seq2) && JSON.stringify(puzzleSeq(s, 6)) !== JSON.stringify(seq) || true, '謎題序列決定性');
-  const c = puzzleCan(s, s.simT); ok(c.ok, '停在巨石陣中心可以讀碑'); const r = puzzleResolve(s, s.simT, true); ok(r.ok && r.won && r.rune >= 1 && s.fleet.mat.rune >= 1, `解開：${r.msg}`);
-  ok(!puzzleCan(s, s.simT + 100).ok && !puzzleResolve(s, s.simT + 100, true).ok, '同一天不能再讀'); ok(puzzleCan(s, s.simT + 86400).ok, '隔天可以'); const f2 = puzzleResolve(s, s.simT + 86400, false); ok(f2.ok && !f2.won && !puzzleCan(s, s.simT + 86400).ok, '失敗也算今天用掉');
+  const c = puzzleCan(s, s.simT); ok(c.ok, '停在巨石陣中心可以讀碑'); const r = puzzleResolve(s, s.simT, puzzleSeq(s, c.day)); ok(r.ok && r.won && r.rune >= 1 && s.fleet.mat.rune >= 1, `解開：${r.msg}`);
+  ok(!puzzleCan(s, s.simT + 100).ok && !puzzleResolve(s, s.simT + 100, puzzleSeq(s, 0)).ok, '同一天不能再讀'); ok(puzzleCan(s, s.simT + 86400).ok, '隔天可以'); const f2 = puzzleResolve(s, s.simT + 86400, [9, 9, 9, 9]); ok(f2.ok && !f2.won && !puzzleCan(s, s.simT + 86400).ok, '失敗也算今天用掉');
   const out = mk({ x: 1000, y: 1000 }); ok(!puzzleCan(out, T0).ok, '不在巨石陣不能讀碑');
-  const bpDays = []; for (let d = 0; d < 60; d++) { const t = mk({ x: z.x, y: z.y }); simulateTo(t, T0 + 60); const rr = puzzleResolve(t, T0 + 60 + d * 86400, true); if (rr.bp) bpDays.push(d); } ok(bpDays.length >= 5 && bpDays.length <= 30, `謎題偶爾（約 25%）給科研 T3 藍圖（60 天中 ${bpDays.length} 次）`); }
+  const bpDays = []; for (let d = 0; d < 60; d++) { const t = mk({ x: z.x, y: z.y }); simulateTo(t, T0 + 60); const rr = puzzleResolve(t, T0 + 60 + d * 86400, puzzleSeq(t, puzzleDay(T0 + 60 + d * 86400))); if (rr.bp) bpDays.push(d); } ok(bpDays.length >= 5 && bpDays.length <= 30, `謎題偶爾（約 25%）給科研 T3 藍圖（60 天中 ${bpDays.length} 次）`); }
+// ---- 古碑：不信任用戶端；只有照當天順序輸入才算贏（含：少一個 / 順序錯 / 長度對但全錯 / 非陣列）
+{ const z = SPECIAL_ZONES.stonehenge; const mkc = () => mk({ x: z.x, y: z.y }); const t0 = mkc(); simulateTo(t0, T0 + 60); const day = puzzleDay(T0 + 60), good = puzzleSeq(t0, day);
+  for (const [name, bad] of [['全錯', good.map((v) => (v + 1) % 6)], ['少一個', good.slice(0, 3)], ['順序反了', good.slice().reverse().map((v, i) => (v === good[i] ? (v + 1) % 6 : v))], ['true', true], ['undefined', undefined], ['物件', { length: 4 }]]) {
+    const t = mkc(); simulateTo(t, T0 + 60); const r = puzzleResolve(t, T0 + 60, bad); ok(r.ok && !r.won && !(t.fleet.mat && t.fleet.mat.rune) && !t.fleet.bp.bp_sci3, `偽造 / 錯誤輸入（${name}）→ 不給獎勵、但算今天用掉`); }
+  const t = mkc(); simulateTo(t, T0 + 60); const r = puzzleResolve(t, T0 + 60, good); ok(r.won && t.fleet.mat.rune >= 1, '正確順序才給獎勵'); }
+// ---- 漩渦：每種船都開得出去（手動駕駛的拉力上限）+ 救援
+{ const wz = SPECIAL_ZONES.whirlpool; const f = mk().fleet; const types = [['母船', 11], ...Object.values(SHIPS).map((x) => [x.name, 7 + x.speed * 4])];
+  for (const wxm of [1, 0.85]) for (const [name, vmax] of types) {
+    let t = 0, tCore = null, tFull = null, minNet = 1e9, u = 0.02; const dt = 5, step = 0; let worst = 0;
+    while (u < 1 && t < 200 * 3600) { const x = wz.x + wz.r * u, fx = helmFx(f, x, wz.y); const ve = vmax * fx.speed * wxm; const dr = whirlDrift(fx, { x: -2 * fx.depth * 5, z: 0 }, ve);   // 最壞：局部漩渦也朝內
+      const drift = Math.hypot(dr.x, dr.z); worst = Math.max(worst, drift / ve); const net = ve - Math.hypot(dr.x, dr.z); minNet = Math.min(minNet, net / ve); u += net * dt * HELM_KU / wz.r; t += dt; if (tCore == null && u >= 0.12) tCore = t; if (tFull == null && u >= 0.7) tFull = t; }
+    ok(worst <= 0.4001 && minNet >= 0.599, `${name}（天氣 ×${wxm}）：漩渦拉力 ≤ 最高速 40%（最壞 ${(worst * 100).toFixed(0)}%）、淨外向 ≥ 60%`); ok(u >= 1 && t < 12 * 3600, `${name}（天氣 ×${wxm}）可以從中心開出漩渦：離開中心 ${(tCore / 60).toFixed(1)} 分、離開深水區 ${(tFull / 60).toFixed(0)} 分、整個出來 ${(t / 3600).toFixed(1)} 小時（vmax ${vmax.toFixed(1)}）`);
+    if (wxm === 1) console.log(`   escape ${name}: core ${(tCore / 60).toFixed(1)} min, deep ${(tFull / 60).toFixed(0)} min, rim ${(t / 3600).toFixed(2)} h`); } }
+{ const wz = SPECIAL_ZONES.whirlpool; const s = mk({ x: wz.x + 20, y: wz.y }); s.res.fuel = 5; s.res.parts = 50; const c = rescueCan(s, s.simT); ok(c.ok, '燃料不夠、在漩渦裡 → 可以呼叫救援（不受 fuel ≥ 航程+15 限制）');
+  const r = rescueDo(s, s.simT); const p = arkPos(s.fleet.world, s.simT); ok(r.ok && r.pay === RESCUE.parts && s.res.parts === 50 - RESCUE.parts && !s.fleet.world.route && Math.hypot(p.x - wz.x, p.y - wz.y) >= wz.r, '救援：花 10 零件、拖到漩渦外緣、航線清掉');
+  ok(!rescueCan(s, s.simT).ok, '已經在外面 → 不需要救援'); const s2 = mk({ x: wz.x + 20, y: wz.y }); s2.res.fuel = 300; ok(!rescueCan(s2, s2.simT).ok, '燃料夠 → 不提供救援（直接重新出航）'); const s3 = mk({ x: wz.x, y: wz.y }); s3.res.fuel = 0; s3.res.parts = 3; const r3 = rescueDo(s3, s3.simT); ok(r3.ok && r3.pay === 3 && s3.res.parts === 0, '零件不夠也能救（收光）；中心也行'); const o = mk({ x: 1000, y: 1000 }); ok(!rescueCan(o, o.simT).ok, '不在漩渦不能救援'); }
 // ---- 訪客小船（沒有母船、艦隊是小旗艦）也一樣
 { for (const id of ['fire', 'whirlpool']) { const s = mk(at(id, 0.5), { owner: false, uid: 'guest-9' }); const w = s.fleet.world; w.pos = at(id, 0.5); simulateTo(s, T0 + 6 * H); ok(s.cond < 100 && s.fleet.world.sz && s.fleet.world.sz.in === id, `訪客 ${id}：照樣受到危害（船體 ${s.cond.toFixed(1)}）`); }
   const a = mk(at('hell', 0.6), { owner: false, uid: 'guest-9' }), b = mk(at('hell', 0.6), { owner: false, uid: 'guest-9' }); a.fleet.world.pos = at('hell', 0.6); b.fleet.world.pos = at('hell', 0.6); simulateTo(a, T0 + 20 * H); for (let t = T0; t <= T0 + 20 * H; t += 3001) simulateTo(b, t); simulateTo(b, T0 + 20 * H); ok(strip(a) === strip(b), '訪客：離線 = 分段'); }

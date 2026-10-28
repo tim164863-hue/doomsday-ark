@@ -151,7 +151,8 @@ export class Play {
     }
     else if (ev.type === 'seazone') {
       const recent = ev.t > nowSec() - 600, g = this.game;
-      if (ev.sub === 'bp' || ev.sub === 'enter' && recent || recent && ev.sub !== 'strike' && ev.sub !== 'mat' || ev.sub === 'mat' && ev.t > nowSec() - 120) ui.toast(ev.text);
+      const short = (t) => { const i = t.indexOf('：'); const j = t.indexOf('（旗艦'); return i > 0 ? t.slice(0, i) + (j > 0 ? ' ⚠ 旗艦階級未達建議' : '') : t; };
+      if (ev.sub === 'enter' && recent) ui.toast(short(ev.text)); else if (ev.sub === 'bp' || recent && ev.sub !== 'strike' && ev.sub !== 'mat' || ev.sub === 'mat' && ev.t > nowSec() - 120) ui.toast(ev.text);
       if (ev.sub === 'strike' && ev.t > nowSec() - 120) { g.wxfx.strike(90, g.camera); ui.toast(ev.text); for (const b of bots.slice(0, 2)) say(b, pick(['啊！地獄的雷打到船了！', '好燙…船體在冒煙！']), 'mood'); }
       else if (ev.sub === 'rock' && recent) { g.audio.event('crash', 14); for (const b of bots.slice(0, 2)) say(b, pick(['撞到石頭了！', '這些石柱怎麼會自己移動…']), 'mood'); }
       else if (ev.sub === 'enter' && recent) { const Z = ev.zone; const L = { fog: ['什麼都看不見…', '這霧好濃，別走散了。'], whirlpool: ['船被捲住了！抓穩！', '水在打轉…快往外開！'], fire: ['海面著火了！！', '好燙！飲水別浪費。'], hell: ['這裡是…地獄？', '快離開這裡，我不想待了…'], stonehenge: ['那些石頭…有人排過它們。', '好神秘的地方。'] }[Z]; if (L) for (const b of bots.slice(0, 2)) say(b, pick(L), 'mood'); }
@@ -319,6 +320,7 @@ export class Play {
     else if (name === 'auto') r = F.setAuto(s, a.id, a.on);
     else if (name === 'rename') r = F.renameShip(s, a.id, a.name);
     else if (name === 'home') r = F.setHome(s, a.id);
+    if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg) && SZM.rescueCan(s, now).ok) r.msg += '——在漩渦裡可以呼叫拖船救援（海圖側欄）';
     if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
     if (r && r.ok) { this.updateFleet(this.game.time); }
     // 小船家：選船／換旗艦／升級旗艦 → 存檔後重新載入，場景換成新的船
@@ -376,7 +378,8 @@ export class Play {
     if (name === 'sail') r = F.sailArk(s, a.x, a.y, now);
     else if (name === 'stop') r = F.stopArk(s, now);
     else if (name === 'decide') r = F.decideSeaEvent(s, a.id, a.i, now);
-    else if (name === 'puzzle') r = SZM.puzzleResolve(s, now, !!a.won);
+    else if (name === 'puzzle') r = SZM.puzzleResolve(s, now, a.seq);
+    else if (name === 'rescue') { const w = s.fleet.world; if (this.game.helm.on) this.game.helm.stop(); r = SZM.rescueDo(s, now); }
     if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
     this.save(true); this.hud.refresh(true); return r;
   }
