@@ -44,6 +44,85 @@ raids/{id}                    {attacker,defender,power,loot,t}   攻守雙方可
 - 只能用 Firestore + 客戶端模擬：自動戰鬥用雙方公開戰力與種子在雙方客戶端各自重算；線上時可手動下指令。
 - **作弊風險**：沒有伺服器權威（無 Cloud Functions），惡意客戶端可竄改自己的存檔與上傳的結果；規則只能做「上限、頻率、型別」檢查，不能驗證戰鬥過程。因此：離線襲擊限制在小比例（≤10%）、有冷卻、只掠奪資源不毀船，並把 PvP 當作「朋友間的玩法」而非排名競技。若日後要防作弊，需升級到 Blaze + Cloud Functions 做權威結算。
 
+### 4.1 階段⑤ PvP：實作用的 Firestore 結構與**建議規則**（僅文字，**未部署**，沒有改任何 Firebase 專案設定）
+實作已把第 3 節的草案收斂成下面兩組集合（與草案的差異見 DESIGN-expansion.md §5.2）：
+```
+presence/{uid}                 公開快照（任何登入者可讀；只有本人可寫；船東 uid 不得寫 = 船東永遠不會出現在別人的海圖上）
+                               {v, h(匿名代號), x, y, fp, hl, cd, res{food,water,fuel,parts}, cap, sh(護盾到期), ls(最後上線), t, cells[≤16], rt?}
+raids/{defender}/in/{attacker}_{bucket}   突襲文件：唯一的「跨使用者寫入」。只能 create；只有攻守雙方可讀
+                               {v, attacker, defender, b(6 小時桶), t, ah(攻擊者代號), loot{food,water,fuel,parts}, ap{x,y}}
+```
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    // 既有：match /arks/{uid} { allow read, write: if request.auth.uid == uid; }   ← 不變，別人永遠碰不到你的 arks/{uid}
+
+    function nowS()     { return request.time.toMillis() / 1000; }
+    function isOwner(u) { return u in ['<OWNER_UID>']; }                 // 與 src/save/cloud.js 的 OWNER_UIDS 相同
+    function int0(v)    { return v is int && v >= 0; }
+
+    match /presence/{uid} {
+      allow read: if request.auth != null;                                  // 掃描附近：array-contains-any(cells) limit 24
+      allow create, update: if request.auth.uid == uid && !isOwner(uid)     // 只有本人；船東不公開
+        && request.resource.data.keys().hasOnly(['v','h','x','y','fp','hl','cd','res','cap','sh','ls','t','cells','rt'])
+        && request.resource.data.v == 1
+        && request.resource.data.h is string && request.resource.data.h.size() <= 8
+        && request.resource.data.x is number && request.resource.data.x >= 0 && request.resource.data.x <= 2000
+        && request.resource.data.y is number && request.resource.data.y >= 0 && request.resource.data.y <= 2000
+        && request.resource.data.fp is number && request.resource.data.fp >= 0 && request.resource.data.fp <= 200
+        && request.resource.data.cap is number && request.resource.data.cap <= 1000
+        && request.resource.data.res.keys().hasOnly(['food','water','fuel','parts'])
+        && request.resource.data.res.food <= 2000 && request.resource.data.res.water <= 2000
+        && request.resource.data.res.fuel <= 2000 && request.resource.data.res.parts <= 2000
+        && request.resource.data.cells is list && request.resource.data.cells.size() <= 16
+        && request.resource.data.ls <= request.resource.data.t + 5
+        && math.abs(request.resource.data.t - nowS()) <= 120                // t 必須接近伺服器時間
+        && (!resource.data.keys().hasAny(['t']) || nowS() - resource.data.t >= 20);   // 寫入頻率下限
+      allow delete: if request.auth.uid == uid;
+    }
+
+    match /raids/{defender}/in/{rid} {
+      allow read: if request.auth != null
+        && (request.auth.uid == defender || request.auth.uid == resource.data.attacker);
+      allow create: if request.auth != null && !isOwner(request.auth.uid)
+        && request.resource.data.keys().hasOnly(['v','attacker','defender','b','t','ah','loot','ap'])
+        && request.resource.data.attacker == request.auth.uid               // 只能用自己的名義
+        && request.resource.data.defender == defender && defender != request.auth.uid
+        && rid == request.auth.uid + '_' + string(request.resource.data.b)  // 每個「攻擊者×目標×6 小時桶」只有一份（create-only ⇒ 無法重複）
+        && request.resource.data.b is int && request.resource.data.b == int(request.resource.data.t / 21600)
+        && math.abs(request.resource.data.t - nowS()) <= 120
+        && request.resource.data.loot.keys().hasOnly(['food','water','fuel','parts'])
+        && (!('food' in request.resource.data.loot)  || int0(request.resource.data.loot.food))
+        && (!('water' in request.resource.data.loot) || int0(request.resource.data.loot.water))
+        && (!('fuel' in request.resource.data.loot)  || int0(request.resource.data.loot.fuel))
+        && (!('parts' in request.resource.data.loot) || int0(request.resource.data.loot.parts))
+        // 與「被攻擊者自己公開的 presence 快照」比對（get 每次計 1 次讀取）：
+        && exists(/databases/$(db)/documents/presence/$(defender))
+        && get(/databases/$(db)/documents/presence/$(defender)).data.ls <= request.resource.data.t - 600     // 對方已離線 ≥10 分鐘
+        && get(/databases/$(db)/documents/presence/$(defender)).data.sh <= request.resource.data.t           // 沒有護盾
+        && request.resource.data.loot.get('food', 0)  <= get(/databases/$(db)/documents/presence/$(defender)).data.res.food  * 0.08
+        && request.resource.data.loot.get('water', 0) <= get(/databases/$(db)/documents/presence/$(defender)).data.res.water * 0.08
+        && request.resource.data.loot.get('fuel', 0)  <= get(/databases/$(db)/documents/presence/$(defender)).data.res.fuel  * 0.08
+        && request.resource.data.loot.get('parts', 0) <= get(/databases/$(db)/documents/presence/$(defender)).data.res.parts * 0.08
+        && request.resource.data.loot.get('food', 0) <= get(/databases/$(db)/documents/presence/$(defender)).data.cap   // 每種 ≤ lootCap
+        && math.abs(request.resource.data.ap.x - get(/databases/$(db)/documents/presence/$(defender)).data.x) <= 140   // 宣稱座標在範圍內（80 + 60）
+        && math.abs(request.resource.data.ap.y - get(/databases/$(db)/documents/presence/$(defender)).data.y) <= 140;
+      allow update, delete: if false;                                       // 突襲文件寫了就不能改（也不能刪；過期靠客戶端忽略 + 日後手動清理）
+    }
+  }
+}
+```
+（`cap` 的其餘三種資源上限檢查寫法同 food 那一行；`pvpnet.js` 的 `ruleCheckPresence / ruleCheckRaid` 是這份規則的 JS 鏡像，記憶體假後端用它模擬「被規則擋下」，`tools/pvp-test.mjs` 用大量偽造文件驗證。**實際貼進主控台前請用 Rules Playground / emulator 再驗一次語法**——本專案沒有部署也沒有在 emulator 跑過這段文字。）
+
+**跨使用者寫入（免費方案下怎麼運作）**
+- 整個 PvP 只有**一種**跨使用者寫入：攻擊者在防守者的收件匣 `raids/{defender}/in/{attacker}_{bucket}` **create** 一份文件。沒有任何人能寫別人的 `arks/{uid}` 或 `presence/{uid}`。
+- 防守者（本人）上線時讀自己的收件匣，把新文件抄進自己的存檔 `fleet.world.pv.in`（以 id 去重），再由 `simulateTo → pvTick` **決定性**結算（`f(seed, 時間, 收件匣)`；與一次補算 / 分段補算 / 逐 tick 結果完全相同，已有測試）。防守者**不需要、也不會**寫任何別人的文件，所以不需要伺服器、也不需要 Cloud Functions。
+- 子集合放在防守者底下（`raids/{defender}/in/…`）是為了讓「讀自己的收件匣」只是一個 `where t >= since` 單欄位查詢（不需要複合索引）。附近玩家掃描則是對 `presence` 的 `cells array-contains-any`（單欄位，不需要複合索引）。
+- 成本（Spark 配額 5 萬讀 / 2 萬寫 / 天）：每位玩家每 5 分鐘最多寫 1 次 presence（只有位置 / 資源明顯變動才寫）、掃描最多每 45 秒 1 次且手動 / 開海圖時才做（≤24 篇讀取）、收件匣 2 分鐘輪詢 1 次（空的時候 0 篇讀取，1 次查詢計 1 次讀取）、每次突襲 create 時規則內的 `get()` 多 1 次讀取。
+- **被規則擋不下的事（所以防不了作弊）**：規則看不到戰鬥，無法證明攻擊者真的打贏守衛艦；`ap`（攻擊者座標）、`presence` 內容都是用戶端自己填的；攻擊者拿到的戰利品不會因為防守者那邊實際被上限 / 護盾擋下而扣回（所以防守者的實際損失 ≤ 宣稱值；為了避免通膨，宣稱值本身就被限制在 8% / `lootCap`）。最壞情況：惡意攻擊者可以對**離線且沒護盾**的人，每個 6 小時桶宣稱一次上限內的戰利品；防守者端再用「每次 8%、每日 20%、12 小時護盾、船體最低 50%」把實際損失鎖死。若要防作弊，只能升級 Blaze + Cloud Functions 做權威結算。
+- presence 會對所有登入者公開「取整的資源快照 + 約略位置 + 匿名代號」；不含 uid 以外的身分資訊、不含 email / 名稱。
+
 ## 5. 世界地圖、海圖、駕駛（Milestone 4）
 - `src/sim/world.js`：區域格網、迷霧位元集、出生點、方舟位置與航行（`worldTick` 由 `stepTick` 呼叫，離線補算與線上一致）。
 - `src/sim/seaevents.js`：海上事件與選項，結果由 `hash(seed, ship, n, choice)` 決定。

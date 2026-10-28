@@ -194,3 +194,20 @@
 - Firestore 結構（僅文字，**未部署**）：`arks/{uid}`（公開快照：名稱、旗艦階級、fp、hull、位置、`shieldUntil`；只有本人可寫）、`raids/{pairBucketId}`（攻擊者 uid、defender uid、時間桶、宣稱戰利品；由攻擊者建立，防守者上線時結算）。規則限制：欄位白名單、數值不超過防守者快照 × 8%、文件 id = `attacker_defender_6h桶` 避免重複、只能攻擊 `friends` 名單內的人（初期）。
 - **重要：免費方案沒有伺服端驗證，所以不可能防作弊。** 惡意用戶端可以偽造戰鬥結果或繞過冷卻；規則只能限制「單次可寫入的最大數值與頻率」，不能證明戰鬥真的發生。因此 PvP 初期只適合朋友之間（白名單 + 互相信任），不開放陌生人配對；若要公開，需要 Cloud Functions（需 Blaze）或自架伺服器驗證。
 - 此段與既有 `DESIGN-fleet.md` 第 3 節的 Firestore 規則草案合併；規則新增部分同樣只是文字，不部署。
+
+### 5.1 實作紀錄（階段⑤，已實作）
+- 程式：`src/sim/pvp.js`（規則 / 決定性結算 / 掃描與突襲的純函式）、`src/save/pvpnet.js`（Firestore 層 + 記憶體替身 + 規則的 JS 鏡像 + 客戶端排程）、`src/ui/raidui.js`（海圖「附近的船」卡片、突襲砲戰場）、`tools/pvp-test.mjs`（119 項檢查）、DEV 專用 `src/play/pvdev.js`（假玩家，正式版不含）。對階段④檔案**零修改**（`battle.js / arena.js / arenabot.js / btrisk.js / szdata.js / weather.js / battleui.js` 位元組相同）；只有 `sim.js`（+1 行 `pvTick` 呼叫）、`fleet.js`（+1 行 `sanPv`）、`hud.js`（+1 行換成 `PvpBattleUI` 子類別 + 回來報告的突襲段落）、`seachart.js`、`play.js`、`cloud.js` 的接線。
+- **相遇條件**：只有同一張世界地圖上、距離 ≤ 80、而且那格迷霧已被攻擊者揭開、對方離線 ≥ 10 分鐘、沒有護盾、攻擊者自己不在冷卻的玩家才能被突襲。掃描：`presence` 的 100×100 區塊 `cells array-contains-any`（3×3 鄰近區塊，limit 24）。
+- **戰鬥**：攻擊者打一場階段④的砲戰場（`createArena` / `stepArena` / `arenaWin`），對手是「守衛艦」（`foeStats({k:'pirate'})`，等級依雙方 fp 比例 0.6–1.9）。贏 = 戰利品（每種 ≤ 防守者存量 8% 與 `lootCap(fp)`，且總和 ≥ 5），輸 / 超時 / 偽造 = 沒有戰利品，只有砲戰場的船體損傷（20% 底線）和 15 分鐘冷卻；撤離免費。
+- **防守者（離線結算，決定性）**：收件匣文件登入時在 `simulateTo` **之前**抄進 `fleet.world.pv.in`（`seen` 去重），`pvTick` 依 (t, id) 排序、在第一個 `tEnd >= raid.t` 的 tick 結算：每種損失 = min(宣稱, 現存 8%, `lootCap`, 當日（UTC）首次被突襲時存量的 20% 扣掉已損失)；結算後啟動 12 小時護盾，護盾內的突襲作廢；船體 −2~6%（用 `hash('pvh', seed, id)`，最低 50%，不會把更低的船體拉高）。結果寫入 `pv.log` + 事件（回來時的歡迎視窗有「🏴‍☠️ 離線時被突襲」段落，海圖卡片留最近 5 筆）。一次補算 = 分段補算 = 逐 tick（有測試）。
+- 只搶食物 / 飲水 / 燃料 / 零件；不搶船、藍圖、材料。T董與郵輪仍是船東專屬：`OWNER_UIDS` 不發佈 presence、不會被列出、不能突襲、也不收收件匣；訪客（未登入）沒有 PvP。
+- 存檔欄位 `fleet.world.pv`（選填，`sanPv` 清洗；`SAVE_VERSION` 仍是 1，沒有 pv 的舊存檔行為與之前完全相同）。
+
+### 5.2 與原計畫的差異（含原因）
+1. **對象不是「friends 白名單」**：依這一輪的需求改為「地圖上附近的玩家」（相遇 = 共同世界地圖 + 迷霧 + 80 單位範圍），不需要好友系統；風險由「小戰利品 + 護盾 + 每日上限 + 離線 10 分鐘」控制，**不是**由信任控制。
+2. **`presence/{uid}` 頂層集合**取代 `arks/{uid}/pub/summary`：掃描附近的人需要跨使用者查詢，子文件做不到（沒有 collection-group 規則）。**`raids/{defender}/in/{attacker}_{bucket}`** 取代 `raids/{id}`：讓防守者讀收件匣只是單欄位查詢（不需要複合索引），規則也能直接用路徑限制「只能寫別人的收件匣、只能 create」。
+3. `raids` 文件 id 由 `attacker_defender_6h桶` 改成路徑中的 `defender` + id `attacker_6h桶`（語意相同，同一對 6 小時內只能一次）。
+4. 突襲介面用 `PvpBattleUI extends BattleUI`（`raidui.js`）包起來，`battleui.js` 位元組不變（階段④凍結）；階段④的砲戰場 / 結算卡風格直接沿用。
+5. **攻擊者不會被「回沖」**：防守者實際被擋下 / 作廢的部分不會回頭扣攻擊者（那需要防守者寫別人的文件）。所以宣稱值本身就被 8% / `lootCap` 限制，最壞情況是小幅通膨（見 DESIGN-fleet.md §4.1）。
+6. **收件匣時序**：若文件是在 `simT` 已經超過 `raid.t` 之後才抄進存檔（例如在線時才被突襲），會在下一個 tick 結算（`raid.t` 仍用原本的時間算護盾 / 日期）。離線結算本身與時序無關、完全決定性。
+7. 免費方案**沒有伺服端驗證，不可能防作弊**：規則只能限制形狀 / 大小 / 頻率 / 與對方 presence 快照比較後的數值上限，不能證明戰鬥發生或位置真實。
