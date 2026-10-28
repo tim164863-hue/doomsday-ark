@@ -391,7 +391,7 @@ export class Play {
   }
   /** 船身外形（長度 / 甲板數）是開機時依 localStorage 的階級決定的：旗艦階級跟畫面上的不一樣（升階 / 換機器）→ 存好後重新載入一次 */
   tierSync(announce) {
-    if (this.game.small || TIER_PREVIEW) return; const want = PM.flagRow(this.state.fleet).id; if (want === CUR_TIER) { try { sessionStorage.removeItem('ark.tierReload'); } catch (e) { /* ignore */ } return; }
+    if (this.game.small || TIER_PREVIEW) { try { sessionStorage.removeItem('ark.tierReload'); } catch (e) { /* ignore */ } return; } const want = PM.flagRow(this.state.fleet).id; if (want === CUR_TIER) { try { sessionStorage.removeItem('ark.tierReload'); } catch (e) { /* ignore */ } return; }
     let n = 0; try { n = +(sessionStorage.getItem('ark.tierReload') || 0); } catch (e) { /* ignore */ } if (n >= 2) return;
     try { sessionStorage.setItem('ark.tierReload', String(n + 1)); localStorage.setItem(TIER_KEY, want); } catch (e) { return; }
     if (announce) this.game.ui.toast('🛠 旗艦進塢整備中…船身馬上變大！'); setTimeout(() => location.reload(), announce ? 2200 : 300);
