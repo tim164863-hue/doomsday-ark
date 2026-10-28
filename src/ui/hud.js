@@ -154,7 +154,7 @@ export class HUD {
 
   // ------------------------------------------------------------ 船員關係
   renderRel() {
-    const c = this.modal.querySelector('.mcard'); const s = this.s; const now = nowSec(); const crew = this.game.crew; const keys = Object.keys(s.crew).sort(); const nm = (k) => { const b = crew.bots.get(k); return esc(b ? b.title : k); };
+    const c = this.modal.querySelector('.mcard'); const s = this.s; const now = nowSec(); const crew = this.game.crew; const keys = [...new Set([...Object.keys(s.crew), ...crew.bots.keys()])].sort(); const nm = (k) => { const b = crew.bots.get(k); return esc(b ? b.title : k); };
     const bar = (v) => `<span class="rbar"><i class="${v < 0 ? 'neg' : 'pos'}" style="${v < 0 ? 'right:50%' : 'left:50%'};width:${Math.min(50, Math.abs(v) / 2)}%"></i></span>`;
     const row = (name, aff, extra = '') => `<li><span class="rn">${name}</span>${bar(aff)}<span class="rv">${R.label(aff)} <small>${aff > 0 ? '+' : ''}${Math.round(aff)}</small>${extra}</span></li>`;
     const boss = keys.map((k) => [k, R.affOf(s, R.BOSS, k)]).sort((a, b) => b[1] - a[1]);
@@ -185,7 +185,7 @@ export class HUD {
     const { first, away, rep } = this.payload; const c = this.modal.querySelector('.mcard'); const s = this.s;
     if (first) {
       c.innerHTML = `<h2>🚢 歡迎登上末日方舟，${this.game.owner ? 'T董' : '船長'}！</h2><p class="sub">這艘船即使你不在也會自己運轉（最多補算 48 小時）。</p>
-      <ul class="how"><li>🍖💧⛽🔩 <b>四種資源</b>會隨時間生產與消耗，船員越多消耗越多。</li><li>🔨 走近設施按 <kbd>E</kbd>（手機：點提示按鈕）<b>建造／升級／修理</b>；點資源列旁的標籤可自動走過去。</li><li>💬 走近船員可以<b>聊天、看心情、打氣</b>（只影響遊戲裡的小人）。</li><li>🚣 點 🚣 派船員<b>出海探索</b>沉船殘骸：風險越高，收穫越多，也可能受傷。</li><li>📋 每天 3 個<b>每日任務</b>，完成可領資源。</li></ul>
+      <ul class="how"><li>🍖💧⛽🔩 <b>四種資源</b>會隨時間生產與消耗，船員越多消耗越多。</li><li>🔨 走近設施按 <kbd>E</kbd>（手機：點提示按鈕）<b>建造／升級／修理</b>；點資源列旁的標籤可自動走過去。</li><li>💬 走近船員可以<b>聊天、看心情、打氣</b>（只影響遊戲裡的小人）。</li><li>🎾 走到<b>遊樂設施</b>（匹克球、桌球、籃框、街機、吧台、躺椅、泡湯…）按 <kbd>E</kbd> 就能玩：指針掃到綠色區塊時按 <kbd>E</kbd>／點一下。可以邀請旁邊的船員一起玩，交情會變好；船員之間也會變成朋友、吵架、和好，點 💞 看關係。</li><li>🚣 點 🚣 派船員<b>出海探索</b>沉船殘骸：風險越高，收穫越多，也可能受傷。</li><li>📋 每天 3 個<b>每日任務</b>，完成可領資源。</li></ul>
       <div class="mb"><button class="pri" data-x="close">開始航行</button></div>`;
     } else {
       const sm = S.summarize(rep); const lost = rep.capped ? '（超過 48 小時的部分不計）' : '';
