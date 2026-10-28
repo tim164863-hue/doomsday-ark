@@ -5,6 +5,7 @@ import { TICK, MAX_OFFLINE, SAVE_VERSION, RES, RES_KEYS, USE, SHIP_FUEL_USE, LV_
 import { hash, mulberry32 } from './rng.js';
 import { fleetTick, tripBlueprint, grantBlueprint } from './fleet.js';
 import { worldTick } from './world.js';
+import { resCap } from './promo.js';
 import { weatherTick } from './weather.js';
 import { seaPre, seaTick, moraleMul } from './seazones.js';
 import { SHIPS } from './fleetdefs.js';
@@ -72,7 +73,7 @@ export function rates(s, nowSec = s.simT) {
 }
 
 function addRes(s, k, v, rep) { // 加資源（受上限），回傳實際增加量
-  const cap = RES[k].cap; const before = s.res[k]; s.res[k] = Math.min(cap, s.res[k] + v); const d = s.res[k] - before;
+  const cap = resCap(s, k); const before = s.res[k]; s.res[k] = Math.min(cap, s.res[k] + v); const d = s.res[k] - before;
   if (rep && d > 0) rep.produced[k] += d; return d;
 }
 function pushEvent(s, rep, ev) { s.log.push(ev); if (s.log.length > 60) s.log.shift(); if (rep) rep.events.push(ev); }

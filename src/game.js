@@ -176,7 +176,7 @@ export class Game {
   }
   updateWeather(dt) {
     this.wxT -= dt;
-    if (this.wxT <= 0) { this.wxT = 0.5; if (this.wxOv) this.wxNow = this.wxOv; else { const p = this.mapPos(); this.wxNow = p ? weatherAt(clock.now(), p.x, p.y) : null; this.wxMap = p; } const w = this.wxNow; this.wxfx.setTarget(w, !this.wxFirst); this.wxFirst = true; this.wxHelm = w ? helmFactor(w) : null; }
+    if (this.wxT <= 0) { this.wxT = 0.5; if (this.wxOv) this.wxNow = this.wxOv; else { const p = this.mapPos(); this.wxNow = p ? weatherAt(clock.now(), p.x, p.y) : null; this.wxMap = p; } const w = this.wxNow; this.wxfx.setTarget(w, !this.wxFirst); this.wxFirst = true; this.wxHelm = w ? helmFactor(w, this.play && this.play.state && this.play.state.fleet) : null; }
     const helm = this.helm, w = this.wxNow, hp = helm && (helm.on || helm.displaced) ? helm : null, cam = this.camera.position;
     this.wxfx.update(dt, this.time, this.camera, this.envState, hp);
     this.audio.setWeather(this.wxfx.s);

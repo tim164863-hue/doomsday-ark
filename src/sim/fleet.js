@@ -9,6 +9,7 @@ import * as R from './rel.js';
 import { HOME_TYPES } from '../ship/homespec.js';
 import { sanSz, sanMat } from './seazones.js';
 import { PROMO_BP_IDS } from './szdata.js';
+import { resCap, sanFlag, promoTick } from './promo.js';
 import { planEvent, decide as decideEvent, pending as evPending, EVENTS } from './seaevents.js';
 
 const BP_IDS = SHIP_ORDER.filter((k) => !SHIPS[k].free);   // 需要藍圖的船
@@ -35,10 +36,10 @@ export function sanitizeFleet(f) {
     ships.push(o);
   }
   const ids = new Set(); for (const sh of ships) { if (ids.has(sh.id) || sh.id <= 0) sh.id = 1 + Math.max(0, ...ships.map((x) => x.id)); ids.add(sh.id); }
-  const bp = {}; for (const k of [...BP_IDS, ...PROMO_BP_IDS]) if (f.bp && f.bp[k]) bp[k] = 1; const mat = sanMat(f.mat);
+  const bp = {}; for (const k of [...BP_IDS, ...PROMO_BP_IDS]) if (f.bp && f.bp[k]) bp[k] = 1; const mat = sanMat(f.mat); const flag = sanFlag(f.flag);
   const world = sanWorld(f.world);
   const home = Number.isInteger(f.home) && ships.some((x) => x.id === f.home) ? { home: f.home } : {};
-  return { ...home, ...(mat ? { mat } : {}), v: 1, nextId: Math.max(n(f.nextId, 1), 1 + Math.max(0, ...ships.map((x) => x.id))), ships, bp, flagship: f.flagship === 'cruise' ? 'cruise' : null, pick: typeof f.pick === 'string' ? f.pick.slice(0, 16) : null,
+  return { ...home, ...(mat ? { mat } : {}), ...(flag ? { flag } : {}), v: 1, nextId: Math.max(n(f.nextId, 1), 1 + Math.max(0, ...ships.map((x) => x.id))), ships, bp, flagship: f.flagship === 'cruise' ? 'cruise' : null, pick: typeof f.pick === 'string' ? f.pick.slice(0, 16) : null,
     stats: { missions: n(f.stats && f.stats.missions) | 0, sunk: n(f.stats && f.stats.sunk) | 0 }, world, pilot: { day: n(f.pilot && f.pilot.day, -1) | 0, got: Math.max(0, n(f.pilot && f.pilot.got) | 0) } };
 }
 
@@ -55,7 +56,7 @@ export function missionRisk(ship, zone) { const st = shipStats(ship); return Mat
 export function autoZone(ship) { const st = shipStats(ship); const pw = shipPower(ship); let best = null; for (const z of ZONE_ORDER) { if (!st.zones.includes(z)) continue; if (ZONES[z].rec <= pw) best = z; } return best || st.zones[0]; }
 export const zoneOf = (ship) => (ship.zone === 'auto' || !ZONES[ship.zone] || !SHIPS[ship.type].zones.includes(ship.zone) ? autoZone(ship) : ship.zone);
 
-const addRes = (s, k, v, rep) => { const cap = RES[k].cap; const b = s.res[k]; s.res[k] = Math.min(cap, s.res[k] + v); const d = s.res[k] - b; if (rep && d > 0) rep.produced[k] += d; return d; };
+const addRes = (s, k, v, rep) => { const cap = resCap(s, k); const b = s.res[k]; s.res[k] = Math.min(cap, s.res[k] + v); const d = s.res[k] - b; if (rep && d > 0) rep.produced[k] += d; return d; };
 const canPay = (s, c) => Object.keys(c).every((k) => s.res[k] >= c[k]);
 const pay = (s, c) => { for (const k in c) s.res[k] -= c[k]; };
 export const costTextF = (c) => Object.keys(c).map((k) => `${RES[k].icon}${c[k]}`).join(' ');
@@ -97,7 +98,8 @@ function resolveMission(s, ship, tEnd, rep) {
 
 /** 每個 tick（由 sim.stepTick 呼叫）：建造完成、任務返航、閒置自動出航、工坊修船 */
 export function fleetTick(s, t, tEnd, rep) {
-  const f = s.fleet; if (!f || !f.ships.length) return;
+  const f = s.fleet; if (f) promoTick(s, tEnd, (e) => ev(s, rep, e));   // 旗艦晉升：改裝完成（完成時間在開工時寫死，離線補算結果一致）
+  if (!f || !f.ships.length) return;
   const wk = s.fac && s.fac.workshop; const wkLv = wk && wk.lv && !wk.dmg ? wk.lv : 0;
   for (const ship of f.ships.slice().sort((a, b) => a.id - b.id)) {
     if (ship.state === 'build' && ship.done <= tEnd) { ship.state = 'dock'; ev(s, rep, { t: tEnd, type: 'shipdone', ship: ship.id, text: `${SHIPS[ship.type].icon}${ship.name} 建造完成，已停靠在方舟旁。` }); }
@@ -199,7 +201,7 @@ export function pilotCollect(s, nowSec, tz = 0) {
   const f = s.fleet; const day = Math.floor((nowSec + tz * 60) / 86400); if (f.pilot.day !== day) f.pilot = { day, got: 0 };
   if (f.pilot.got >= 80) return { ok: false, msg: '今天撿得夠多了（每日上限 80），明天再來！' };
   const rnd = mulberry32(hash(s.seed, 'pcol', day, f.pilot.got)); const k = RES_KEYS[Math.floor(rnd() * 4)]; const v = Math.min(80 - f.pilot.got, 4 + Math.floor(rnd() * 7));
-  s.res[k] = Math.min(RES[k].cap, s.res[k] + v); f.pilot.got += v; return { ok: true, msg: `撿到補給箱：${RES[k].icon}+${v}`, k, v };
+  s.res[k] = Math.min(resCap(s, k), s.res[k] + v); f.pilot.got += v; return { ok: true, msg: `撿到補給箱：${RES[k].icon}+${v}`, k, v };
 }
 /** 手動派船（海圖上用）：立刻出航到指定海域（不改變閒置自動設定） */
 export function sendShip(s, id, zone, nowSec) {

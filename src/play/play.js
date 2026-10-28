@@ -18,7 +18,8 @@ import { buildShipModel } from '../ship/fleetmodels.js';
 import { FacilityView, findSlot, blockRect, FOOT, SC, setFacScale } from './facilities.js';
 import { Avatar } from '../crew/avatar.js';
 import { Player } from '../player.js';
-import { SHIP_CX } from '../ship/config.js';
+import { SHIP_CX, CUR_TIER, TIER_KEY, TIER_PREVIEW } from '../ship/config.js';
+import * as PM from '../sim/promo.js';
 import { dampAngle } from '../util.js';
 import { Games } from './games.js';
 import { Social } from '../crew/social.js';
@@ -62,7 +63,7 @@ export class Play {
     addEventListener('pagehide', () => this.save(true)); addEventListener('beforeunload', () => this.save(true));
     this.mascots = new Mascots(this.game, this);
     this.games = new Games(this); this.games.init(); this.social = new Social(this); this.game.crew.social = this.social;
-    this.ready = true; this.save(boot.needPush);
+    this.ready = true; this.save(boot.needPush); this.tierSync(false);
     hud.attach(this); this.onCrew(); this.pickWatch();
     // 載入完成後顯示離線報告（等說明視窗關閉）
     const tryShow = () => { if (!this.hud.helpOpen()) { const r = this.pendingReport; this.pendingReport = null; if (r && r.first && !this.game.owner && this.state.fleet && !this.state.fleet.pick) { /* 新訪客：先選船（pickWatch），不先跳歡迎視窗 */ } else if (r && (r.first || (r.rep && r.away >= 120))) this.hud.showReport(r); } else setTimeout(tryShow, 600); };
@@ -165,6 +166,7 @@ export class Play {
     else if (ev.type === 'fleet') ui.toast(ev.text);
     else if (ev.type === 'blueprint') ui.toast('🗺️ ' + ev.text);
     else if (ev.type === 'shipdone') { ui.toast('🛠 ' + ev.text); }
+    else if (ev.type === 'promo') { ui.toast(ev.text); this.save(true); this.tierSync(true); for (const b of bots.slice(0, 3)) say(b, pick(['哇，船變大了！', '新的甲板在等我們！', '這才像旗艦！']), 'mood'); }
     else if (ev.type === 'sick') { ui.toast('🤒 ' + ev.text); const b = this.botOf(ev.who); say(b, '頭好暈…', 'mood'); }
     else if (ev.type === 'recover') { ui.toast('💪 ' + ev.text); say(this.botOf(ev.who), '好多了，謝謝關心！', 'mood'); }
     else if (ev.type === 'crate' || ev.type === 'rain') { ui.toast('🎁 ' + ev.text); say(pick(bots), ev.type === 'rain' ? '下雨了！快接水！' : '看！海上漂來一個箱子！'); }
@@ -379,6 +381,21 @@ export class Play {
     this.hud.updatePilotBar(P);
   }
   /** 世界 / 海圖動作 */
+  /** 旗艦晉升（階段③）：op = plan | cancel | deposit | start | reset */
+  promoAct(op, a = {}) {
+    const s = this.state; if (!s.fleet) return null; const now = nowSec(); let r = null;
+    if (op === 'plan') r = PM.promoPlan(s, a.to); else if (op === 'cancel') r = PM.promoCancelPlan(s); else if (op === 'deposit') r = PM.promoDeposit(s);
+    else if (op === 'start') { r = PM.promoStart(s, now); if (r && r.ok && this.game.helm.on) this.game.helm.stop(); } else if (op === 'reset') { r = PM.promoReset(s); if (r && r.ok) this.tierSync(false); }
+    if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
+    this.save(true); this.hud.refresh(true); return r;
+  }
+  /** 船身外形（長度 / 甲板數）是開機時依 localStorage 的階級決定的：旗艦階級跟畫面上的不一樣（升階 / 換機器）→ 存好後重新載入一次 */
+  tierSync(announce) {
+    if (this.game.small || TIER_PREVIEW) return; const want = PM.flagRow(this.state.fleet).id; if (want === CUR_TIER) return;
+    let n = 0; try { n = +(sessionStorage.getItem('ark.tierReload') || 0); } catch (e) { /* ignore */ } if (n >= 2) return;
+    try { sessionStorage.setItem('ark.tierReload', String(n + 1)); localStorage.setItem(TIER_KEY, want); } catch (e) { return; }
+    if (announce) this.game.ui.toast('🛠 旗艦進塢整備中…船身馬上變大！'); setTimeout(() => location.reload(), announce ? 2200 : 300);
+  }
   worldAct(name, a = {}) {
     const s = this.state; let r = null; const now = nowSec();
     if (name === 'sail') r = F.sailArk(s, a.x, a.y, now);

@@ -1,5 +1,7 @@
 // 每層甲板的導航網格 + A* + 碰撞
-export const CS = 0.5, GX0 = -50, GZ0 = -16, GW = 232, GH = 64;
+import { TIER } from './config.js';
+const PAD = Math.ceil(TIER.ext);   // 旗艦加長：兩端各多 PAD 公尺的格子
+export const CS = 0.5, GX0 = -50 - PAD, GZ0 = -16, GW = 232 + 4 * PAD, GH = 64;
 
 class Heap {
   constructor() { this.a = []; }

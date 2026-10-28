@@ -55,10 +55,10 @@ const base4 = mk({ x: 1000, y: 1000 }); simulateTo(base4, T0 + 4 * H); const bas
 { const s = run('hell', 0.5, 3), t = mk(at('hell', 0.5)); t.fleet.flag = { branch: 'war', tier: 2 }; simulateTo(t, T0 + 3 * H); ok(!unprepared(t.fleet, SPECIAL_ZONES.hell) && t.cond > s.cond + 2, `達建議階級（T2 旗艦）傷害較輕（${t.cond.toFixed(1)} vs ${s.cond.toFixed(1)}）`);
   ok(unprepared(s.fleet, SPECIAL_ZONES.fire) && unprepared(s.fleet, SPECIAL_ZONES.stonehenge) && !unprepared(s.fleet, SPECIAL_ZONES.fog) && !unprepared(s.fleet, SPECIAL_ZONES.whirlpool), '階段③前：火焰 / 地獄 / 巨石陣視為「未達建議階級」，迷霧 / 漩渦沒有條件'); }
 { const s = mk({ x: 1000, y: 1000 }); // 巨石陣：自動航行被卡 +30 分鐘；撞石
-  const z = SPECIAL_ZONES.stonehenge; s.fleet.world.pos = { x: z.x + 220, y: z.y }; simulateTo(s, T0 + 60); const a = F.sailArk(s, z.x - 220, z.y, s.simT); const t1 = s.fleet.world.route.t1, len = t1 - s.fleet.world.route.t0;
+  const z = SPECIAL_ZONES.stonehenge; s.fleet.flag = { branch: 'sci', tier: 1 }; s.fleet.world.pos = { x: z.x + 220, y: z.y }; simulateTo(s, T0 + 60); const a = F.sailArk(s, z.x - 220, z.y, s.simT); const t1 = s.fleet.world.route.t1, len = t1 - s.fleet.world.route.t0;
   const ctrl = mk({ x: 1000, y: 1000 }); ctrl.fleet.world.pos = { x: 600, y: 1000 }; simulateTo(ctrl, T0 + 60); F.sailArk(ctrl, 600 - 440, 1000, ctrl.simT); const c1 = ctrl.fleet.world.route; simulateTo(ctrl, T0 + 60 + (c1.t1 - c1.t0) + 60);
   let n = 0; while (s.fleet.world.route && n++ < 400) simulateTo(s, s.simT + 1800); const r = s.simT; const evs = s.log.filter((e) => e.type === 'seazone').map((e) => e.sub);
-  ok(a.ok && evs.includes('stuck') && r >= T0 + 60 + len + 1700, `巨石陣：自動穿越被卡住 +30 分鐘（${evs.join(',')}）`); ok(s.fleet.world.sz.n.stonehenge === 1, '進入次數統計 = 1'); }
+  ok(a.ok && evs.includes('stuck') && r >= T0 + 60 + len + 1300, `巨石陣：自動穿越被卡住（30 分鐘 × 科研 T1 抗危害 0.75 = 22 分以上）（${evs.join(',')}）`); ok(s.fleet.world.sz.n.stonehenge === 1, '進入次數統計 = 1'); }
 // ---- 迷霧：偏航 + 不揭開迷霧
 { const s = mk({ x: 300, y: 700 }); const a = F.sailArk(s, 940, 700, s.simT); const s2 = mk({ x: 300, y: 700 }); F.sailArk(s2, 940, 700, s2.simT);
   simulateTo(s, T0 + 16 * H); simulateTo(s2, T0 + 16 * H); const w = s.fleet.world; const off = Math.hypot(w.pos.x - 940, w.pos.y - 700);

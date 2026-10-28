@@ -3,6 +3,7 @@
 import { hash } from './rng.js';
 import { WORLD, ZONE_ORDER } from './fleetdefs.js';
 import { zoneAtPoint } from './szdata.js';
+import { arkSpeedOf, revealArkOf, routeGate, gateMsg, refitting } from './promo.js';
 /** 迷霧海域裡看不見東西：海圖迷霧不會被方舟揭開（任務船不受影響） */
 const hazed = (x, y) => { const h = zoneAtPoint(x, y); return !!(h && h.z.haz.noReveal && h.depth > 0); };
 
@@ -74,14 +75,16 @@ export function arkPos(w, t) {
   const r = w.route; if (!r) return { x: w.pos.x, y: w.pos.y, moving: false };
   const u = Math.max(0, Math.min(1, (t - r.t0) / Math.max(1, r.t1 - r.t0))); return { x: r.x0 + (r.x1 - r.x0) * u, y: r.y0 + (r.y1 - r.y0) * u, moving: u < 1, u };
 }
-export const routeCost = (x0, y0, x1, y1) => { const d = Math.hypot(x1 - x0, y1 - y0); return { dist: d, minutes: Math.max(1, Math.round(d / WORLD.arkSpeed)), fuel: Math.max(1, Math.ceil(d * WORLD.fuelPerUnit)) }; };
+export const routeCost = (x0, y0, x1, y1, f) => { const d = Math.hypot(x1 - x0, y1 - y0); return { dist: d, minutes: Math.max(1, Math.round(d / (f ? arkSpeedOf(f) : WORLD.arkSpeed))), fuel: Math.max(1, Math.ceil(d * WORLD.fuelPerUnit)) }; };
 export const insideWorld = (x, y) => Math.hypot(x - C, y - C) <= 1000 - 20;      // 圓形海域（半徑 980）
 
 /** 方舟出航；從目前位置（航行中就是當下位置）轉向新目的地 */
 export function sailTo(s, x, y, nowSec, reserve = 15) {
   const f = s.fleet; if (!f || !f.world || !f.world.pos) return { ok: false, msg: '世界地圖尚未建立' }; const w = f.world;
   if (!Number.isFinite(x) || !Number.isFinite(y) || !insideWorld(x, y)) return { ok: false, msg: '那裡已經是世界的盡頭' };
-  const t = Math.max(s.simT, nowSec); const p = arkPos(w, t); const c = routeCost(p.x, p.y, x, y);
+  if (refitting(f)) return { ok: false, msg: '⭐ 旗艦正在改裝，完工前不能出航（艦隊小船不受影響）' };
+  const t = Math.max(s.simT, nowSec); const p = arkPos(w, t); const c = routeCost(p.x, p.y, x, y, f);
+  { const g = routeGate(f, p.x, p.y, x, y); if (g) return { ok: false, msg: gateMsg(g.z), gate: g.id }; }   // 特殊海域硬條件（階段③）
   if (c.dist < 8) return { ok: false, msg: '已經在那裡了' };
   if (s.res.fuel < c.fuel + reserve) return { ok: false, msg: `燃料不足：航程需要 ⛽${c.fuel}（至少保留 ${reserve}）` };
   s.res.fuel -= c.fuel; w.pos = { x: p.x, y: p.y }; w.route = { x0: p.x, y0: p.y, x1: x, y1: y, t0: t, t1: t + c.minutes * 60, fuel: c.fuel };
@@ -91,8 +94,8 @@ export function sailTo(s, x, y, nowSec, reserve = 15) {
 export function worldTick(s, tEnd, ev) {
   const f = s.fleet; const w = f && f.world; if (!w || !w.pos) return;
   const r = w.route; if (!r) return;
-  const p = arkPos(w, tEnd); w.pos = { x: p.x, y: p.y }; const n = hazed(p.x, p.y) ? 0 : reveal(w, p.x, p.y, WORLD.revealArk); if (n) w.explored = (w.explored || 0) + n;
-  if (!p.moving) { w.route = null; w.pos = { x: r.x1, y: r.y1 }; if (!hazed(r.x1, r.y1)) reveal(w, r.x1, r.y1, WORLD.revealArk); const z = zoneAt(r.x1, r.y1); ev && ev({ t: tEnd, type: 'arrive', text: `方舟抵達 ${zoneLabel(z)}。`, zone: z }); }
+  const p = arkPos(w, tEnd); w.pos = { x: p.x, y: p.y }; const n = hazed(p.x, p.y) ? 0 : reveal(w, p.x, p.y, revealArkOf(f)); if (n) w.explored = (w.explored || 0) + n;
+  if (!p.moving) { w.route = null; w.pos = { x: r.x1, y: r.y1 }; if (!hazed(r.x1, r.y1)) reveal(w, r.x1, r.y1, revealArkOf(f)); const z = zoneAt(r.x1, r.y1); ev && ev({ t: tEnd, type: 'arrive', text: `方舟抵達 ${zoneLabel(z)}。`, zone: z }); }
 }
 const NAMES = { near: '🌊近海', reef: '🪸珊瑚礁', ruins: '🏙️廢墟城市', ice: '🧊冰海', abyss: '🕳️深淵' };
 export const isHazed = hazed;

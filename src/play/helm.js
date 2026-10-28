@@ -17,6 +17,7 @@ import { vortexPush } from '../sim/szfield.js';
 import { sweepShip, impactDamage, IMPACT_MIN } from '../sim/seaprops.js';
 import { whirlDrift } from '../sim/seazones.js';
 import { SZ } from '../sim/szdata.js';
+import { revealArkOf, pointGate, gateMsg, refitting, flagStats } from '../sim/promo.js';
 export { HELM_K, helmStep };
 const nowSec = () => clock.now();
 function softDot() {
@@ -36,7 +37,7 @@ export class Helm {
   }
   // ------------------------------------------------------------ 規格
   get cfg() {
-    const g = this.g; if (!g.small) return { vmax: 11, turn: 0.2, acc: 0.32, dec: 0.5, rudderLag: 1.1, len: 91.2, hw: 13.6, cam: 150, pitch: 0.36, y: 4 };
+    const g = this.g; if (!g.small) { const fs = flagStats(this.p.state && this.p.state.fleet), L = fs.lenK, sp = fs.spd; return { vmax: 11 * sp, turn: 0.2 / Math.sqrt(L), acc: 0.32, dec: 0.5, rudderLag: 1.1, len: 91.2 * L, hw: 13.6, cam: 150 * Math.sqrt(L), pitch: 0.36, y: 4 }; }
     const sp = this._spd || 1, len = g.ship.spec.L * g.ship.k, hw = g.ship.spec.W * g.ship.k * 0.5;
     return { vmax: 7 + sp * 4, turn: 0.55 + 0.1 / Math.max(0.6, len / 14), acc: 0.7, dec: 0.9, rudderLag: 2.0, len, hw, cam: Math.max(28, len * 2.5), pitch: 0.5, y: 1.6 };
   }
@@ -54,7 +55,7 @@ export class Helm {
   // ------------------------------------------------------------ 開始 / 結束
   canStart() {
     const g = this.g, p = this.p; if (g.homeless) return '還沒有船可以駕駛';
-    if (p.pilot) return '先把出海的船開回港（結束領航）再駕駛母船'; if (p.gaming) return '先結束手上的小遊戲';
+    if (refitting(p.state.fleet)) return '旗艦正在改裝（⭐ 旗艦晉升），完工前不能駕駛'; if (p.pilot) return '先把出海的船開回港（結束領航）再駕駛母船'; if (p.gaming) return '先結束手上的小遊戲';
     if (g.small) { const sh = F.homeShip(p.state.fleet); if (!sh) return '還沒有旗艦'; if (sh.state !== 'idle' && sh.state !== 'dock') { const V = p.fleetViews.get(sh.id); if (V && V.pos && V.pos.away) return '旗艦出海中，等它回來再駕駛'; } }
     return null;
   }
@@ -134,6 +135,7 @@ export class Helm {
   limit(st) {
     const w = this.p.state && this.p.state.fleet && this.p.state.fleet.world; if (!w || !w.pos) return;
     const k = HELM_K * this.zmul; const b = this.base; const nx = w.pos.x + (st.x - b.x) * k, ny = w.pos.y + (st.z - b.z) * k;
+    { const gt = pointGate(this.p.state.fleet, nx, ny, w.pos); if (gt) { st.x = this.x; st.z = this.z; st.v *= 0.5; if (this.on && performance.now() - (this._gateT || 0) > 4000) { this._gateT = performance.now(); this.g.ui && this.g.ui.toast('🚫 ' + gateMsg(gt.z)); } return; } }   // 特殊海域硬條件（旗艦階級不夠就進不去）
     if (!WD.insideWorld(nx, ny)) { st.x = this.x; st.z = this.z; st.v *= 0.5; if (this.on && performance.now() - (this._edgeToast || 0) > 4000) { this._edgeToast = performance.now(); this.g.ui && this.g.ui.toast('🌐 那裡已經是世界的盡頭'); } }
   }
   /** 把本地位移累積推到地圖位置（1 Hz；停車 / 退出時 force） */
@@ -142,7 +144,7 @@ export class Helm {
     const b = this.base; // base = 上次推送到地圖時的船位；增量 × K
     const dx = this.x - b.x, dz = this.z - b.z; const d = Math.hypot(dx, dz); if (d < 0.5 && !force) return; if (d < 1e-6) return;
     const zm = this.zmul, nx = w.pos.x + dx * HELM_K * zm, ny = w.pos.y + dz * HELM_K * zm; if (!WD.insideWorld(nx, ny)) { b.x = this.x; b.z = this.z; return; }
-    w.pos = { x: nx, y: ny }; b.x = this.x; b.z = this.z; const n = WD.reveal(w, nx, ny, WORLD.revealArk); if (n) w.explored = (w.explored || 0) + n;
+    w.pos = { x: nx, y: ny }; b.x = this.x; b.z = this.z; const n = WD.reveal(w, nx, ny, revealArkOf(this.p.state.fleet)); if (n) w.explored = (w.explored || 0) + n;
     this.burn(d * HELM_K * WORLD.fuelPerUnit);
     if (this.on && this.g.small === false) { /* 擁有者：無額外處理 */ }
     p.hud.noteHelm && p.hud.noteHelm();

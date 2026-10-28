@@ -6,6 +6,7 @@ import { WORLD } from './fleetdefs.js';
 import { arkPos, insideWorld } from './world.js';
 import { SPECIAL_ZONES, SZ, SZ_ORDER, MAT_ORDER, MATERIALS, PROMO_BP, PROMO_BP_IDS, zoneAtPoint } from './szdata.js';
 import { clamp } from '../util.js';
+import { meetsNeed, needText, flagStats } from './promo.js';
 
 const U32 = 4294967296;
 const NONE = Object.freeze({ h: null, slow: 0, p: null, dep: 0, un: 1 });
@@ -25,7 +26,9 @@ export function sanSz(z) {
 export function sanMat(m) { if (!m || typeof m !== 'object') return null; const o = {}; let any = false; for (const k of MAT_ORDER) if (typeof m[k] === 'number' && Number.isFinite(m[k]) && m[k] > 0) { o[k] = clamp(m[k] | 0, 0, SZ.matCap); any = true; } return any ? o : null; }
 
 /** 旗艦階級是否達到該海域的建議階級（階段③才會有 fleet.flag；之前一律「未達」→ 危害 ×1.5 並提示，但仍可進入） */
-export function unprepared(f, z) { if (!z.need) return false; const fl = f && f.flag; return !(fl && z.need.branches.includes(fl.branch) && (fl.tier | 0) >= z.need.tier); }
+export function unprepared(f, z) { return !!z.need && !meetsNeed(f, z); }
+/** 未達進入條件時的危害倍率（火焰這類「強條件」海域；硬條件的海域進不去，這裡只是舊存檔 / 傳送進去時的保險） */
+export const unprepK = (f, z) => (unprepared(f, z) ? (z.need.unprep || SZ.unprep) : 1);
 export const moraleMul = (s) => { const w = s.fleet && s.fleet.world; const mo = w && w.sz ? w.sz.mo : 0; return mo > 0 ? 1 - 0.2 * mo / SZ.moCap : 1; };
 export const matCount = (s, k) => (s.fleet && s.fleet.mat && s.fleet.mat[k]) | 0;
 
@@ -33,7 +36,7 @@ export const matCount = (s, k) => (s.fleet && s.fleet.mat && s.fleet.mat[k]) | 0
 export function seaPre(s, t) {
   const f = s.fleet, w = f && f.world; if (!w || !w.pos) return NONE;
   const p = arkPos(w, t); const h = zoneAtPoint(p.x, p.y); if (!h) return { ...NONE, p };
-  const dep = h.depth; return { p, h, dep, un: unprepared(f, h.z) ? SZ.unprep : 1, slow: clamp((h.z.haz.slow || 0) * dep, 0, 0.9) };
+  const dep = h.depth; return { p, h, dep, un: unprepK(f, h.z), slow: clamp((h.z.haz.slow || 0) * dep, 0, 0.9) };
 }
 const hullHit = (s, sz, d) => { if (d <= 0) return; const b = s.cond; s.cond = Math.max(Math.min(b, SZ.floor), b - d); sz.hull += b - s.cond; };
 
@@ -42,21 +45,22 @@ export function seaTick(s, t, tEnd, ev, pre) {
   const f = s.fleet, w = f && f.world; if (!w || !w.pos) return;
   const e = (sub, text, extra) => ev && ev({ t: tEnd, type: 'seazone', sub, text, ...extra });
   if (!pre || !pre.h) { const sz = w.sz; if (sz) { if (sz.in) { sz.in = ''; sz.tr = 0; } if (sz.mo > 0) sz.mo = Math.max(0, sz.mo - 0.25); } return; }
-  const sz = ensureSz(w), z = pre.h.z, hz = z.haz, dep = pre.dep, un = pre.un, p = pre.p, ti = Math.round(t / 60), seed = s.seed, dt = tEnd - t;
+  const sz = ensureSz(w), z = pre.h.z, hz = z.haz, dep = pre.dep, un = pre.un, p = pre.p, ti = Math.round(t / 60), seed = s.seed, dt = tEnd - t, FS = flagStats(f);
   const r = w.route;
   if (sz.in !== z.id) { // 進入
     sz.in = z.id; sz.n[z.id] = (sz.n[z.id] | 0) + 1;
-    e('enter', `${z.icon} 進入${z.name}：${z.blurb}${un > 1 ? `（旗艦階級未達建議，傷害 ×${SZ.unprep}）` : ''}`, { zone: z.id });
-    if (hz.stuck && r && p.moving) { r.t1 += hz.stuck; e('stuck', `🗿 方舟卡在石柱之間，航程多花 ${Math.round(hz.stuck / 60)} 分鐘。`, { zone: z.id }); }
+    e('enter', `${z.icon} 進入${z.name}：${z.blurb}${un > 1 ? `（旗艦階級未達（${needText(z)}），傷害 ×${un}）` : ''}`, { zone: z.id });
+    if (hz.stuck && r && p.moving) { const stk = hz.stuck * FS.hazMul; r.t1 += stk; e('stuck', `🗿 方舟卡在石柱之間，航程多花 ${Math.round(stk / 60)} 分鐘。`, { zone: z.id }); }
   }
   // 船體
   let dmg = (hz.hull || 0) * dep * un;
   if (hz.strike && hash(seed, 'szs', ti) / U32 < hz.strike * dep) { dmg += 2 * un; sz.hits++; if (sz.hits % 4 === 1) e('strike', `⚡ 地獄落雷擊中方舟！船體受損。`, { zone: z.id }); }
   if (hz.rock && p.moving && hash(seed, 'szr', ti) / U32 < hz.rock * dep) { dmg += hz.rockDmg * un; sz.hits++; if (sz.hits % 3 === 1) e('rock', `🗿 方舟擦撞巨石，船體 −${(hz.rockDmg * un).toFixed(1)}%。`, { zone: z.id }); }
+  dmg *= FS.hazMul * FS.armorMul;   // 旗艦階級：抗危害 × 裝甲
   hullHit(s, sz, dmg);
-  if (hz.water) s.res.water = Math.max(0, s.res.water - hz.water * dep);
+  if (hz.water) s.res.water = Math.max(0, s.res.water - hz.water * dep * FS.hazMul);
   // 士氣（地獄 / 迷霧累積，離開慢慢恢復）
-  if (hz.mo) sz.mo = Math.min(SZ.moCap, sz.mo + hz.mo * dep * un); else sz.mo = Math.max(0, sz.mo - 0.1);
+  if (hz.mo) sz.mo = Math.min(SZ.moCap, sz.mo + hz.mo * dep * un * FS.hazMul); else sz.mo = Math.max(0, sz.mo - 0.1);
   // 漩渦：向中心拉（手動駕駛時由 helm 自己在畫面上拉，這裡略過）；到中心被困住
   if (hz.pull) {
     const d = pre.h.d; if (!w.hm && d > 0.01) { const a = Math.min(d, hz.pull * dep), vx = (z.x - p.x) / d, vy = (z.y - p.y) / d;
@@ -66,7 +70,7 @@ export function seaTick(s, t, tEnd, ev, pre) {
   }
   // 迷霧：航線慢慢偏航（只在深處、只在航行中）
   if (hz.drift && w.route && p.moving && dep > 0.25 && w.route.t1 - t > dt * 1.5) {
-    const rr = w.route, q = arkPos(w, tEnd), ang = ((hash(seed, 'szd', ti) / U32) * 2 - 1) * hz.drift * Math.PI / 180 * dep; const ex = rr.x1 - q.x, ey = rr.y1 - q.y, c = Math.cos(ang), sn = Math.sin(ang);
+    const rr = w.route, q = arkPos(w, tEnd), ang = ((hash(seed, 'szd', ti) / U32) * 2 - 1) * hz.drift * Math.PI / 180 * dep / FS.scoutK; const ex = rr.x1 - q.x, ey = rr.y1 - q.y, c = Math.cos(ang), sn = Math.sin(ang);
     const nx = q.x + ex * c - ey * sn, ny = q.y + ex * sn + ey * c;
     if (insideWorld(nx, ny)) { rr.x0 = q.x; rr.y0 = q.y; rr.t0 = Math.max(rr.t0, Math.min(tEnd, rr.t1 - 1)); rr.x1 = nx; rr.y1 = ny; }
   }
@@ -86,7 +90,7 @@ export function seaTick(s, t, tEnd, ev, pre) {
 /** 手動駕駛（畫面）用：地圖座標 (x,y) 的海域效果。pull = 每秒往中心推的公尺數、vx/vy = 往中心的單位向量（場景座標 x→x、y→z）。 */
 export function helmFx(f, x, y) {
   const h = zoneAtPoint(x, y); if (!h) return null; const hz = h.z.haz, dep = h.depth; const d = h.d || 1;
-  return { id: h.id, z: h.z, depth: dep, u: h.u, speed: 1 - clamp((hz.slow || 0) * dep, 0, 0.9), pull: hz.pull ? hz.pull * dep / 60 / HELM_KU : 0, vx: (h.z.x - x) / d, vy: (h.z.y - y) / d, lost: hz.drift ? dep : 0, un: unprepared(f, h.z) ? SZ.unprep : 1, trapped: !!(hz.pull && h.u < SZ.trapU) };
+  return { id: h.id, z: h.z, depth: dep, u: h.u, speed: 1 - clamp((hz.slow || 0) * dep, 0, 0.9), pull: hz.pull ? hz.pull * dep / 60 / HELM_KU : 0, vx: (h.z.x - x) / d, vy: (h.z.y - y) / d, lost: hz.drift ? dep : 0, un: unprepK(f, h.z), trapped: !!(hz.pull && h.u < SZ.trapU) };
 }
 
 /** 手動駕駛：漩渦對船的總「向內」速度（公尺 / 秒，場景 x/z）。pull（向中心）+ push（局部漩渦場）合成後，總量不超過
