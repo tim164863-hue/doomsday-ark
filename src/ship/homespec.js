@@ -120,8 +120,8 @@ export function buildHome(type) {
   for (const t of S.t.chat) { const q = nav.nearestFree(t[0], t[1], 3); if (q && nav.walkable(q[0], q[1], 0.4) && inC(q[0], q[1]) && pois.chat.every((c) => Math.hypot(c.x - q[0], c.z - q[1]) > 2)) pois.chat.push({ x: q[0], z: q[1] }); }
   { const cells = []; for (let iz = 0; iz < GH; iz++) for (let ix = 0; ix < GW; ix++) if (cp[ix + iz * GW] && nav.walkable(nav.cx(ix), nav.cz(iz), 0.4)) cells.push([nav.cx(ix), nav.cz(iz)]);
     while (pois.chat.length < 4 && cells.length) { let bst = null, bs = -1; for (const c of cells) { const d = Math.min(9, ...pois.chat.map((p) => Math.hypot(p.x - c[0], p.z - c[1])), ...pois.seats.map((p) => Math.hypot(p.x - c[0], p.z - c[1]) * 1.5)); if (d > bs) { bs = d; bst = c; } } if (!bst || bs < 2) break; pois.chat.push({ x: bst[0], z: bst[1] }); } }
-  // 欄杆點：沿舷側
-  for (let x = x0 + 1.0; x < x1 - 0.5; x += 1.6) for (const sd of [-1, 1]) { const z = sd * (hw(x) - S.margin - 0.35); if (nav.walkable(x, z, 0.28) && inC(x, z)) pois.rail.push({ x, z, face: sd > 0 ? 0 : Math.PI }); }
+  // 欄杆點：沿舷側（有些船舷邊被甲板物件擋住 → 逐步往內縮，至少找出 1 個，釣魚小遊戲才有地方玩）
+  for (const inset of [0.35, 0.7, 1.1, 1.6, 2.2]) { if (pois.rail.length) break; for (let x = x0 + 1.0; x < x1 - 0.5; x += 1.6) for (const sd of [-1, 1]) { const z = sd * (hw(x) - S.margin - inset); if (nav.walkable(x, z, 0.28) && inC(x, z)) pois.rail.push({ x, z, face: sd > 0 ? 0 : Math.PI }); } }
   const start0 = nav.nearestFree(startPt[0], startPt[1], 8); const land = nav.nearestFree(S.t.land[0], S.t.land[1], 8) || [0, 0]; const party = nav.nearestFree(S.t.party[0], S.t.party[1], 8) || [0, 0]; const start = start0 || [0, 0];
   const door = nav.nearestFree(S.door[0] * k, S.door[1] * k, 6) || [0, 0];
   return { type, k, nav, door, poly, blocks, pois, props, facs, facSc: S.facSc, land, party, start, cap: S.cap, spec: S, hw };

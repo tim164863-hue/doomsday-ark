@@ -24,7 +24,7 @@ export class Helm {
   constructor(game, play) {
     this.g = game; this.p = play; this.on = false; this.piv = game.small ? 0 : SHIP_CX;
     this.x = this.piv; this.z = 0; this.yaw = 0; this.v = 0; this.w = 0; this.thr = 0; this.lean = 0;
-    this.cam = new THREE.Vector3(); this.camSave = null; this.prevMode = 'overview'; this.dist0 = 0; this.fuelDebt = 0; this.revT = 0; this.hudT = 0; this.userT = -99; this.edgeT = 0; this.base = { x: this.piv, z: 0 };
+    this.cam = new THREE.Vector3(); this.camSave = null; this.prevMode = 'overview'; this.dist0 = 0; this.fuelDebt = 0; this.fuelUsed = 0; this.revT = 0; this.hudT = 0; this.userT = -99; this.edgeT = 0; this.base = { x: this.piv, z: 0 };
     this.group = new THREE.Group(); this.group.name = 'wake'; game.scene.add(this.group); this.puffs = []; this.emitT = 0;
     const geo = new THREE.PlaneGeometry(2, 2); geo.rotateX(-Math.PI / 2); const tex = softDot();
     for (let i = 0; i < 140; i++) { const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0xeaf6fb, map: tex, transparent: true, opacity: 0, depthWrite: false, fog: false })); m.visible = false; m.renderOrder = 0; this.group.add(m); this.puffs.push({ m, life: 0, max: 1, s0: 1, s1: 2, x: 0, z: 0, yaw: 0, a: 0 }); }
@@ -58,11 +58,11 @@ export class Helm {
     if (g.small) { const sh = F.homeShip(p.state.fleet); this._spd = (sh && SHIPS[sh.type] ? SHIPS[sh.type].speed : 1); }
     const w = p.state.fleet && p.state.fleet.world; let note = '';
     if (w && w.route) { const r = F.stopArk(p.state, nowSec()); note = '（已取消自動航行）'; p.save(true); }
-    this.on = true; this.thr = Math.max(0, Math.min(1, this.v / this.cfg.vmax)); this.dist0 = 0; this.fuelDebt = 0;
+    this.on = true; this.thr = Math.max(0, Math.min(1, this.v / this.cfg.vmax)); this.dist0 = 0; this.fuelDebt = 0; this.fuelUsed = 0; this.fuel0 = p.state.res ? p.state.res.fuel : 0;
     const c = g.controls; this.prevMode = c.mode; c.setMode('follow'); this.camSave = { dist: c.dist, pitch: c.pitch, yaw: c.yaw };
     const cf = this.cfg; c.dist = cf.cam; c.pitch = cf.pitch; c.yaw = this.yaw - Math.PI / 2; this.userT = -99; this.updateCam(true);
     document.body.classList.add('helming'); p.hud.showHelmBar(true); g.updateDecks(); g.ui && g.ui.refreshDeckBtns && g.ui.refreshDeckBtns();
-    ui && ui.toast('🚢 駕駛母船' + note + '　W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車 · G 退出');
+    ui && ui.toast((g.small ? '⛵ 駕駛小船' : '🚢 駕駛母船') + note + '　W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車 · G 退出');
   }
   stop() {
     if (!this.on) return; this.on = false; this.thr = 0; const g = this.g, c = g.controls;
@@ -75,11 +75,12 @@ export class Helm {
     const g = this.g, c = g.controls; const moving = Math.abs(this.v) > 0.02 || Math.abs(this.w) > 0.0005;
     if (this.on && this.p.state.fleet && this.p.state.fleet.world && this.p.state.fleet.world.route) { this.g.ui && this.g.ui.toast('⚓ 已啟動自動航行，退出手動駕駛'); this.stop(); }
     if (this.on) {
-      const inp = c.move; const rate = 0.55; const run = inp.run;
+      const inp = c.move; const rate = 1.0; const run = inp.run;
       if (Math.abs(inp.y) > 0.12) this.thr = clamp(this.thr + inp.y * rate * dt * (run ? 1.6 : 1), -0.35, run ? 1.35 : 1);
       if (!run && this.thr > 1) this.thr = Math.max(1, this.thr - 0.8 * dt);
       if (c.keys.has(' ') || c.keys.has('x')) this.thr = 0;
       this.input = { thr: this.thr, rud: -inp.x };
+      if (this.fuelOk0()) this.burn((g.small ? 0.05 : 0.1) * Math.min(1.35, Math.abs(this.thr)) * dt);
     } else this.input = { thr: 0, rud: 0 };
     if (this.on || moving || this.displaced) {
       const cfg = this.cfg; const st = { v: this.v, w: this.w, yaw: this.yaw, x: this.x, z: this.z };
@@ -100,6 +101,9 @@ export class Helm {
   }
   homeWorld(p) { return this.world(p); }
   fuelOk() { const s = this.p.state; if (!s || !s.res) return true; if (s.res.fuel < 1) { this.edgeT += 1; if (this.edgeT === 1 || this.edgeT % 600 === 0) this.g.ui && this.g.ui.toast('⛽ 燃料用完了，船只能滑行'); return false; } this.edgeT = 0; return true; }
+  fuelOk0() { const s = this.p.state; return !!(s && s.res && s.res.fuel >= 1); }
+  /** 引擎本身的耗油（跟地圖航程的耗油分開算；累積到整數才扣，HUD 另外顯示小數） */
+  burn(a) { const s = this.p.state; this.fuelUsed += a; if (s && s.res) s.res.fuel = Math.max(0, s.res.fuel - a); }
   /** 世界邊界：地圖位置推出世界外就停船 */
   limit(st) {
     const w = this.p.state && this.p.state.fleet && this.p.state.fleet.world; if (!w || !w.pos) return;
@@ -113,7 +117,7 @@ export class Helm {
     const dx = this.x - b.x, dz = this.z - b.z; const d = Math.hypot(dx, dz); if (d < 0.5 && !force) return; if (d < 1e-6) return;
     const nx = w.pos.x + dx * HELM_K, ny = w.pos.y + dz * HELM_K; if (!WD.insideWorld(nx, ny)) { b.x = this.x; b.z = this.z; return; }
     w.pos = { x: nx, y: ny }; b.x = this.x; b.z = this.z; const n = WD.reveal(w, nx, ny, WORLD.revealArk); if (n) w.explored = (w.explored || 0) + n;
-    this.fuelDebt += d * HELM_K * WORLD.fuelPerUnit; if (this.fuelDebt >= 1 && s.res) { const u = Math.floor(this.fuelDebt); s.res.fuel = Math.max(0, s.res.fuel - u); this.fuelDebt -= u; }
+    this.burn(d * HELM_K * WORLD.fuelPerUnit);
     if (this.on && this.g.small === false) { /* 擁有者：無額外處理 */ }
     p.hud.noteHelm && p.hud.noteHelm();
   }

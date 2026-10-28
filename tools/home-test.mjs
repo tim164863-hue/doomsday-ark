@@ -12,6 +12,7 @@ for (const t of HOME_TYPES) {
   ok(P.desks.every((p) => reach(h, p.x, p.z)) && P.chat.every((p) => reach(h, p.x, p.z)) && P.rail.every((p) => reach(h, p.x, p.z)), `${t}: 桌 / 聊天 / 欄杆點都走得到`);
   ok(P.loungers.every((p) => reach(h, p.x, p.z - p.head[1] * 1.3)), `${t}: 躺椅的入口走得到`);
   ok(reach(h, h.land[0], h.land[1]) && reach(h, h.door[0], h.door[1]), `${t}: 登船點與艙門走得到`);
+  ok(P.rail.length >= 1 && P.rail.every((p) => p.face === 0 || Math.abs(p.face - Math.PI) < 1e-6), `${t}: 至少 1 個欄杆點（釣魚小遊戲用）`);
   ok(h.cap >= 3, `${t}: 載員上限 ${h.cap}`);
 }
 ok(buildHome('skiff').cap < buildHome('icebreaker').cap, '大船載員比小船多');

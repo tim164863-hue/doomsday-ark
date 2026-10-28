@@ -162,14 +162,14 @@ export class Play {
   // ------------------------------------------------------------ 互動目標
   updateTarget() {
     const g = this.game, pl = g.player; const a = pl.actor; let best = null, bd = 1e9;
-    if (!this.pilot && !this.gaming && g.controls.mode !== 'overview' && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
+    if (!this.pilot && !this.gaming && (g.small || g.controls.mode !== 'overview') && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
       for (const f of FAC_ORDER) { const v = this.fac[f]; if (v.deck !== a.deck) continue; const d = Math.hypot(v.x - a.x, v.z - a.z) - Math.max(v.hw, v.hd) + 1.0; if (d < 2.4 && d < bd) { bd = d; best = { type: 'fac', id: f }; } }
       for (const b of g.crew.bots.values()) { if (b.away || b.actor.deck !== a.deck || !b.avatar.group.visible) continue; const d = Math.hypot(b.actor.x - a.x, b.actor.z - a.z); if (d < 2.4 && d < bd + 0.3 && (!best || d < bd)) { bd = d; best = { type: 'bot', bot: b }; } }
     }
-    if (!this.pilot && !this.gaming && g.controls.mode !== 'overview' && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
-      let cand = null; for (const sp of this.games.spots) { if (sp.deck !== a.deck) continue; const d = Math.hypot(sp.x - a.x, sp.z - a.z); if (d < 1.55 && !(best && best.type === 'bot' && bd < 1.2) && (!cand || d < cand.d)) cand = { type: 'spot', spot: sp, id: sp.id, d }; } if (cand) best = cand;
+    if (!this.pilot && !this.gaming && (g.small || g.controls.mode !== 'overview') && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
+      let cand = null; for (const sp of this.games.spots) { if (sp.deck !== a.deck) continue; const d = Math.hypot(sp.x - a.x, sp.z - a.z); if (d < 1.55 && !(best && best.type === 'bot' && bd < 1.2 && bd <= d) && (!cand || d < cand.d)) cand = { type: 'spot', spot: sp, id: sp.id, d }; } if (cand) best = cand;
     }
-    if (!this.pilot && !this.gaming && this.mascots && g.controls.mode !== 'overview') { const m = this.mascots.nearest(a); if (m && (!best || bd > 1.2)) best = { type: 'mascot', m }; }
+    if (!this.pilot && !this.gaming && this.mascots && (g.small || g.controls.mode !== 'overview')) { const m = this.mascots.nearest(a); if (m && (!best || bd > 1.2)) best = { type: 'mascot', m }; }
     const same = (!best && !this.target) || (best && this.target && best.type === this.target.type && best.id === this.target.id && best.bot === this.target.bot && best.m === this.target.m);
     if (!same) { this.target = best; this.hud.setTarget(best); }
   }
@@ -190,7 +190,7 @@ export class Play {
     else if (name === 'repair') { r = S.repairFac(s, arg || (t && t.id)); if (r.ok) this.applyFacilityStates(); }
     else if (name === 'hull') { r = S.repairHull(s); }
     else if (name === 'chat') { const b = (arg || (t && t.bot)); r = S.chat(s, b.key, now); this.chatWith(b); r = { ok: true, msg: '' }; }
-    else if (name === 'cheer') { const b = (arg || (t && t.bot)); r = S.cheer(s, b.key, now); if (r.ok) { b.cheerUntil = Date.now() + 150000; b.setMoodNow(); b.say(pick(['謝謝T董！更有幹勁了！', 'T董人真好～', '收到鼓勵，滿血復活！']), 4.5, 'mood'); if (b.avatar.poseName === 'stand' && !b.actor.busy) { b.avatar.setPose('wave'); setTimeout(() => { if (b.avatar.poseName === 'wave') b.avatar.setPose('stand'); }, 2200); } } else if (r.wait) r.msg = `${b.title} 還在回味上次的打氣（${r.wait} 秒後再來）`; }
+    else if (name === 'cheer') { const bn = this.game.small ? '船長' : 'T董'; const b = (arg || (t && t.bot)); r = S.cheer(s, b.key, now); if (r.ok) { b.cheerUntil = Date.now() + 150000; b.setMoodNow(); b.say(pick(['謝謝' + bn + '！更有幹勁了！', bn + '人真好～', '收到鼓勵，滿血復活！']), 4.5, 'mood'); if (b.avatar.poseName === 'stand' && !b.actor.busy) { b.avatar.setPose('wave'); setTimeout(() => { if (b.avatar.poseName === 'wave') b.avatar.setPose('stand'); }, 2200); } } else if (r.wait) r.msg = `${b.title} 還在回味上次的打氣（${r.wait} 秒後再來）`; }
     else if (name === 'claim') { r = S.claimTask(s, arg); }
     else if (name === 'trip') { r = S.startTrip(s, arg.site, arg.crew, now); if (r.ok) { this.applyCrewFlags(); this.afterTripStart(r.trip); } }
     if (r && r.msg) ui.toast((r.ok ? '' : '⚠️ ') + r.msg);

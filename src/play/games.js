@@ -24,6 +24,7 @@ export const KIND = {
   bench: { icon: '🏋️', name: '臥推', desc: '6 下，重量遞增；推起的瞬間按 E。', best: '臥推', unit: '公斤' },
   bar: { icon: '🍹', name: '吧台調酒', desc: '倒酒、搖勻、裝飾，三個動作調出一杯特調。', best: '調酒', unit: '分' },
   tub: { icon: '♨️', name: '泡湯', desc: '跟著呼吸的節奏按 E，放鬆身心。', best: '泡湯', unit: '分' },
+  fish: { icon: '🎣', name: '釣魚', desc: '在欄杆邊甩竿：先抓準甩竿力道，等浮標下沉再在甜蜜區按 E 提竿，連釣 3 次。', best: '釣魚', unit: '分' },
   lounger: { icon: '🛋️', name: '躺椅放鬆', desc: '躺著曬太陽，跟著呼吸節奏按 E。', best: '放鬆', unit: '分' },
 };
 
@@ -43,6 +44,10 @@ export function buildSpots(ship) {
   if (!ship.small) { const fn = ship.decks[D.fun].nav; const sp0 = (fn && fn.nearestFree && fn.nearestFree(-22.7, 0)) || [-22.7, 0];
   add('slide', D.fun, { x: sp0[0], z: sp0[1], face: -PI / 2, tower: { x: -24.9, z: 0 } }); }
   for (const dk of new Set([D.fun, D.boss])) for (const p of misc(dk).lounger || []) add('lounger', dk, { x: p.x - p.head[0] * 0.85, z: p.z - p.head[1] * 0.85, face: yawOfDir(p.head[0], p.head[1]), poi: p, stand: { x: p.x, z: p.z + (p.head[1] ? -p.head[1] * 1.3 : 0) } });
+  if (ship.small) { // 小船：欄杆邊釣魚（左右舷各一個定位點，取各舷中段的欄杆點）
+    const rl = misc(0).rail || [];
+    for (const sd of [1, -1]) { const side = rl.filter((q) => (sd > 0 ? q.z > 0 : q.z < 0)); if (side.length) { const q = side[Math.floor((side.length - 1) / 2)]; add('fish', 0, { x: q.x, z: q.z, face: q.face, poi: q }); } }
+  }
   for (const p of misc(D.boss).tub || []) add('tub', D.boss, { x: p.x - 1.4, z: p.z, face: PI / 2, poi: p });
   return L;
 }
@@ -144,11 +149,12 @@ export class Games {
     else if (k === 'treadmill') { const p = near(misc.treadmill); plan = p ? { x: p.x, z: p.z, face: p.face, pose: 'stand', run: true, claim: p } : null; }
     else if (k === 'bench') { const p = near(misc.bench); plan = p ? { x: p.x, z: p.z + 1.0, face: PI, pose: 'lift', claim: p } : null; }
     else if (k === 'lounger') { const p = near(misc.lounger); plan = p ? { x: p.x - p.head[0] * 0.85, z: p.z - p.head[1] * 0.85, face: yawOfDir(p.head[0], p.head[1]), pose: 'lounge', y: 0.42, claim: p, stand: { x: p.x, z: p.z + (p.head[1] ? -p.head[1] * 1.3 : 0) } } : null; }
+    else if (k === 'fish') { const p = near(misc.rail); plan = p ? { x: p.x, z: p.z, face: p.face, pose: 'rail', claim: p } : null; }
     else if (k === 'tub') plan = { x: sp.poi.x + 0.9, z: sp.poi.z + 0.2, face: -PI / 2, pose: 'sit', y: -0.18, stand: { x: sp.poi.x - 2.7, z: sp.poi.z } };
     if (!plan) { const q = side(1.7); plan = { x: q.x, z: q.z, face: sp.face, pose: 'hello' }; }
     const deck = sp.deck;
     bot.interrupt(function* (b) {
-      b.playing = true; b.activity = '和T董一起玩'; if (plan.claim) b.claim(plan.claim); const st = plan.stand || plan;
+      b.playing = true; b.activity = '和' + (this.game.small ? '船長' : 'T董') + '一起玩'; if (plan.claim) b.claim(plan.claim); const st = plan.stand || plan;
       yield* b.goTo(deck, st.x, st.z, plan.face); if (plan.y != null || plan.stand) yield* b.glide(plan.x, plan.z, plan.face, plan.y || 0);
       b.pose(plan.pose, plan.hold || null); b.actor.x = plan.x; b.actor.z = plan.z; b.actor.yaw = plan.face; b.actor.yOff = plan.y || 0;
       if (plan.run) { b.avatar.fixedSpeed = 2.6; b.avatar.fixedGait = 'run'; b.actor.mode = 'run'; }
@@ -258,6 +264,26 @@ export class Games {
     const mg = this.mg; this.open(sp, '跟著呼吸的節奏按 E', ''); let sum = 0;
     for (let i = 0; i < 4; i++) { mg.msg(i % 2 ? '吐氣…' : '吸氣…'); const r = await mg.arm({ speed: 0.6, sweet: 0.16, center: 0.5, label: '放鬆' }); sum += r.q; mg.flash(r.grade); await mg.wait(0.5); }
     const sc = Math.round(sum / 4 * 100); return this.wrapUp(sp, { score: sc, max: 100, vs: false, lines: [`放鬆值 ${sc}%`, sc >= 70 ? '整個人都輕鬆了 😌' : '還有一點緊繃，再來一次吧'] });
+  }
+  /** 釣魚（小船欄杆）：甩竿力道 → 等浮標下沉 → 提竿 */
+  async fish(sp, bot) {
+    const mg = this.mg, a = this.pl.actor, sh = this.game.ship, deck = sp.deck; const ox = Math.sin(sp.face), oz = Math.cos(sp.face);
+    await this.move(sp.x, sp.z, sp.face, deck, 'rail'); this.open(sp, '甩竿 → 等浮標下沉 → 提竿，共 3 次', '0');
+    const seaY = -(sh.deckTop || 2) - 0.02; const bob = this.mesh(deck, new THREE.SphereGeometry(0.1, 10, 8), 0xff4a3a, sp.x + ox * 1.2, seaY + 0.1, sp.z + oz * 1.2); bob.visible = false;
+    const lineG = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]); const ln = new THREE.Line(lineG, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 })); ln.frustumCulled = false; sh.decks[deck].group.add(ln); this.temp.push(ln);
+    const upd = () => { const pa = lineG.attributes.position; pa.setXYZ(0, sp.x + ox * 0.5, 1.15, sp.z + oz * 0.5); pa.setXYZ(1, bob.position.x, bob.position.y, bob.position.z); pa.needsUpdate = true; ln.visible = bob.visible; };
+    const dk = sh.decks && sh.decks[deck]; const edge = Math.max(0.8, (dk && dk.hw ? dk.hw(sp.x) : 3) - Math.abs(sp.z)); let total = 0; const names = ['小魚', '鱸魚', '大石斑'];
+    for (let i = 0; i < 3; i++) {
+      mg.msg(`第 ${i + 1} 次：甩竿`); const r1 = await mg.arm({ speed: 1.1, sweet: 0.11, center: 0.3 + rnd() * 0.4, label: '甩竿！' }); mg.flash(r1.grade);
+      const dist = edge + 1.0 + r1.q * 3.0; const bx = sp.x + ox * dist, bz = sp.z + oz * dist; bob.visible = true; await this.tween(0.5, (u) => { bob.position.set(lerp(sp.x + ox * 0.5, bx, u), lerp(1.1, seaY + 0.1, u * u), lerp(sp.z + oz * 0.5, bz, u)); upd(); });
+      mg.msg('等浮標下沉…', '#cfe8ff'); const wt = 0.9 + rnd() * 1.6; await this.tween(wt, (u) => { bob.position.y = seaY + 0.1 + Math.sin(u * 20) * 0.03; upd(); });
+      mg.msg('上鉤了！快提竿！', '#ffd36b'); this.splash(deck, bx, bz, 0.5); bob.position.y = seaY - 0.05;
+      const r2 = await mg.arm({ speed: 1.45 + i * 0.15, sweet: 0.1 - i * 0.008, center: 0.3 + rnd() * 0.4, timeout: 2.2, label: '提竿！' }); mg.flash(r2.grade);
+      const q = r2.timedOut ? 0 : r2.q * 0.75 + r1.q * 0.25; const pts = Math.round(q * 100); total += pts; mg.setScore(String(total));
+      if (q > 0.25) { await this.tween(0.5, (u) => { bob.position.set(lerp(bx, sp.x + ox * 0.6, u), lerp(seaY + 0.1, 1.3, u) + 0.8 * Math.sin(u * PI), lerp(bz, sp.z + oz * 0.6, u)); upd(); }); mg.msg(`釣到 ${names[q > 0.8 ? 2 : q > 0.5 ? 1 : 0]}！ +${pts}`, '#7dffb0'); } else mg.msg('魚跑了…', '#ff8a7e');
+      bob.visible = false; upd(); await mg.wait(0.7);
+    }
+    return this.wrapUp(sp, { score: total, max: 300, lines: [`3 次共 ${total} 分（滿分 300）`] });
   }
   async lounger(sp, bot) {
     const st = sp.stand; await this.move(st.x, st.z, sp.poi.face, sp.deck); await this.move(sp.x, sp.z, sp.face, sp.deck, 'lounge', null, 0.42); return this.relax(sp, bot);

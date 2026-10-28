@@ -30,8 +30,8 @@ export class HUD {
     this.prompt = $(`<div id="prompt" class="hide"></div>`);
     this.modal = $(`<div id="modal" class="hide"><div class="mcard"></div></div>`);
     this.tagLayer = $(`<div id="tags"></div>`); this.pilotBar = $(`<div id="pilotbar" class="hide"><div class="pn"></div><div class="ps"><u></u></div><small class="pt">WASD / 搖桿　Shift 加速</small><button data-a="home" class="pri">🏠 返港</button></div>`);
-    this.helmBar = $(`<div id="helmbar" class="hide"><div class="hn">🚢</div><div class="hk"><b class="kt">0.0</b><small>節</small><b class="hd">000°</b><small class="hp"></small></div><div class="ps" title="油門"><u></u></div><small class="pt">W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車</small><button data-a="stop">⏹ 停車</button><button data-a="exit" class="pri">⚓ 下錨</button></div>`);
-    this.root.append(this.tagLayer, this.bar, this.crewList, this.prompt, this.modal, this.pilotBar, this.helmBar); this.helmBar.querySelector('[data-a=stop]').onclick = () => { this.play.helm.thr = 0; }; this.helmBar.querySelector('[data-a=exit]').onclick = () => this.play.helm.stop(); this.bar.querySelector('#btnHelm').onclick = () => this.play.helm.toggle(); this.pilotBar.querySelector('[data-a=home]').onclick = () => this.play.stopPilot(true);
+    this.helmBar = $(`<div id="helmbar" class="hide"><div class="hn">🚢</div><div class="hk"><b class="kt">0.0</b><small>節</small><b class="hd">000°</b><small class="hp"></small></div><div class="ps" title="油門"><u></u></div><small class="pt">W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車</small><div class="hs"></div><button data-a="stop">⏹ 停車</button><button data-a="exit" class="pri">⚓ 下錨</button></div>`);
+    { const hb = this.bar.querySelector('#btnHelm'); if (hb && game.small) hb.title = '駕駛小船 (G)'; } this.syncJoy(); this._joyT = setInterval(() => this.syncJoy(), 150); this.root.append(this.tagLayer, this.bar, this.crewList, this.prompt, this.modal, this.pilotBar, this.helmBar); this.helmBar.querySelector('[data-a=stop]').onclick = () => { this.play.helm.thr = 0; }; this.helmBar.querySelector('[data-a=exit]').onclick = () => this.play.helm.stop(); this.bar.querySelector('#btnHelm').onclick = () => this.play.helm.toggle(); this.pilotBar.querySelector('[data-a=home]').onclick = () => this.play.stopPilot(true);
     const rcs = this.bar.querySelector('.rcs');
     for (const k of RES_KEYS) rcs.append($(`<div class="rc" data-k="${k}" title="${RES[k].name}"><i>${RES[k].icon}</i><b>0</b><small></small></div>`));
     rcs.append($(`<div class="rc cond" data-k="cond" title="船體狀況"><i>🛠</i><b>0%</b><span class="bar"><u></u></span></div>`));
@@ -49,11 +49,17 @@ export class HUD {
     });
     this.lastPromptKey = '';
   }
+  /** 虛擬搖桿只在「走路 / 駕駛」時顯示：任何彈窗、說明、海圖、選船、小遊戲開著就收起來 */
+  syncJoy() {
+    const g = this.game; const ov = !!this.modalKind || this.helpOpen() || (this.chart && this.chart.isOpen()) || !!document.getElementById('pvbar') || document.body.classList.contains('gaming') || !!document.getElementById('entry') || !!g.homeless || !!document.querySelector('#acctMenu:not([hidden]), #syncdlg');
+    document.body.classList.toggle('nojoy', ov); document.body.classList.toggle('homeless', !!g.homeless);
+  }
   showHelmBar(on) { this.helmBar.classList.toggle('hide', !on); this.bar.querySelector('#btnHelm').classList.toggle('on', !!on); if (on) this.updateHelmBar(this.play.helm); }
   updateHelmBar(H) {
     const b = this.helmBar, sh = this.play.game.small ? FL.homeShip(this.s.fleet) : null; b.querySelector('.hn').textContent = sh ? `${SHIPS[sh.type].icon} ${sh.name}` : '🚢 母船';
     b.querySelector('.kt').textContent = (Math.abs(H.v) * 1.944).toFixed(1); const bear = ((Math.PI / 2 - H.yaw) * 180 / Math.PI % 360 + 360) % 360; b.querySelector('.hd').textContent = String(Math.round(bear) % 360).padStart(3, '0') + '°';
-    const w = this.s.fleet && this.s.fleet.world; b.querySelector('.hp').textContent = w && w.pos ? `📍${Math.round(w.pos.x)},${Math.round(w.pos.y)}` : '';
+    const w = this.s.fleet && this.s.fleet.world; b.querySelector('.hp').textContent = w && w.pos ? `📍${w.pos.x.toFixed(2)},${w.pos.y.toFixed(2)}` : '';
+    const fl = this.s.res ? this.s.res.fuel : 0; b.querySelector('.hs').textContent = `📍 ${w && w.pos ? w.pos.x.toFixed(2) + ', ' + w.pos.y.toFixed(2) : '-'}　🧭 航程 ${Math.round(H.dist0)} m　⛽ −${(H.fuelUsed || 0).toFixed(2)}（剩 ${fl.toFixed(1)}）`;
     b.querySelector('.ps u').style.width = Math.max(0, Math.min(100, H.thr / 1.35 * 100)) + '%'; b.querySelector('.ps').classList.toggle('rev', H.thr < 0);
   }
   noteHelm() { this._chartDirty = true; }
@@ -177,7 +183,7 @@ export class HUD {
       <h3>⚔️ 對頭 / 冷戰</h3><ul class="rlist">${rv.length ? rv.map((p) => row(`${nm(p[0])} × ${nm(p[1])}`, p[2], p[3] ? ` <em class="bad">💢 冷戰中 ${dur(R.feudUntil(s, p[0], p[1]) - now)}</em>` : '')).join('') : '<li class="sub">目前相安無事。</li>'}</ul>
       <h3>⚙️ 團隊氣氛對效率的影響</h3><ul class="rlist">${team.length ? team.map(([k, b]) => `<li><span class="rn">${nm(k)}</span><span class="rv ${b < 0 ? 'bad' : ''}">${b > 0 ? '+' : ''}${Math.round(b * 100)}%</span></li>`).join('') : '<li class="sub">氣氛普通，沒有加成。</li>'}</ul>
       ${best.length ? `<h3>🏆 個人紀錄</h3><div class="rbest">${best.map((k) => `<span>${KIND[k].icon} ${KIND[k].name} <b>${s.rel.best[k]}${KIND[k].unit}</b></span>`).join('')}</div>` : ''}
-      <p class="sub" style="margin-top:8px">在娛樂 / 運動設施旁按 E 就能玩；也可以邀請附近的船員一起。</p>`;
+      <p class="sub" style="margin-top:8px">${(() => { const ks = [...new Set(this.play.games.spots.map((q) => KIND[q.kind].icon + KIND[q.kind].name))]; return ks.length ? '在 ' + ks.slice(0, 6).join('、') + (ks.length > 6 ? ' 等' : '') + ' 旁按 E 就能玩；也可以邀請附近的船員一起。' : '這艘船上暫時沒有可玩的設施。'; })()}</p>`;
     c.querySelector('.x').onclick = () => this.closeModal();
   }
 

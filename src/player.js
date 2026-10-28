@@ -10,7 +10,7 @@ import { D } from './crew/decks.js';
 export class Player {
   constructor(game) {
     this.game = game; this.avatar = new Avatar('T董'); this.actor = new Actor(game, this.avatar, D.boss, 1.2, 3.2);
-    this.actor.baseSpeed = 2.7; this.actor.speedMul = 1; this.avatar.setPose('stand'); this.key = 'T董'; this.title = 'T董';
+    this.actor.baseSpeed = 2.7; this.actor.speedMul = 1; this.avatar.setPose('stand'); this.key = 'T董'; this.title = game.small ? '船長' : 'T董'; // key 是關係表的固定鍵；title 是顯示名稱（訪客稱「船長」）
     this.elevArmed = true; this.stairCd = 0; this.marker = null; this.moving = false; this.deckChangeTime = 0;
     this.makeMarker(); this.placeStart();
   }

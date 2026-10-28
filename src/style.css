@@ -233,3 +233,18 @@ body.gaming #prompt, body.gaming #crewmini { display: none !important; }
 body.helming #prompt { display: none !important; }
 @media (max-width: 700px) { #helmbar { left: auto; right: 8px; transform: none; bottom: calc(138px + env(safe-area-inset-bottom)); gap: 6px; padding: 6px 8px; max-width: calc(100vw - 168px); } #helmbar small.pt, #helmbar .ps, #helmbar .hk .hp, #helmbar .hn, #helmbar .hk small { display: none; } #helmbar .hk b { font-size: 15px; min-width: 2em; } #helmbar .hk .hd { margin-left: 4px; } #helmbar button { padding: 7px 9px; font-size: 12px; } }
 #helmbar .hn { white-space: nowrap; font-weight: 600; }
+
+/* ---- 審查回饋修正 ---- */
+body.nojoy #joy { display: none !important; }
+body.homeless #resbar, body.homeless #crewmini, body.homeless #helmbar, body.homeless #listBtn, body.homeless #crewPanel { display: none !important; }
+body.piloting #tags .ft, body.piloting #labels .lb, body.helming #tags .ft, body.helming #labels .lb { display: none !important; }
+.scPanel.collapsed { display: none; } .scTop button[data-a=panel].on { background: #1f4b7a; border-color: #4fa3ff; }
+#acctMenu .uid { font-size: 11px; opacity: .75; } #acctMenu .uid code { user-select: all; word-break: break-all; cursor: copy; background: #ffffff14; padding: 1px 5px; border-radius: 5px; }
+#helmbar .hs { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-variant-numeric: tabular-nums; padding: 3px 12px; border-radius: 99px; background: rgba(10,22,34,.82); border: 1px solid var(--line); }
+@media (max-width: 700px) {
+  #resbar .racts { flex-wrap: wrap; max-width: 100%; row-gap: 5px; }
+  #helmbar .hs { left: auto; right: 0; transform: none; font-size: 11px; padding: 3px 10px; white-space: normal; width: 200px; text-align: right; border-radius: 12px; line-height: 1.35; }
+  #mg { bottom: calc(6px + env(safe-area-inset-bottom)); width: calc(100% - 12px); }
+  #mg .mgcard { padding: 6px 10px 8px; } #mg .mgmsg { min-height: 16px; margin: 2px 0 4px; font-size: 12.5px; } #mg .mgbar { height: 22px; } #mg .mgbtn { margin-top: 6px; padding: 9px 12px; }
+  #mg .mgst { font-size: 22px; } #mg .mgl { margin: 2px 0 6px; line-height: 1.45; }
+}

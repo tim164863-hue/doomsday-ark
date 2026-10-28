@@ -15,9 +15,9 @@ const hex = (c) => (typeof c === 'number' ? '#' + c.toString(16).padStart(6, '0'
 export class SeaChart {
   constructor(hud) {
     this.hud = hud; this.open_ = false; this.view = { x: 1000, y: 1000, k: 0.4 }; this.sel = null; this.ptrs = new Map(); this.fogKey = ''; this.mini = document.createElement('canvas'); this.mini.width = this.mini.height = WORLD.grid;
-    this.el = $(`<div id="seachart" class="hide"><canvas></canvas><div class="scTop"><b>🧭 海圖</b><span class="scSub"></span><span class="sp"></span><button data-a="zi">＋</button><button data-a="zo">－</button><button data-a="home">⌂ 方舟</button><button data-a="close">✕</button></div><div class="scPanel"></div><div class="scConfirm hide"></div></div>`);
+    this.el = $(`<div id="seachart" class="hide"><canvas></canvas><div class="scTop"><b>🧭 海圖</b><span class="scSub"></span><span class="sp"></span><button data-a="zi">＋</button><button data-a="zo">－</button><button data-a="home">⌂ 方舟</button><button data-a="panel" title="收合 / 展開資訊面板">📋</button><button data-a="close">✕</button></div><div class="scPanel"></div><div class="scConfirm hide"></div></div>`);
     hud.root.append(this.el); this.cv = this.el.querySelector('canvas'); this.ctx = this.cv.getContext('2d'); this.panel = this.el.querySelector('.scPanel'); this.conf = this.el.querySelector('.scConfirm');
-    this.el.querySelector('[data-a=close]').onclick = () => this.close(); this.el.querySelector('[data-a=zi]').onclick = () => this.zoom(1.4); this.el.querySelector('[data-a=zo]').onclick = () => this.zoom(1 / 1.4); this.el.querySelector('[data-a=home]').onclick = () => this.center();
+    this.el.querySelector('[data-a=close]').onclick = () => this.close(); this.el.querySelector('[data-a=zi]').onclick = () => this.zoom(1.4); this.el.querySelector('[data-a=zo]').onclick = () => this.zoom(1 / 1.4); this.el.querySelector('[data-a=home]').onclick = () => this.center(); this.pbtn = this.el.querySelector('[data-a=panel]'); this.pbtn.onclick = () => this.setPanel(this.panel.classList.contains('collapsed'));
     const cv = this.cv; cv.style.touchAction = 'none';
     cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); this.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, moved: 0 }); this.pinch0 = null; });
     cv.addEventListener('pointermove', (e) => { const p = this.ptrs.get(e.pointerId); if (!p) return; const dx = e.clientX - p.x, dy = e.clientY - p.y; p.moved += Math.abs(dx) + Math.abs(dy); p.x = e.clientX; p.y = e.clientY;
@@ -29,7 +29,9 @@ export class SeaChart {
   }
   get s() { return this.hud.play.state; }
   isOpen() { return this.open_; }
-  open() { if (!this.s.fleet || !this.s.fleet.world || !this.s.fleet.world.pos) { this.hud.ui.toast('還沒有世界地圖（需要先有艦隊）'); return; } this.hud.closeModal(); this.open_ = true; this.el.classList.remove('hide'); this.resize(); this.center(); this.sel = null; this.conf.classList.add('hide'); this.panelSig = ''; this.refresh(true); this.loop(); }
+  /** 資訊面板收合：手機預設收起，點 📋 展開 */
+  setPanel(open) { this.panel.classList.toggle('collapsed', !open); this.pbtn.classList.toggle('on', !!open); this._panelUser = true; }
+  open() { if (!this.s.fleet || !this.s.fleet.world || !this.s.fleet.world.pos) { this.hud.ui.toast('還沒有世界地圖（需要先有艦隊）'); return; } this.hud.closeModal(); this.open_ = true; this.el.classList.remove('hide'); this.resize(); this.center(); this._panelUser = false; this.setPanel(this.W > 700); this._panelUser = false; this.sel = null; this.conf.classList.add('hide'); this.panelSig = ''; this.refresh(true); this.loop(); }
   close() { this.open_ = false; this.el.classList.add('hide'); }
   toggle() { this.open_ ? this.close() : this.open(); }
   resize() { const r = this.el.getBoundingClientRect(); const dpr = Math.min(2, devicePixelRatio || 1); this.W = r.width; this.H = r.height; this.cv.width = Math.round(r.width * dpr); this.cv.height = Math.round(r.height * dpr); this.dpr = dpr; this.minK = Math.max(this.W, this.H) / 2200; }
@@ -93,7 +95,7 @@ export class SeaChart {
     // 選取
     if (this.sel) { const [sx, sy] = this.toScreen(this.sel.x, this.sel.y); g.strokeStyle = '#ffd36b'; g.lineWidth = 2; g.beginPath(); g.moveTo(sx - 10, sy); g.lineTo(sx + 10, sy); g.moveTo(sx, sy - 10); g.lineTo(sx, sy + 10); g.stroke(); g.setLineDash([4, 4]); g.beginPath(); g.moveTo(ax, ay); g.lineTo(sx, sy); g.stroke(); g.setLineDash([]); }
     // 羅盤
-    g.save(); g.translate(this.W - 46, 96); g.strokeStyle = '#ffffff55'; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, 22, 0, 7); g.stroke(); g.fillStyle = '#ff7a5e'; g.beginPath(); g.moveTo(0, -20); g.lineTo(5, 0); g.lineTo(-5, 0); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 11px sans-serif'; g.textAlign = 'center'; g.fillText('N', 0, -25); g.restore();
+    g.save(); g.translate(44, 92); g.strokeStyle = '#ffffff55'; g.lineWidth = 1; g.beginPath(); g.arc(0, 0, 22, 0, 7); g.stroke(); g.fillStyle = '#ff7a5e'; g.beginPath(); g.moveTo(0, -20); g.lineTo(5, 0); g.lineTo(-5, 0); g.fill(); g.fillStyle = '#fff'; g.font = 'bold 11px sans-serif'; g.textAlign = 'center'; g.fillText('N', 0, -25); g.restore();
     // 比例尺
     g.fillStyle = '#fff'; g.strokeStyle = '#fff'; const bar = 100 * v.k; g.lineWidth = 2; g.beginPath(); g.moveTo(14, this.H - 16); g.lineTo(14 + bar, this.H - 16); g.stroke(); g.font = '11px sans-serif'; g.fillText('100', 14, this.H - 22);
   }
@@ -108,7 +110,7 @@ export class SeaChart {
     if (!this.open_) return; const s = this.s, w = s.fleet.world, now = nowSec(); const ark = W.arkPos(w, now); const zone = W.zoneAt(ark.x, ark.y);
     this.el.querySelector('.scSub').textContent = `${W.zoneLabel(zone)} · (${Math.round(ark.x)}, ${Math.round(ark.y)}) · 已探索 ${Math.round(W.fogCount(w) / (Math.PI * 980 * 980 / 625) * 100)}%`;
     const evs = FL.pendingEvents(s, now); const sail = s.fleet.ships.filter((x) => x.state === 'sail'); const sig = JSON.stringify([evs.map((x) => x.id + ':' + x.m.ev.k), sail.map((x) => x.id), !!w.route, Math.floor(s.res.fuel / 5)]);
-    if (force || sig !== this.panelSig) { this.panelSig = sig; this.renderPanel(evs, sail, ark, w); }
+    if (force || sig !== this.panelSig) { this.panelSig = sig; this.renderPanel(evs, sail, ark, w); if (evs.length && !this._panelUser && this.panel.classList.contains('collapsed')) this.setPanel(true); }
     const eta = this.panel.querySelector('[data-arketa]'); if (eta && w.route) eta.textContent = `剩 ${mmss(w.route.t1 - now)}`;
     this.panel.querySelectorAll('[data-eta]').forEach((el) => { const sh = FL.findShip(s, +el.dataset.id); if (sh && sh.m) el.textContent = `返航 剩 ${mmss(sh.m.end - now)}`; });
   }

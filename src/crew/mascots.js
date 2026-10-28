@@ -65,7 +65,7 @@ export function buildBaobao() {
 }
 
 const LINES = {
-  benben: ['奔奔～衝衝衝！', '我是奔奔，在跑步喔！', '戴眼鏡的我，跑得超快！', '跑跑跑，停不下來～', '嗨 T董！一起跑嗎？'],
+  benben: ['奔奔～衝衝衝！', '我是奔奔，在跑步喔！', '戴眼鏡的我，跑得超快！', '跑跑跑，停不下來～', '嗨 {boss}！一起跑嗎？'],
   baobao: ['抱抱～給你一個愛心！', '我是抱抱，要抱抱嗎？', '嘿嘿，臉紅紅。', '跟著奔奔，不會迷路。', '今天也要開開心心。'],
 };
 const BOT_SPAWN = ['奔奔又跑來了！', '是奔奔和抱抱！', '哇，奔奔跑過去了～', '抱抱跟在後面耶，好可愛！', '快看，奔奔今天也戴著眼鏡。'];
@@ -121,7 +121,7 @@ export class Mascots {
   }
   poke() {
     if (!this.active || this.t < this.pokeCd) return false; this.pokeCd = this.t + 2; const b = this.list[0], h = this.list[1];
-    this.say(b, pick(LINES.benben), 3.4); this.say(h, pick(LINES.baobao), 3.4); this.spark(b.deck, b.x, 0.9, b.z, 8); this.spark(h.deck, h.x, 0.7, h.z, 8);
+    this.say(b, pick(LINES.benben).replace('{boss}', this.game.small ? '船長' : 'T董'), 3.4); this.say(h, pick(LINES.baobao), 3.4); this.spark(b.deck, b.x, 0.9, b.z, 8); this.spark(h.deck, h.x, 0.7, h.z, 8);
     h.joy = 1.2; b.joy = 1.2; const bots = this.botsNear(b.deck, b, 9, BOT_POKE, 2);
     for (const k of this.game.crew.bots.values()) { if (k.away || k.actor.deck !== b.deck || Math.hypot(k.actor.x - b.x, k.actor.z - b.z) > 9) continue; k.cheerUntil = Math.max(k.cheerUntil || 0, Date.now() + 60000); k.setMoodNow(); }
     this.pokes = (this.pokes || 0) + 1; return true;
