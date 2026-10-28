@@ -190,3 +190,12 @@ body.piloting #prompt { display: none !important; }
 @keyframes mpop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .ft.mascot.far .t { display: inline; }
 .ft.mascot .r { display: flex; align-items: center; }
+
+/* ---- 第一個畫面（登入 / 訪客） ---- */
+#entry { position: fixed; inset: 0; z-index: 90; display: flex; align-items: center; justify-content: center; padding: 16px; background: radial-gradient(ellipse at 50% 60%, #14304c, #050c16); }
+#entry .ecard { width: min(400px, 100%); text-align: center; background: rgba(12,22,36,.9); border: 1px solid var(--line); border-radius: 20px; padding: 28px 24px 22px; box-shadow: 0 12px 50px rgba(0,0,0,.5); }
+#entry .et { font-size: 38px; letter-spacing: .3em; color: var(--acc); padding-left: .3em; } #entry .es { font-size: 12px; letter-spacing: .35em; opacity: .6; margin-bottom: 14px; }
+#entry .ep { font-size: 13.5px; opacity: .85; line-height: 1.6; margin: 6px 0 18px; }
+#entry .gbtn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 13px 12px; border-radius: 10px; background: #fff; color: #3c4043; font-weight: 700; font-size: 16px; border: 1px solid #dadce0; cursor: pointer; } #entry .gbtn:disabled { opacity: .5; cursor: not-allowed; }
+#entry .guest { width: 100%; margin-top: 10px; padding: 13px 12px; border-radius: 10px; font-size: 16px; font-weight: 700; border-color: var(--acc); color: var(--acc); }
+#entry .en { font-size: 12px; opacity: .7; line-height: 1.7; margin: 16px 0 0; } #entry .ew { font-size: 12px; color: #ffb86b; margin: 10px 0 0; } #entry .em { min-height: 18px; font-size: 12.5px; color: var(--acc); margin-top: 8px; }

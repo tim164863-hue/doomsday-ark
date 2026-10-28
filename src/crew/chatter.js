@@ -64,4 +64,7 @@ export function pickConversation(a, b, env, arena, mode) {
   else { const r = Math.random(); pool = r < 0.34 ? TIME[phase] : r < 0.5 ? FLAVOR : r < 0.58 && arena ? CONTEST : LEISURE; if (pool === CONTEST) { const ts = arena.traders; if (ts.length >= 2) { const s = [...ts].sort((x, y) => y.equity - x.equity); ctx.leader = s[0].name; ctx.loser = s[1].name; ctx.gap = (s[0].equity - s[1].equity).toFixed(1); } else pool = LEISURE; } }
   return pick(pool).map((l) => fill(l, ctx));
 }
-export function greeting(phase) { return chance(0.35) ? GREET_T[phase] : pick(GREET); }
+const GREET_C = ['船長好！', '船長～', '嗨，船長！', '歡迎登船！'];
+const GREET_CT = { night: '船長還沒休息呀？', dawn: '船長早安！', day: '船長午安！', dusk: '船長晚安～' };
+/** owner=false（訪客 / 一般帳號）：稱呼「船長」而不是「T董」。 */
+export function greeting(phase, owner = true) { return owner ? (chance(0.35) ? GREET_T[phase] : pick(GREET)) : (chance(0.35) ? GREET_CT[phase] : pick(GREET_C)); }

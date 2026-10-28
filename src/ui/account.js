@@ -1,5 +1,6 @@
 // 帳號 UI：Google 登入按鈕 / 頭像與登出選單 / 雲端同步狀態 / 首次登入的存檔選擇對話框
 import { signIn, signOutNow, inAppBrowser, OWNER_EMAIL } from '../save/cloud.js';
+import { MODE_KEY } from '../save/boot.js';
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const fmt = (sec) => { const d = new Date(sec * 1000); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
@@ -53,7 +54,7 @@ export class AccountUI {
     const u = this.user, m = this.menu;
     if (!u) {
       const bad = inAppBrowser(); const un = !this.cloud.available;
-      m.innerHTML = `<div class="ah">訪客模式</div><p>進度只存在這台裝置（清除瀏覽器資料會消失）。登入後可雲端保存、換裝置繼續，並擁有自己的方舟與虛擬船員。</p>
+      m.innerHTML = `<div class="ah">訪客模式</div><p>進度只存在這台裝置（清除瀏覽器資料會消失）。登入後可雲端保存、換裝置繼續（可選擇是否把訪客進度上傳）。</p>
         <button class="gbtn" id="gLogin"${un ? ' disabled' : ''}>${GSVG}<span>使用 Google 登入</span></button>
         ${un ? '<p class="warn">雲端服務暫時連不上，稍後重新整理再試。</p>' : ''}${bad ? '<p class="warn">偵測到內建瀏覽器（LINE / Facebook 等），Google 會擋下登入。請用 Safari / Chrome 開啟本頁。</p>' : ''}<div class="msg" id="acctMsg"></div>`;
       m.querySelector('#gLogin').onclick = () => this.login();
@@ -61,21 +62,21 @@ export class AccountUI {
       const owner = this.boot.owner;
       m.innerHTML = `<div class="ap">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : '<b>' + esc((u.displayName || u.email).slice(0, 1).toUpperCase()) + '</b>'}<div><div class="an">${esc(u.displayName || '玩家')}</div><div class="ae">${esc(u.email)}</div></div></div>
         <div class="ar">${owner ? '⚓ 船東：顯示真實 bot 與交易電視' : '🧑‍✈️ 虛擬船員（不含任何真人 bot 資料）'}</div><div class="ar" id="acctSync">${this.syncText()}</div>
-        <button id="gSync" class="ghost">立即同步</button><button id="gOut" class="out">登出</button><div class="msg" id="acctMsg"></div>`;
-      m.querySelector('#gOut').onclick = () => this.logout(); m.querySelector('#gSync').onclick = async () => { const a = this.boot.adapter; if (a && a.canWrite) { await this.game.play.save(true); this.renderMenu(); } else this.say('目前無法同步'); };
+        <button id="gSync" class="ghost">立即同步</button><button id="gGuest" class="ghost">🧑‍✈️ 切換為訪客</button><button id="gOut" class="out">登出</button><div class="msg" id="acctMsg"></div>`;
+      m.querySelector('#gOut').onclick = () => this.logout(false); m.querySelector('#gGuest').onclick = () => this.logout(true); m.querySelector('#gSync').onclick = async () => { const a = this.boot.adapter; if (a && a.canWrite) { await this.game.play.save(true); this.renderMenu(); } else this.say('目前無法同步'); };
     }
   }
   say(t) { const e = this.menu.querySelector('#acctMsg'); if (e) e.textContent = t; }
   async login() {
     if (this.busy) return; this.busy = true; this.say('開啟 Google 登入視窗…');
     const r = await signIn(); this.busy = false;
-    if (r.ok) { this.say('登入成功，載入你的方舟…'); this.game.play && this.game.play.save(true); setTimeout(() => location.reload(), 400); }
-    else if (r.redirecting) this.say('前往 Google 登入…');
+    if (r.ok) { try { localStorage.setItem(MODE_KEY, 'google'); } catch (e) { /* ignore */ } this.say('登入成功，載入你的方舟…'); this.game.play && this.game.play.save(true); setTimeout(() => location.reload(), 400); }
+    else if (r.redirecting) { try { localStorage.setItem(MODE_KEY, 'google'); } catch (e) { /* ignore */ } this.say('前往 Google 登入…'); }
     else if (r.cancelled) this.say('已取消登入');
     else { const c = r.error && r.error.code; this.say(c === 'auth/unauthorized-domain' ? '此網址尚未加入授權網域' : c === 'auth/network-request-failed' ? '網路連線失敗' : '登入失敗，請再試一次'); }
   }
-  async logout() {
-    this.say('登出中…'); try { await this.game.play.save(true); } catch (e) { /* ignore */ }
+  async logout(toGuest) {
+    this.say('登出中…'); try { if (toGuest) localStorage.setItem(MODE_KEY, 'guest'); else localStorage.removeItem(MODE_KEY); } catch (e) { /* ignore */ } try { await this.game.play.save(true); } catch (e) { /* ignore */ }
     try { await signOutNow(); } catch (e) { /* ignore */ } location.reload();
   }
 }

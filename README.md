@@ -51,6 +51,7 @@
   - 存檔：每 10 秒收集、雲端最短 30 秒寫一次（免費額度友善），切到背景 / 關閉頁面時立刻寫。離開後再回來用同一套模擬補算。
   - **防竄改時鐘**：登入時遊戲時鐘以「伺服器時間」為錨（Firestore `serverTimestamp` 讀回），之後用 `performance.now()` 推進，所以改裝置時鐘無效；連不上伺服器時離線補算最多承認 30 分鐘。訪客只能用裝置時鐘（localStorage 本來就能改）。
   - **船東**：只有 `tunchin0113@gmail.com`（已驗證 email；`OWNER_UIDS` 可再鎖 uid）看得到真實 bot 與交易電視並抓取 `sessions.json`；其他帳號與訪客只有虛擬船員，電視顯示「僅限船東頻道」。這只是顯示判斷（`sessions.json` 本來就是公開檔案），不是安全邊界。
+  - **進站流程**：新瀏覽器（沒登入、沒選過模式）先看到第一畫面 [用 Google 登入] / [訪客遊玩]（`src/ui/entry.js`，上次選擇記在 `ark.mode`）。只有船東帳號登入才載入 T董 的遊輪方舟與真實 bot（雲端存檔）；訪客與其他 Google 帳號都從選船開始（小漁船 / 洋流號 / 打撈拖船）、虛擬船員。訪客存檔在本機；非船東登入時可選擇上傳訪客進度，船東永遠載入雲端方舟、不合併訪客進度。本機若殘留船東（T董）存檔，非船東一律忽略並備份到 `ark.ownerLocal.v1`。🔑 選單：登入 / 登出 / 切換為訪客。
   - Firestore 規則見 `firestore.rules`（只能讀寫自己的 `arks/{uid}`，有大小 / 形狀檢查，其餘全拒）。部署：Firebase 控制台 → Firestore → 規則，貼上後發布。
 - **登船 API（預留，未開放）**：`src/api/boarding.js` 定義「bot → 方舟」單向唯讀的狀態格式（名稱 / 狀態 / 類型），沒有端點、沒有規則、沒有任何程式呼叫它。
 - 網址參數（除錯 / 截圖用）：`?q=low|mid|high` 鎖定畫質、`?t=0.74` 時間、`?mode=overview|free|follow`、`?cam=yaw,pitch,dist,x,y,z`、`?demo=1` 離線示範資料、`?demo=cycle` 每 30 秒輪替工作/休息/下班、`?explode=5`。

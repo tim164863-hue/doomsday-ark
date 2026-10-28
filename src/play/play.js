@@ -56,7 +56,7 @@ export class Play {
     this.ready = true; this.save(boot.needPush);
     hud.attach(this); this.onCrew(); this.pickWatch();
     // 載入完成後顯示離線報告（等說明視窗關閉）
-    const tryShow = () => { if (!this.hud.helpOpen()) { const r = this.pendingReport; this.pendingReport = null; if (r && (r.first || (r.rep && r.away >= 120))) this.hud.showReport(r); } else setTimeout(tryShow, 600); };
+    const tryShow = () => { if (!this.hud.helpOpen()) { const r = this.pendingReport; this.pendingReport = null; if (r && r.first && !this.game.owner && this.state.fleet && !this.state.fleet.pick) { /* 新訪客：先選船（pickWatch），不先跳歡迎視窗 */ } else if (r && (r.first || (r.rep && r.away >= 120))) this.hud.showReport(r); } else setTimeout(tryShow, 600); };
     setTimeout(tryShow, 1400);
   }
 
@@ -177,7 +177,7 @@ export class Play {
     const env = this.game.envState, s = this.state; const t = nowSec(); const lines = []; const kids = S.crewKeys(s);
     const st = S.staffOf(s); const myFac = FAC_ORDER.find((f) => st[f] === b.key);
     if (b.hurt) lines.push('我還在養傷，等等就好…');
-    if (s.res.food < 40) lines.push('食物快不夠了，T董，要不要派人出海找找？');
+    if (s.res.food < 40) lines.push('食物快不夠了，' + (this.game.owner ? 'T董' : '船長') + '，要不要派人出海找找？');
     if (s.res.water < 40) lines.push('水剩不多了，淨水器要顧好喔。');
     if (s.cond < 40) lines.push('船體傷痕累累，工坊那邊需要整修。');
     if (myFac && s.fac[myFac].lv) lines.push(`我負責${FAC[myFac].name}，運轉${s.fac[myFac].dmg ? '有點不順，需要修理' : '很順利'}！`);

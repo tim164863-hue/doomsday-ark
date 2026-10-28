@@ -5,13 +5,18 @@ import { preloadAvatars } from './crew/avatar.js';
 import { Play } from './play/play.js';
 import { HUD } from './ui/hud.js';
 import { initCloud, cloud } from './save/cloud.js';
-import { bootSave } from './save/boot.js';
+import { bootSave, entryDecision, MODE_KEY } from './save/boot.js';
+import { showEntry } from './ui/entry.js';
 import { AccountUI, chooseSave } from './ui/account.js';
 
 const canvas = document.getElementById('gl');
 const P = new URLSearchParams(location.search);
 let game;
 await Promise.all([preloadAvatars(), initCloud()]);
+// 第一個畫面：沒登入、也沒選過訪客 → 先選 [Google 登入] / [訪客遊玩]（不再預設顯示 T董 的方舟）
+{ const lm = localStorage.getItem(MODE_KEY); const dec = entryDecision({ user: cloud.user, mode: lm, params: P });
+  if (dec === 'cloud' && lm !== 'google') localStorage.setItem(MODE_KEY, 'google');
+  if (dec === 'ask') await showEntry({ cloud }); else if (dec === 'guest' && lm !== 'guest') localStorage.setItem(MODE_KEY, 'guest'); }
 const boot = await bootSave({ cloud, choose: chooseSave, fresh: !!P.get('fresh'), demo: !!P.get('demo') });
 try {
   game = new Game(canvas, { owner: boot.owner });

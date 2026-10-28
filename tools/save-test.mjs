@@ -1,8 +1,9 @@
 // node tools/save-test.mjs —— 存檔開機邏輯 / 雲端轉接器 / 時鐘防竄改 / 船東判定（用記憶體後端，不連網）
-import { bootSave } from '../src/save/boot.js';
+import { bootSave, entryDecision, isOwnerSave, QUARANTINE_KEY } from '../src/save/boot.js';
 import { createMemoryBackend, isOwner, serialize, validateState, CloudAdapter, cloud, OWNER_EMAIL } from '../src/save/cloud.js';
 import { clock } from '../src/clock.js';
 import * as S from '../src/sim/sim.js';
+import * as F from '../src/sim/fleet.js';
 import { virtualData, VIRTUAL_CREW } from '../src/data.js';
 import { sanitizeBoardingStatus } from '../src/api/boarding.js';
 
@@ -72,4 +73,33 @@ ok(validateState({ v: 1 }) === null && validateState(null) === null, 'validateSt
   const s = S.newState(1, now()); S.syncCrew(s, [{ key: '最高級打工仔', cat: 'work' }, { key: '0xcat', cat: 'rest' }], now()); s.crew['0xcat'].away = 1;
   S.syncCrew(s, d.crew.map((c) => ({ key: c.key, cat: c.cat })), now()); ok(!s.crew['最高級打工仔'] && s.crew['0xcat'] && s.crew['舵手小艾'], 'syncCrew prunes stale names but keeps crew on a trip'); }
 { ok(sanitizeBoardingStatus({ name: '<b>x</b>', cat: 'work', secret: 'k' }) && !('secret' in sanitizeBoardingStatus({ name: 'x', cat: 'work', secret: 'k' })), 'boarding status sanitized (unknown fields dropped)'); ok(sanitizeBoardingStatus({ name: 'x', cat: 'hack' }) === null, 'boarding rejects bad cat'); }
+// ---- 進站閘門：訪客 / 船東 / 其他帳號（第一畫面、船東存檔隔離）
+{ const P = (q) => new URLSearchParams(q);
+  ok(entryDecision({ user: null, mode: null, params: P('') }) === 'ask', 'new browser (no user, no mode) → first screen');
+  ok(entryDecision({ user: null, mode: 'google', params: P('') }) === 'ask', 'signed-out google mode → first screen again');
+  ok(entryDecision({ user: null, mode: 'guest', params: P('') }) === 'guest', 'returning guest resumes guest');
+  ok(entryDecision({ user: U, mode: null, params: P('') }) === 'cloud', 'signed-in restores cloud automatically');
+  ok(entryDecision({ user: null, mode: null, params: P('demo=1') }) === 'guest' && entryDecision({ user: null, mode: null, params: P('fresh=1') }) === 'guest', 'demo/fresh params skip the first screen');
+  const ownerSave = (seed, t) => { const s = mk(seed, t); s.fleet = F.newFleet(true); return s; };
+  ok(isOwnerSave(ownerSave(1, now())) && !isOwnerSave(mk(1, now())) && !isOwnerSave({ fleet: { pick: 'small', flagship: null } }), 'isOwnerSave detects the T董 ark only');
+  // 沒登入的瀏覽器有舊的 T董 本機存檔 → 訪客看不到，備份到隔離 key
+  { const st = mkStore(); st.setItem('ark.save.v1', JSON.stringify(ownerSave(3, now() - 600)));
+    const b = await bootSave({ cloud: { user: null }, storage: st }); ok(b.mode === 'guest' && !b.owner && b.state === null && b.notes.includes('owner-local-ignored'), 'guest never gets an owner-local save');
+    ok(st.getItem('ark.save.v1') === null && st.getItem(QUARANTINE_KEY), 'owner-local save moved to quarantine key (not deleted)'); }
+  // 正常訪客存檔照常續玩
+  { const st = mkStore(); const g = mk(4, now() - 600); g.fleet = F.newFleet(false); g.fleet.pick = 'small'; st.setItem('ark.save.v1', JSON.stringify(g));
+    const b = await bootSave({ cloud: { user: null }, storage: st }); ok(b.state && b.state.seed === 4, 'normal guest save resumes'); }
+  // 船東登入：永遠載入雲端 T董 方舟，絕不詢問 / 合併訪客進度
+  { const st = mkStore(); const be = setup(); const OW = { uid: 'own', email: OWNER_EMAIL, emailVerified: true }; const c = { ...cloud, user: OW, adapterFor: (u, o) => new CloudAdapter(be, u, o) };
+    put(be, 'own', ownerSave(5, now() - 7200)); const g = mk(9, now() - 10); g.fleet = F.newFleet(false); g.fleet.pick = 'small'; st.setItem('ark.save.v1', JSON.stringify(g));
+    const b = await bootSave({ cloud: c, storage: st, choose: async () => { throw new Error('owner must not be asked'); } });
+    ok(b.owner && b.mode === 'cloud' && b.state.seed === 5 && isOwnerSave(b.state), 'owner signs in → loads cloud T董 ark, guest save ignored'); }
+  // 一般 Google 帳號：不會拿到船東存檔；訪客進度可選擇上傳
+  { const st = mkStore(); const be = setup(); const c = { ...cloud, user: U, adapterFor: (u, o) => new CloudAdapter(be, u, o) };
+    st.setItem('ark.save.v1', JSON.stringify(ownerSave(6, now() - 50))); let asked = false;
+    const b = await bootSave({ cloud: c, storage: st, choose: async () => { asked = true; return 'local'; } }); ok(!b.owner && b.state === null && !asked, 'non-owner account: owner-local save ignored, not offered for upload');
+    const g = mk(8, now() - 40); g.fleet = F.newFleet(false); g.fleet.pick = 'small'; st.setItem('ark.save.v1', JSON.stringify(g));
+    const b2 = await bootSave({ cloud: c, storage: st, choose: async () => { asked = true; return 'local'; } }); ok(asked && b2.state.seed === 8 && b2.needPush, 'non-owner account is offered to upload the guest progress');
+    put(be, 'u1', ownerSave(7, now() - 100)); const b3 = await bootSave({ cloud: c, storage: mkStore() }); ok(b3.state === null && b3.notes.includes('owner-save-ignored'), 'non-owner never loads an owner-type save even from the cloud'); }
+}
 console.log(fails ? `\n${fails} FAILED` : '\n全部通過'); process.exit(fails ? 1 : 0);

@@ -370,7 +370,7 @@ export class Crew {
       if (b.away || b.actor.deck !== pl.actor.deck || b.greetCd > 0 || b.sleeping || b.inBath || b.convo) continue;
       const d = Math.hypot(b.actor.x - pl.actor.x, b.actor.z - pl.actor.z);
       if (d < 2.6 && pl.actor.speed < 3) {
-        b.greetCd = 90 + rnd() * 60; b.say(greeting(this.game.phaseKey), 3.4, 'greet');
+        b.greetCd = 90 + rnd() * 60; b.say(greeting(this.game.phaseKey, this.game.owner), 3.4, 'greet');
         if (b.avatar.poseName === 'stand' && !b.actor.busy) { b.actor.yaw = Math.atan2(pl.actor.x - b.actor.x, pl.actor.z - b.actor.z); b.avatar.setPose('wave'); setTimeout(() => { if (b.avatar.poseName === 'wave') b.avatar.setPose('stand'); }, 2200); }
       }
     }
