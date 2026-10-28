@@ -5,6 +5,7 @@ import { MOODS } from '../crew/mood.js';
 import * as S from '../sim/sim.js';
 import * as FL from '../sim/fleet.js';
 import { SeaChart } from './seachart.js';
+import { BattleUI } from './battleui.js';
 import { SHIPS, SHIP_ORDER, STARTERS, ZONES, ZONE_ORDER, FLAGSHIP, FLEET_MAX, LV_MAX } from '../sim/fleetdefs.js';
 import { RES, RES_KEYS, FAC, FAC_ORDER, SITES, TIERS, LV_MULT, MAX_LV, REPAIR_FAC_COST, REPAIR_HULL, STATUS_BONUS } from '../sim/defs.js';
 
@@ -24,7 +25,7 @@ const dur = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(
 const mmss = (sec) => { sec = Math.max(0, Math.ceil(sec)); const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${String(s).padStart(2, '0')}`; };
 const fmt = (n) => (Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10);
 const costHTML = (c, s) => Object.keys(c).map((k) => `<span class="${s && s.res[k] < c[k] ? 'lack' : ''}">${RES[k].icon}${c[k]}</span>`).join(' ');
-const EV_ICON = { seazone: '🧭', weather: '🌦', storm: '⛈', shortage: '⚠️', trip: '🚣', sick: '🤒', recover: '💪', crate: '🎁', rain: '🌧', build: '🔨', fight: '💢', makeup: '🤝', party: '🎉', celebrate: '🎊', help: '🩹', meal: '🍽' };
+const EV_ICON = { seazone: '🧭', battle: '⚔️', weather: '🌦', storm: '⛈', shortage: '⚠️', trip: '🚣', sick: '🤒', recover: '💪', crate: '🎁', rain: '🌧', build: '🔨', fight: '💢', makeup: '🤝', party: '🎉', celebrate: '🎊', help: '🩹', meal: '🍽' };
 const CAT_ICON = { work: '⌨️', rest: '🛋', off: '😴' };
 const REASON = { focus: '專心工作中', happy: '心情不錯', tired: '有點累了', anxious: '有點不安', bored: '有點無聊' };
 
@@ -43,7 +44,7 @@ export class HUD {
     for (const k of RES_KEYS) rcs.append($(`<div class="rc" data-k="${k}" title="${RES[k].name}"><i>${RES[k].icon}</i><b>0</b><small></small></div>`));
     rcs.append($(`<div class="rc cond" data-k="cond" title="船體狀況"><i>🛠</i><b>0%</b><span class="bar"><u></u></span></div>`));
     rcs.append($(`<div class="rc wx" data-k="wx" title="目前天氣" style="display:none"><i>🌤</i><b></b></div>`)); rcs.append($(`<div class="rc sz" data-k="sz" title="特殊海域" style="display:none"><i>🌀</i><b></b></div>`));
-    this.bar.querySelector('#btnTasks').onclick = () => this.openModal('tasks'); this.bar.querySelector('#btnTrips').onclick = () => this.openModal('trips'); this.bar.querySelector('#btnFleet').onclick = () => this.openModal('fleet'); this.bar.querySelector('#btnChart').onclick = () => this.chart.toggle(); this.chart = new SeaChart(this);
+    this.bar.querySelector('#btnTasks').onclick = () => this.openModal('tasks'); this.bar.querySelector('#btnTrips').onclick = () => this.openModal('trips'); this.bar.querySelector('#btnFleet').onclick = () => this.openModal('fleet'); this.bar.querySelector('#btnChart').onclick = () => this.chart.toggle(); this.chart = new SeaChart(this); this.battle = new BattleUI(this);
     this.bar.querySelector('#btnRel').onclick = () => this.openModal('rel');
     { const cb = this.bar.querySelector('#btnChar'); if (cb) cb.onclick = () => this.openModal('char'); }
     this.bar.querySelector('#btnCrewL').onclick = () => { this.crewOpen = !this.crewOpen; this.renderCrew(true); };
@@ -60,7 +61,7 @@ export class HUD {
   }
   /** 虛擬搖桿只在「走路 / 駕駛」時顯示：任何彈窗、說明、海圖、選船、小遊戲開著就收起來 */
   syncJoy() {
-    const g = this.game; const ov = !!this.modalKind || this.helpOpen() || (this.chart && this.chart.isOpen()) || !!document.getElementById('pvbar') || document.body.classList.contains('gaming') || !!document.getElementById('entry') || !!g.homeless || !!document.querySelector('#acctMenu:not([hidden]), #syncdlg');
+    const g = this.game; const ov = !!this.modalKind || this.helpOpen() || (this.chart && this.chart.isOpen()) || (this.battle && this.battle.isOpen()) || !!document.getElementById('pvbar') || document.body.classList.contains('gaming') || !!document.getElementById('entry') || !!g.homeless || !!document.querySelector('#acctMenu:not([hidden]), #syncdlg');
     document.body.classList.toggle('nojoy', ov); document.body.classList.toggle('homeless', !!g.homeless);
   }
   /** 底部 UI 不重疊：互動卡 / 小遊戲 / 駕駛列出現時自動收起展開的時間列；若使用者又手動展開，卡片會用實測高度往上推 */
@@ -101,6 +102,7 @@ export class HUD {
     const nTr = s.trips.length; const bb = this.bar.querySelector('#btnTrips .bdg'); bb.textContent = nTr; bb.classList.toggle('hide', !nTr);
     const fl = s.fleet; if (fl) { const bf = this.bar.querySelector('#btnFleet .bdg'); const idle = fl.ships.filter((x) => x.state === 'sail').length; bf.textContent = idle; bf.classList.toggle('hide', !idle); }
     if (fl && fl.world && fl.world.pos) { const evs = FL.pendingEvents(s, nowSec()); const bc = this.bar.querySelector('#btnChart .bdg'); bc.textContent = evs.length; bc.classList.toggle('hide', !evs.length); this._evSeen = this._evSeen || new Set(); for (const sh of evs) { const key = sh.id + ':' + sh.n; if (!this._evSeen.has(key)) { this._evSeen.add(key); this.ui.toast('🧭 海上事件：' + sh.name + ' 需要你的決定（按 M 開海圖）'); } } }
+    if (this.battle) this.battle.refresh();
     this.renderCrew(force); this.refreshPrompt(force); this.updateTagStates(); if (this.modalKind) this.refreshModal(force);
   }
   renderCrew(force) {

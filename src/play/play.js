@@ -13,6 +13,7 @@ import * as S from '../sim/sim.js';
 import { FAC, FAC_ORDER, SITES, TIERS, TICK, RES } from '../sim/defs.js';
 import * as F from '../sim/fleet.js';
 import * as SZM from '../sim/seazones.js';
+import * as BTL from '../sim/battle.js';
 import { SHIPS, ZONES, ZONE_ORDER } from '../sim/fleetdefs.js';
 import { buildShipModel } from '../ship/fleetmodels.js';
 import { FacilityView, findSlot, blockRect, FOOT, SC, setFacScale } from './facilities.js';
@@ -163,6 +164,12 @@ export class Play {
     }
     else if (ev.type === 'shortage') { ui.toast('⚠️ ' + ev.text); for (const b of bots.slice(0, 2)) say(b, pick(['肚子好餓…', '水…有沒有水喝？', '補給是不是該補一下了？']), 'mood'); }
     else if (ev.type === 'trip') { ui.toast('🚣 ' + ev.text); const b = this.botOf(ev.who); const tr = ev.injured || []; if (b) setTimeout(() => say(b, ev.fail ? pick(['這次運氣不太好…', '什麼都沒撈到，抱歉。']) : pick(['帶了東西回來囉！', '回來了！這趟不錯。']), 'mood'), 1200); for (const k of tr) { const x = this.botOf(k); if (x) setTimeout(() => say(x, '嘶…受了點傷。', 'mood'), 2400); } }
+    else if (ev.type === 'battle') {
+      const recent = ev.t > nowSec() - 900; if (recent) ui.toast(ev.text);
+      if (ev.sub === 'start' && recent) { this.game.audio.event('crash', 18); for (const b of bots.slice(0, 2)) say(b, pick(['有東西從海裡冒出來了！', '全員戰鬥位置！', '是海怪！到海圖看看！']), 'mood'); }
+      else if (recent && ev.sub === 'win') for (const b of bots.slice(0, 2)) say(b, pick(['打贏了！', '哈！牠逃走了！']), 'mood');
+      else if (recent && (ev.sub === 'lose' || ev.sub === 'caught')) for (const b of bots.slice(0, 2)) say(b, pick(['船體在漏水…', '好痛的一擊…']), 'mood');
+    }
     else if (ev.type === 'fleet') ui.toast(ev.text);
     else if (ev.type === 'blueprint') ui.toast('🗺️ ' + ev.text);
     else if (ev.type === 'shipdone') { ui.toast('🛠 ' + ev.text); }
@@ -327,7 +334,8 @@ export class Play {
     else if (name === 'rename') r = F.renameShip(s, a.id, a.name);
     else if (name === 'home') r = F.setHome(s, a.id);
     if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg)) r.msg += SZM.rescueHint(s, now);
-    if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
+    if (r && r.msg && name !== 'battleEngage') this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
+    else if (r && r.ok && r.text && name.startsWith('battle') && name !== 'battleSubmit') this.game.ui.toast(r.text);
     if (r && r.ok) { this.updateFleet(this.game.time); }
     // 小船家：選船／換旗艦／升級旗艦 → 存檔後重新載入，場景換成新的船
     if (r && r.ok && this.game.small && !r.same && (name === 'pick' || name === 'home' || (name === 'upgrade' && a.id === this.homeId()))) { this.reloadHome(); return r; }
@@ -402,6 +410,9 @@ export class Play {
     else if (name === 'stop') r = F.stopArk(s, now);
     else if (name === 'decide') r = F.decideSeaEvent(s, a.id, a.i, now);
     else if (name === 'puzzle') r = SZM.puzzleResolve(s, now, a.seq);
+    else if (name === 'battleEngage') r = BTL.battleEngage(s, now);
+    else if (name === 'battleAuto') r = BTL.battleAuto(s, now, F.combatOf(s));
+    else if (name === 'battleSubmit') r = BTL.battleSubmit(s, now, a.rep, F.combatOf(s));
     else if (name === 'rescue') { const w = s.fleet.world; if (this.game.helm.on) this.game.helm.stop(); r = SZM.rescueDo(s, now); }
     if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg)) r.msg += SZM.rescueHint(s, now);   // 海圖出航燃料不足：在漩渦裡要提示拖船救援
     if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);

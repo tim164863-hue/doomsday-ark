@@ -9,6 +9,8 @@ import { weatherAt, coldRaw, KINDS, effectsOf, WX } from '../sim/weather.js';
 
 import { SPECIAL_ZONES, SZ_ORDER, zoneAtPoint, routeZones, MATERIALS } from '../sim/szdata.js';
 import { routeGate, gateMsg } from '../sim/promo.js';
+import { btHtml } from './battleui.js';
+import { curOf } from '../sim/battle.js';
 import { unprepared, unprepK, seaStatus, rescueCan, RESCUE } from '../sim/seazones.js';
 
 const nowSec = () => clock.now();
@@ -130,8 +132,9 @@ export class SeaChart {
     if (!this.open_) return; const s = this.s, w = s.fleet.world, now = nowSec(); const ark = W.arkPos(w, now); const zone = W.zoneAt(ark.x, ark.y);
     this.el.querySelector('.scSub').textContent = `${W.zoneLabel(zone)} · (${Math.round(ark.x)}, ${Math.round(ark.y)}) · 已探索 ${Math.round(W.fogCount(w) / (Math.PI * 980 * 980 / 625) * 100)}%`;
     const wxn = weatherAt(now, ark.x, ark.y); const K = KINDS[wxn.show] || KINDS[wxn.kind]; this.el.querySelector('.scSub').textContent += ` · ${K.icon}${wxn.temp}°`;
-    const evs = FL.pendingEvents(s, now); const sail = s.fleet.ships.filter((x) => x.state === 'sail'); const sig = JSON.stringify([evs.map((x) => x.id + ':' + x.m.ev.k), sail.map((x) => x.id), !!w.route, Math.floor(s.res.fuel / 5), Math.floor(s.res.parts / 10), wxn.show, Math.round(wxn.i * 5), Math.floor(now / 600), (() => { const h = zoneAtPoint(ark.x, ark.y); return h ? h.id + Math.round(h.depth * 4) : ''; })(), JSON.stringify(s.fleet.mat || 0), Object.keys(s.fleet.bp || {}).length, Object.keys(this.szSeen || {}).join()]);
+    const evs = FL.pendingEvents(s, now); const sail = s.fleet.ships.filter((x) => x.state === 'sail'); const bz = s.fleet.world.bt, sig = JSON.stringify([bz ? [bz.n, bz.cur ? bz.cur.id + ':' + bz.cur.eng + ':' + (now < bz.cur.end) : 0, bz.last && bz.last.t, bz.st.w + bz.st.l + bz.st.d + bz.st.f] : 0, evs.map((x) => x.id + ':' + x.m.ev.k), sail.map((x) => x.id), !!w.route, Math.floor(s.res.fuel / 5), Math.floor(s.res.parts / 10), wxn.show, Math.round(wxn.i * 5), Math.floor(now / 600), (() => { const h = zoneAtPoint(ark.x, ark.y); return h ? h.id + Math.round(h.depth * 4) : ''; })(), JSON.stringify(s.fleet.mat || 0), Object.keys(s.fleet.bp || {}).length, Object.keys(this.szSeen || {}).join()]);
     if (force || sig !== this.panelSig) { this.panelSig = sig; this.renderPanel(evs, sail, ark, w); if (evs.length && !this._panelUser && this.panel.classList.contains('collapsed')) this.setPanel(true); }
+    { const bl = this.panel.querySelector('[data-btleft]'), c = curOf(s); if (bl && c) bl.textContent = mmss(c.end - now); }
     const eta = this.panel.querySelector('[data-arketa]'); if (eta && w.route) eta.textContent = `剩 ${mmss(w.route.t1 - now)}`;
     this.panel.querySelectorAll('[data-eta]').forEach((el) => { const sh = FL.findShip(s, +el.dataset.id); if (sh && sh.m) el.textContent = `返航 剩 ${mmss(sh.m.end - now)}`; });
   }
@@ -156,8 +159,10 @@ export class SeaChart {
     const ms = sail.map((sh) => `<div class="msn" data-id="${sh.id}"><span>${SHIPS[sh.type].icon}</span><div><b>${esc(sh.name)}</b> → ${ZONES[sh.m.zone].icon}${ZONES[sh.m.zone].name}<small data-eta data-id="${sh.id}"></small></div></div>`).join('') || '<p class="dim">目前沒有船在海上。</p>';
     const seen = ZONE_ORDER.map((z) => `<span class="zc ${w.seen[z] ? '' : 'un'}" style="${w.seen[z] ? `border-color:${hex(ZONES[z].color)};color:${hex(ZONES[z].color)}` : ''}">${w.seen[z] ? ZONES[z].icon + ZONES[z].name : '❓'}</span>`).join('');
     this.panel.innerHTML = `${evHtml}<div class="pk"><h4>⚓ 方舟 ${w.route ? `<small data-arketa></small>` : '<small>停泊中</small>'}</h4><p>${w.route ? `航向 (${Math.round(w.route.x1)}, ${Math.round(w.route.y1)}) ${(() => { const [gx, gy] = W.cellOf(w.route.x1, w.route.y1); return W.fogHas(w, gx, gy) ? W.zoneLabel(W.zoneAt(w.route.x1, w.route.y1)) : '❓未知海域'; })()}` : '點地圖任意位置，決定下一個目的地。'}</p><p class="dim">航速 ${WORLD.arkSpeed}/分 · 每 ${Math.round(1 / WORLD.fuelPerUnit)} 單位耗 ⛽1 · 目前 ⛽${Math.floor(s.res.fuel)}</p>${w.route ? '<div class="mb"><button data-a="stop">⏹ 就地停泊（燃料不退）</button></div>' : ''}</div>
-      ${this.wxHtml(w, ark, now)}${this.szPanel(w, ark, now)}<div class="pk"><h4>🚢 海上任務</h4>${ms}${done}</div><div class="pk"><h4>🗺 已發現海域</h4><div class="zonebar">${seen}</div><p class="dim">方舟停在遠海域旁，該海域的任務會更快、收穫更多。船出任務時會順便揭開目的地附近的迷霧。</p></div>`;
+      ${btHtml(s, now)}${this.wxHtml(w, ark, now)}${this.szPanel(w, ark, now)}<div class="pk"><h4>🚢 海上任務</h4>${ms}${done}</div><div class="pk"><h4>🗺 已發現海域</h4><div class="zonebar">${seen}</div><p class="dim">方舟停在遠海域旁，該海域的任務會更快、收穫更多。船出任務時會順便揭開目的地附近的迷霧。</p></div>`;
     this.panel.querySelectorAll('[data-a=ev]').forEach((b) => { b.onclick = () => { const id = +b.closest('.evc').dataset.id; this.hud.play.worldAct('decide', { id, i: +b.dataset.i }); this.refresh(true); }; });
+    const btk = this.panel.querySelector('[data-a=btTake]'); if (btk) btk.onclick = () => this.hud.battle.open();
+    const btc = this.panel.querySelector('[data-a=btCrew]'); if (btc) btc.onclick = () => { this.hud.play.worldAct('battleAuto', {}); this.refresh(true); };
     const rsb = this.panel.querySelector('[data-a=rescue]'); if (rsb) rsb.onclick = () => { this.hud.play.worldAct('rescue', {}); this.refresh(true); };
     const pzb = this.panel.querySelector('[data-a=pz]'); if (pzb) pzb.onclick = () => this.hud.openPuzzle();
     const st = this.panel.querySelector('[data-a=stop]'); if (st) st.onclick = () => { this.hud.play.worldAct('stop', {}); this.refresh(true); };

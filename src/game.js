@@ -28,6 +28,7 @@ import * as WD from './sim/world.js';
 import { weatherAt, helmFactor, tempOf } from './sim/weather.js';
 import { arkPos } from './sim/world.js';
 import { clock } from './clock.js';
+import * as BTD from './sim/battle.js';
 
 export class Game {
   constructor(canvas, opts = {}) {
@@ -156,6 +157,12 @@ export class Game {
     if (!import.meta.env.DEV) return false;   // 只有開發模式才有
     const z = SPECIAL_ZONES[id], w = this.play && this.play.state && this.play.state.fleet && this.play.state.fleet.world; if (!z || !w) return false;
     w.route = null; w.pos = { x: z.x + z.r * u, y: z.y }; WD.reveal(w, w.pos.x, w.pos.y, 120); WD.reveal(w, z.x, z.y, z.r + 40); w.hm = 0; this.szT = 0; this.szFirst = false; this.play.save(true); return true;
+  }
+  /** 測試 / 截圖用：直接在方舟身邊生出一場遭遇（k = serpent|kraken|leviathan|pirate；會存檔）。 */
+  btSpawn(k = 'serpent', lv = 1, nm = '') {
+    if (!import.meta.env.DEV) return false;   // 只有開發模式才有；正式版整段會被拿掉
+    const s = this.play && this.play.state, w = s && s.fleet && s.fleet.world; if (!w || !BTD.FOES[k]) return false; const bt = w.bt || (w.bt = BTD.emptyBt()), t = clock.now();
+    bt.n++; bt.ls = Math.floor(t / BTD.BT.slot); bt.cur = { id: bt.n, k, lv, z: '', rz: 'reef', dep: 0, x: Math.round(w.pos.x), y: Math.round(w.pos.y), wx: '', t0: t, end: t + BTD.BT.grace, eng: 0, nm }; this.play.save(true); this.hud.refresh(true); return true;
   }
   /** 目前地圖位置（地圖單位）；沒有存檔 / 世界 → null */
   mapPos() { const p = this.play, w = p && p.state && p.state.fleet && p.state.fleet.world; return w && w.pos ? arkPos(w, clock.now()) : null; }

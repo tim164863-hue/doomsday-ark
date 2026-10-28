@@ -94,6 +94,10 @@ export function estimate(own, foe) {
   const pw = ownPower(own) * BT.botAcc, kill = foe.hp / pw, taken = kill * foe.atk * (1 - BT.botDodge) * guardOf(own), mg = margin(own);
   return { kill, taken, mg, fight: kill <= BT.rounds * 0.85 && taken <= mg * 0.8 && mg > 0 };
 }
+/** 硬拚的勝率估計（只給畫面顯示用：固定 40 個虛擬種子，不寫存檔、不影響結算）。skill 預設 = 船員；接管最多 = 加成上限。 */
+export function winChance(own, foe, manual = false) {
+  const sk = manual ? { acc: BOT.acc * BT.accCap, dodge: BOT.dodge + BT.dodgeCap } : BOT; let w = 0; for (let i = 0; i < 40; i++) if (duel(7, i, own, foe, sk).res === 'win') w++; return w / 40;
+}
 /** 逃跑成功率：快、偵察強有利；Boss 更難甩開 */
 export const fleeChance = (own, foe) => clamp((0.45 + ((own.spd || 1) - 1) * 0.6 + ((own.scoutK || 1) - 1) * 0.3) * (foe.boss ? 0.6 : 1), 0.2, 0.9);
 
@@ -202,4 +206,4 @@ export function battleAuto(s, nowSec, own) { const c = battleCan(s, nowSec); if 
 /** 即時砲戰結束：結算（rep 只影響手動加成，上限見 effSkill；沒接管 / 時間到就不會進來） */
 export function battleSubmit(s, nowSec, rep, own) { const c = battleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; return resolveCur(s, Math.max(s.simT, nowSec), (e) => s.log.push(e), own, rep, true); }
 /** 給海圖 / 提示：這場遭遇的預估（船員會打還是逃） */
-export function battlePreview(s, own) { const c = curOf(s); if (!c) return null; const foe = foeStats(c), e = estimate(own, foe); return { foe, fight: e.fight, flee: fleeChance(own, foe), power: ownPower(own), margin: e.mg }; }
+export function battlePreview(s, own) { const c = curOf(s); if (!c) return null; const foe = foeStats(c), e = estimate(own, foe); return { foe, fight: e.fight, win: winChance(own, foe), winMax: winChance(own, foe, true), flee: fleeChance(own, foe), power: ownPower(own), margin: e.mg }; }

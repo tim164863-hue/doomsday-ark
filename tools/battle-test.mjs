@@ -126,6 +126,12 @@ const find = () => { for (let seed = 1; seed < 80; seed++) { const s = mk({ x: 1
   const wild = A.createArena(8, 8, foe, o); for (let i = 0; i < 300; i++) A.stepArena(wild, { mx: i % 2 ? NaN : 99, my: -1e9, aim: { x: NaN, y: 1e9 }, fire: true, ammo: 1 }); ok(wild.p.x >= 4 && wild.p.x <= 96 && wild.p.y >= 46 && wild.p.y <= 96 && Number.isFinite(wild.p.vx), '亂輸入（NaN / 超大）：玩家不出界、不爆數值');
   const burn = A.createArena(9, 9, B.foeStats({ k: 'kraken', lv: 1.2 }), own('war_1')); let ev0 = 0; for (let i = 0; i < 90; i++) { for (const e of A.stepArena(burn, { mx: 0, my: 0, aim: { x: burn.foe.x, y: burn.foe.y }, fire: true, ammo: 1 })) if (e.k === 'foehit' && e.burn) ev0++; } ok(burn.st.inc > 0 && burn.st.inc <= A.AR.incN && ev0 >= 0, `燃燒彈有數量上限（用了 ${burn.st.inc} / ${A.AR.incN}）`); }
 
+// ---- 勝率估計（畫面顯示用）
+{ const foe = B.foeStats({ k: 'kraken', lv: 1.3 }); const a = B.winChance(own('ark_t0'), foe), b = B.winChance(own('war_3'), foe), m = B.winChance(own('ark_t0'), foe, true);
+  ok(a >= 0 && a <= 1 && b > a && m >= a, `勝率估計：初始方舟 ${(a * 100) | 0}% < 戰艦 T3 ${(b * 100) | 0}%；全力指揮 ${(m * 100) | 0}% ≥ 船員`);
+  ok(B.winChance(own('ark_t0'), foe) === a, '勝率估計是決定性的（同輸入同輸出）');
+  const s = mk({ x: 1000, y: 1000 }); s.fleet.world.bt = B.emptyBt(); s.fleet.world.bt.cur = { id: 1, k: 'kraken', lv: 1.3, z: '', rz: 'reef', dep: 0, x: 1000, y: 1000, wx: '', t0: T0, end: T0 + 600, eng: 0, nm: '' }; const pv = B.battlePreview(s, F.combatOf(s)); ok(pv && typeof pv.fight === 'boolean' && pv.win >= 0 && pv.winMax >= pv.win - 1e-9, '預覽含「船員打算 / 勝率 / 全力指揮勝率」'); }
+
 // ---- 艦隊小船的「海怪來襲」事件
 { const { EVENTS, decide, planEvent } = await import('../src/sim/seaevents.js');
   ok(EVENTS.battle && EVENTS.battle.opts.some((o) => o.battle) && Object.getPrototypeOf(EVENTS) === null, '艦隊事件表有「海怪來襲」');
