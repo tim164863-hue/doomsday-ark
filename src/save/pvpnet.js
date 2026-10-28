@@ -91,7 +91,7 @@ export function firestorePvp(fs, db) {
 
 /** 客戶端排程：節流、失敗不丟例外（PvP 壞掉不能影響遊戲本身） */
 export class PvpClient {
-  constructor(backend, { uid, owner, now }) { this.be = backend; this.uid = uid || null; this.owner = !!owner; this.now = now || (() => Date.now() / 1000); this.last = null; this.pubAt = 0; this.scanAt = 0; this.pullAt = 0; this.list = []; this.err = ''; this.scanning = false; this.scanned = false; this.counts = { pub: 0, scan: 0, pull: 0, raid: 0 }; this.wipePending = false; this.sealed = false; this.flight = null; }
+  constructor(backend, { uid, owner, now }) { this.be = backend; this.uid = uid || null; this.owner = !!owner; this.now = now || (() => Date.now() / 1000); this.last = null; this.pubAt = 0; this.scanAt = 0; this.pullAt = 0; this.list = []; this.err = ''; this.scanning = false; this.scanned = false; this.counts = { pub: 0, scan: 0, pull: 0, raid: 0 }; this.wipePending = false; this.sealed = false; this.flight = null; this.sessChecked = false; }
   get enabled() { return !!(this.be && this.uid && !this.owner); }
   get why() { return !this.uid ? 'guest' : this.owner ? 'owner' : !this.be ? 'offline' : ''; }
   async publish(s, own, force) {
@@ -122,7 +122,8 @@ export class PvpClient {
   }
   /** 每個 beat 呼叫：隱身中且上次刪除失敗 → 重試，成功才清掉旗標。回傳是否有重試。 */
   async retryWipe(s) {
-    const pv = pvOf(s); if (!this.enabled || !this.wipePending || !((pv && pv.hid) || this.sealed)) return false; await this.wipe(); return true;
+    const pv = pvOf(s); if (this.enabled && !this.sessChecked) { this.sessChecked = true; if (pv && pv.hid) this.wipePending = true; }   // 每個 session 第一次 beat：存檔說正在隱身 → 再刪一次（重新載入會丟掉旗標；刪除是冪等的）
+    if (!this.enabled || !this.wipePending || !((pv && pv.hid) || this.sealed)) return false; await this.wipe(); return true;
   }
   /** 掃描附近（≤24 次讀取）。回傳整理過的清單（含是否能出手與原因），不能出手的也列出來讓玩家看懂原因。 */
   async scan(s, force) {

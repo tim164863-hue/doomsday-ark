@@ -321,6 +321,19 @@ const withInbox = (s, docs) => { ingest(s, docs, UD, false); return s; };
       clockT += 20; iS.fleet.world.pv.hid = 0; iC.last = null; iC.pubAt = 0; iB.cfg.putGate = new Promise((r) => { rel = r; }); const p3 = iC.publish(iS, own(iS), true); await Promise.resolve(); iS.fleet.world.pv.hid = 1; iC.flight = null; rel(); iB.cfg.putGate = null;
       const realDel = iB.delPresence; iB.delPresence = async () => { throw new Error('network'); }; ok((await p3) === false && store.presence.has(UI) && iC.wipePending === true, '落地後的刪除失敗 → presence 暫時還在，但 wipePending 立起'); iB.delPresence = realDel;
       clockT += 20; ok(await iC.retryWipe(iS) && !store.presence.has(UI) && iC.wipePending === false, '下一個 beat 補刪成功'); }
+    // 第 16 輪：重新載入會丟掉 wipePending → 新 session 的第一個 beat 看到 hid = 1 就再刪一次
+    { const UL = 'uidReload', lS = NT(mk(UL, { x: 1030, y: 1000 })), lB = be(UL), lC = new PvpClient(lB, { uid: UL, owner: false, now });
+      await lC.publish(lS, own(lS), true); lB.cfg.fail = true; const h = await lC.setHidden(lS, true); ok(h.pending && store.presence.has(UL), '（前提）隱身時刪除失敗，presence 還在雲端');
+      lB.cfg.fail = false; const lC2 = new PvpClient(lB, { uid: UL, owner: false, now });   // = 重新載入頁面：新的 PvpClient，旗標沒了，但存檔裡 hid = 1
+      ok(lC2.wipePending === false && store.presence.has(UL), '重新載入後旗標遺失（只在記憶體）'); clockT += 20;
+      ok(await lC2.retryWipe(lS) && !store.presence.has(UL) && lC2.wipePending === false, '新 session 第一個 beat：hid = 1 → 補刪成功、旗標清掉');
+      const dl = lB.calls.del || 0; ok(!(await lC2.retryWipe(lS)) && (lB.calls.del || 0) === dl, '之後的 beat 不再多送刪除（只檢查一次）');
+      // 沒有隱身的 session 不會亂刪
+      const UN = 'uidReload2', nS = NT(mk(UN, { x: 1030, y: 1000 })), nB = be(UN), nC = new PvpClient(nB, { uid: UN, owner: false, now }); await nC.publish(nS, own(nS), true);
+      const nC2 = new PvpClient(nB, { uid: UN, owner: false, now }); ok(!(await nC2.retryWipe(nS)) && store.presence.has(UN), 'hid = 0 的新 session：第一個 beat 不刪 presence');
+      // 重新載入後第一個 beat 若又失敗 → 之後的 beat 繼續重試
+      const UM = 'uidReload3', mS = NT(mk(UM, { x: 1030, y: 1000 })), mB = be(UM), mC = new PvpClient(mB, { uid: UM, owner: false, now }); await mC.publish(mS, own(mS), true); mB.cfg.fail = true; await mC.setHidden(mS, true);
+      const mC2 = new PvpClient(mB, { uid: UM, owner: false, now }); ok(await mC2.retryWipe(mS) && store.presence.has(UM) && mC2.wipePending === true, '新 session 第一次補刪又失敗：旗標保持'); mB.cfg.fail = false; ok(await mC2.retryWipe(mS) && !store.presence.has(UM), '下一個 beat 補刪成功'); }
     { const UO = 'uidSignout', oS = NT(mk(UO, { x: 1030, y: 1000 })), oB = be(UO), oC = new PvpClient(oB, { uid: UO, owner: false, now });
       let rel; oB.cfg.putGate = new Promise((r) => { rel = r; }); const pubP = oC.publish(oS, own(oS), true); await Promise.resolve();
       const wipeP = oC.wipe({ final: true }); await Promise.resolve(); rel(); oB.cfg.putGate = null; const [pr, wr] = await Promise.all([pubP, wipeP]);

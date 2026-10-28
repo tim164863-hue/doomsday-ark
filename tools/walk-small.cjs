@@ -18,7 +18,10 @@ const TYPES = (process.env.TYPES || 'skiff,speedboat,tug,patrol,icebreaker').spl
     console.log("…" + type);
     // 1) 全新訪客存檔 → 選這艘小船並存檔
     console.log("  a"); let pg = await open("guest=1&fresh=1"); console.log("  b"); await dismiss(pg); console.log("  c");
-    await pg.evaluate((t) => { ark.play.fleetAct('pick', { type: ['patrol', 'icebreaker'].includes(t) ? 'skiff' : t }); if (['patrol', 'icebreaker'].includes(t)) { const f = ark.play.state.fleet; f.ships[0].type = t; f.pick = t; } ark.play.save(true); }, type); console.log("  saved"); await w(500); await closePg(pg); console.log("  closed");
+    await pg.evaluate((t) => { ark.play.fleetAct('pick', { type: ['patrol', 'icebreaker'].includes(t) ? 'skiff' : t }); if (['patrol', 'icebreaker'].includes(t)) { const f = ark.play.state.fleet; f.ships[0].type = t; f.pick = t; } ark.play.save(true); }, type); console.log("  saved");
+    // 第 17 輪：pick 會觸發 reloadHome（隨機起始小船 ≠ 選的船時），重新載入完成前存檔可能存到舊船 → 先等狀態穩定，確認存下來的就是要測的船，否則重選（決定性）
+    for (let i = 0; i < 6; i++) { await w(700); const okp = await pg.evaluate((t) => { const f = ark.play.state.fleet; if (f.pick === t && f.ships[0] && f.ships[0].type === t) { ark.play.save(true); return true; } if (!['patrol', 'icebreaker'].includes(t)) ark.play.fleetAct('pick', { type: t }); else { f.ships[0].type = t; f.pick = t; } ark.play.save(true); return false; }, type).catch(() => false); if (okp) break; }
+    await w(500); await closePg(pg); console.log("  closed");
     // 2) 重新載入（不 fresh）：這時才是真正的「小船」家
     console.log("  reopen"); pg = await open("guest=1"); await dismiss(pg); console.log("  opened");
     const info = await pg.evaluate(() => ({ small: ark.small, type: ark.ship.type, key: ark.player.avatar.key, pkey: ark.player.key, owner: ark.owner, ch: ark.charId, nd: ark.ship.decks[0].pois.desks.length, ne: ark.ship.decks[0].pois.extraDesks.length, crew: [...ark.crew.bots.values()].map((x) => [x.key, x.avatar.look.model, !!x.info.look]), pl: ark.play.state.pl }));
