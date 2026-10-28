@@ -8,7 +8,7 @@ const reach = (h, x, z, tol = 1.0) => { const q = h.nav.findPath(h.start[0], h.s
 for (const t of HOME_TYPES) {
   const h = buildHome(t); const P = h.pois;
   ok(h.facs.length === 5 && h.facs.every((f) => f.ok), `${t}: 5 個設施都放得下`);
-  ok(P.desks.length >= 3 && P.seats.length >= 3 && P.chat.length >= 2, `${t}: 至少 3 張桌 / 3 個座位 / 2 個聊天點 (${P.desks.length}/${P.seats.length}/${P.chat.length})`);
+  ok(P.desks.length === h.spec.desks && P.seats.length >= 3 && P.chat.length >= 2, `${t}: 桌子數 = 規格 ${h.spec.desks}、至少 3 個座位 / 2 個聊天點 (${P.desks.length}/${P.seats.length}/${P.chat.length})`);
   ok(P.desks.every((p) => reach(h, p.x, p.z)) && P.chat.every((p) => reach(h, p.x, p.z)) && P.rail.every((p) => reach(h, p.x, p.z)), `${t}: 桌 / 聊天 / 欄杆點都走得到`);
   ok(P.loungers.every((p) => reach(h, p.x, p.z - p.head[1] * 1.3)), `${t}: 躺椅的入口走得到`);
   ok(reach(h, h.land[0], h.land[1]) && reach(h, h.door[0], h.door[1]), `${t}: 登船點與艙門走得到`);

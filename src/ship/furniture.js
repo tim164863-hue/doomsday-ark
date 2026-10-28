@@ -47,19 +47,19 @@ export function diningChair(b, x, z, ry, mat = 'wood') { const f = F(b, x, z, ry
 
 /** 工作桌：回傳座位資訊與螢幕材質 */
 export function workDesk(deck, x, z, ry, opts = {}) {
-  const b = deck.b; const f = F(b, x, z, ry);
-  // 桌面在座位前方 0.95
-  f.box('woodLight', 0, 0.95, 1.7, 0.85, 0.05, 0.72); f.box('steelDark', -0.78, 0.95, 0.05, 0.75, 0.72); f.box('steelDark', 0.78, 0.95, 0.05, 0.75, 0.72);
-  f.box('steelDark', 0, 1.3, 1.55, 0.04, 0.5, 0.2); // 背板
-  // 螢幕（背對座位的另一側為支架）
-  const [mx, mz] = f.w(0, 1.2);
-  f.box('black', 0, 1.2, 0.7, 0.05, 0.42, 0.9); f.box('black', 0, 1.2, 0.08, 0.14, 0.04, 0.74);
+  const b = deck.b; const f = F(b, x, z, ry); const cp = !!opts.compact; // compact：小船用的窄桌（寬 1.0 / 深 0.6）
+  const W = cp ? 1.0 : 1.7, D = cp ? 0.6 : 0.85, ZC = cp ? 0.82 : 0.95, LX = cp ? 0.46 : 0.78, LD = cp ? 0.55 : 0.75;
+  // 桌面在座位前方 ZC
+  f.box('woodLight', 0, ZC, W, D, 0.05, 0.72); f.box('steelDark', -LX, ZC, 0.05, LD, 0.72); f.box('steelDark', LX, ZC, 0.05, LD, 0.72);
+  f.box('steelDark', 0, ZC + 0.35, W - 0.15, 0.04, 0.5, 0.2); // 背板
+  const ZM = ZC + 0.25; // 螢幕
+  f.box('black', 0, ZM, 0.7, 0.05, 0.42, 0.9); f.box('black', 0, ZM, 0.08, 0.14, 0.04, 0.74);
   const screenMat = new THREE.MeshBasicMaterial({ color: 0x1a2a3a });
   const sg = new THREE.PlaneGeometry(0.64, 0.36); const sm = new THREE.Mesh(sg, screenMat);
-  const [sx, sz] = f.w(0, 1.2 - 0.03); sm.position.set(sx, 0.97 + 0.0, sz); sm.rotation.y = ry + Math.PI; deck.group.add(sm);
-  f.box('black', 0.0, 0.75, 0.5, 0.16, 0.02, 0.78); // 鍵盤
-  f.box('white', 0.55, 0.8, 0.08, 0.08, 0.08, 0.78);
-  f.block(0, 0.95, 1.8, 0.95);
+  const [sx, sz] = f.w(0, ZM - 0.03); sm.position.set(sx, 0.97 + 0.0, sz); sm.rotation.y = ry + Math.PI; deck.group.add(sm);
+  f.box('black', 0.0, ZC - 0.2, 0.5, 0.16, 0.02, 0.78); // 鍵盤
+  if (!cp) f.box('white', 0.55, 0.8, 0.08, 0.08, 0.08, 0.78);
+  f.block(0, ZC, W + 0.1, D + 0.1);
   officeChair(b, x, z, ry, opts.chair || 'fabricB');
   const wx = x + Math.sin(ry) * 0.0, wz = z;
   return { seat: { x: wx, z: wz, face: ry }, screenMat };

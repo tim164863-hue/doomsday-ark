@@ -63,7 +63,7 @@ export class SmallShip {
   /** 甲板上的家具（桌、椅、躺椅）+ POI。 */
   furnish(deck, home) {
     const b = deck.b, P = home.pois;
-    for (const d of home.props.desks) { const r = FN.workDesk(deck, d.x, d.z, d.ry); const p = P.desks.find((q) => Math.abs(q.x - d.x) < 1e-6 && Math.abs(q.z - d.z) < 1e-6); const o = { key: p.key, x: d.x, z: d.z, face: d.ry, screen: r.screenMat }; deck.pois.desks.push(o); deck.pois.extraDesks.push(o); deck.screens.push(r.screenMat); }
+    for (const d of home.props.desks) { const r = FN.workDesk(deck, d.x, d.z, d.ry, { compact: !!d.compact }); const p = P.desks.find((q) => Math.abs(q.x - d.x) < 1e-6 && Math.abs(q.z - d.z) < 1e-6); const o = { key: p.key, x: d.x, z: d.z, face: d.ry, screen: r.screenMat }; deck.pois.desks.push(o); deck.pois.extraDesks.push(o); deck.screens.push(r.screenMat); }
     for (const t of home.props.tables) FN.table(b, t.x, t.z, 1.1, 0.9, t.ry, 'woodLight', 0.74);
     for (const s of P.seats) FN.diningChair(b, s.x, s.z, s.face);
     deck.pois.misc.canteen = P.seats.map((s) => ({ x: s.x, z: s.z, face: s.face }));

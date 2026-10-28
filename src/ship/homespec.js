@@ -57,6 +57,7 @@ const yawTo = (ax, az, bx, bz) => Math.atan2(bx - ax, bz - az);
 const FP = {
   desk:    { need: [-0.95, -0.9, 0.95, 1.55], block: [-0.9, 0.5, 0.9, 1.45] },     // 座位在原點，桌在前方 0.85
   galley:  { need: [-1.6, -1.5, 1.6, 1.5], block: [-0.55, -0.45, 0.55, 0.45] },
+  deskC:   { need: [-0.65, -0.5, 0.65, 1.3], block: [-0.55, 0.4, 0.55, 1.2] },   // 窄桌（深 0.6，只在放不下一般桌時用）
   bed:     { need: [-0.55, -1.15, 0.55, 1.15], block: [-0.45, -1.0, 0.45, 1.0] },
   lounger: { need: [-0.55, -1.1, 0.55, 1.1], block: [-0.4, -1.0, 0.4, 1.0] },
 };
@@ -101,7 +102,7 @@ export function buildHome(type) {
       for (const [lx, lz] of [[0, 0.95], [0, -0.95], [1.0, 0], [-1.0, 0]]) { const { c, s } = R4(g.ry); const x = g.x + lx * c + lz * s, z = g.z - lx * s + lz * c; pois.seats.push({ x, z, face: yawTo(x, z, g.x, g.z), table: props.tables.length - 1 }); must.push([x, z]); }
       pois.stool.push(...pois.seats.slice(0, 2).map((p) => ({ ...p }))); } }
   // 工作桌：先放 3 張（確保每艘都有位子），設施之後再補其餘的
-    const placeDesks = (a0, a1) => { for (let i = a0; i < a1; i++) { const t = S.t.desk[i % S.t.desk.length]; const toward = Math.sign(t[1]) || 1; const p = place('desk', t, [toward > 0 ? 0 : Math.PI, Math.PI / 2, -Math.PI / 2, toward > 0 ? Math.PI : 0]); if (p) { pois.desks.push({ key: 'd' + i, x: p.x, z: p.z, face: p.ry, ry: p.ry }); props.desks.push(p); must.push([p.x, p.z]); } } };
+    const placeDesks = (a0, a1) => { for (let i = a0; i < a1; i++) { const t = S.t.desk[i % S.t.desk.length]; const toward = Math.sign(t[1]) || 1; const rys = [toward > 0 ? 0 : Math.PI, Math.PI / 2, -Math.PI / 2, toward > 0 ? Math.PI : 0]; let p = place('desk', t, rys, null, 0, 600); if (!p) { p = place('deskC', t, rys, null, 0, 600); if (p) p.compact = true; } if (p) { pois.desks.push({ key: 'd' + i, x: p.x, z: p.z, face: p.ry, ry: p.ry }); props.desks.push(p); must.push([p.x, p.z]); } } };
   placeDesks(0, Math.min(3, S.desks));
   // 設施（淨水 / 溫室 / 發電 / 醫務 / 工坊）：縮小的設備位，沿舷側放，站位在前方 0.9m；順序同 FAC_ORDER
   const FRAW = [[1.3, 0.8], [1.4, 1.0], [1.3, 0.8], [1.3, 1.0], [1.4, 0.8]]; const facs = [];
