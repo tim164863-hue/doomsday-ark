@@ -1,14 +1,15 @@
 // 末日方舟 · 玩法常數（純資料；不依賴 three.js / DOM，離線模擬與測試共用）
+import { tbl } from '../util.js';
 export const TICK = 60;                 // 模擬時間粒度：1 分鐘
 export const MAX_OFFLINE = 48 * 3600;   // 離線補算上限：48 小時
 export const SAVE_VERSION = 1;
 
-export const RES = {
+export const RES = tbl({
   food: { name: '食物', icon: '🍖', cap: 500 },
   water: { name: '飲水', icon: '💧', cap: 500 },
   fuel: { name: '燃料', icon: '⛽', cap: 400 },
   parts: { name: '零件', icon: '🔩', cap: 400 },
-};
+});
 export const RES_KEYS = Object.keys(RES);
 
 // 每位船員（含 T董）每分鐘消耗；船體本身另耗燃料
@@ -18,13 +19,13 @@ export const LV_MULT = [0, 1, 1.8, 2.8];
 export const MAX_LV = 3;
 
 // deck：設施所在樓層（0=1F … 4=5F）；cost[i] = 升到 i+1 級的花費
-export const FAC = {
+export const FAC = tbl({
   purifier: { name: '淨水器', icon: '💧', res: 'water', base: 1.2, deck: 0, desc: '把海水濾成飲用水', cost: [{ parts: 15 }, { parts: 35, fuel: 10 }, { parts: 80, fuel: 25 }] },
   greenhouse: { name: '溫室', icon: '🥬', res: 'food', base: 0.8, deck: 2, desc: '甲板上的蔬菜與藻類養殖', cost: [{ parts: 20, water: 20 }, { parts: 45, water: 30 }, { parts: 90, water: 50 }] },
   generator: { name: '發電機', icon: '⚡', res: 'fuel', base: 0.6, deck: 0, desc: '回收油脂、生質燃料', cost: [{ parts: 25 }, { parts: 55 }, { parts: 100 }] },
   infirmary: { name: '醫療室', icon: '🏥', res: null, base: 0, deck: 1, desc: '縮短受傷船員的復原時間', cost: [{ parts: 30, water: 15 }, { parts: 60, water: 25 }, { parts: 110, water: 40 }] },
   workshop: { name: '工坊', icon: '🔧', res: 'parts', base: 0.35, deck: 0, desc: '產出零件，並緩慢修復船體', cost: [{ parts: 12 }, { parts: 30, fuel: 10 }, { parts: 70, fuel: 20 }] },
-};
+});
 export const FAC_ORDER = ['purifier', 'greenhouse', 'generator', 'infirmary', 'workshop'];
 export const REPAIR_FAC_COST = { parts: 8 };           // 修復受損設施
 export const REPAIR_HULL = { parts: 12, gain: 15 };    // 整修船體（+15%）

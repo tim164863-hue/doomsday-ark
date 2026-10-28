@@ -4,7 +4,11 @@ import * as F from '../src/sim/fleet.js';
 import * as W from '../src/sim/world.js';
 import * as PM from '../src/sim/promo.js';
 import { SPECIAL_ZONES, SZ_ORDER, PROMO, PROMO_BP, zoneAtPoint } from '../src/sim/szdata.js';
-import { unprepared, helmFx } from '../src/sim/seazones.js';
+import { unprepared, unprepK, helmFx, seaPre, seaTick, emptySz } from '../src/sim/seazones.js';
+import { FLAG_ROWS } from '../src/sim/promo.js';
+import { SHIPS, ZONES } from '../src/sim/fleetdefs.js';
+import { FAC } from '../src/sim/defs.js';
+import { QUALITY } from '../src/config.js';
 import { helmFactor } from '../src/sim/weather.js';
 import { RES, SAVE_VERSION } from '../src/sim/defs.js';
 import { WORLD } from '../src/sim/fleetdefs.js';
@@ -87,7 +91,7 @@ const flag = (s, branch, tier) => { s.fleet.flag = { branch, tier, pj: null, up:
   let r = PM.promoPlan(s, 'mer_1'); ok(!r.ok, '換分支：要先改裝回基礎船'); const op = PM.promoStatus(s, T0).options; ok(op[1].locked && op[1].why.includes('改裝回基礎船') && !op[0].locked, 'UI 狀態：其他分支鎖住並說明原因');
   flag(s, 'war', 3); ok(PM.nextRowId(s.fleet, 'war') === null && PM.promoStatus(s, T0).options[0].locked, '滿階後沒有下一階');
   s.fleet.flag = { branch: 'sci', tier: 1, pj: { to: 'sci_2', parts: 300, fuel: 50, food: 0, water: 0 }, up: null }; s.res.parts = 0; r = PM.promoCancelPlan(s); ok(r.ok && s.res.parts === 300 && s.fleet.flag.tier === 1 && !s.fleet.flag.pj, '取消籌備：投入的資源全退');
-  s.fleet.flag.pj = { to: 'sci_2', parts: 200, fuel: 0, food: 0, water: 0 }; s.res.parts = 0; r = PM.promoReset(s); ok(r.ok && !s.fleet.flag && s.res.parts === 200 && PM.flagRow(s.fleet).id === 'ark_t0', '改裝回基礎船：階級歸零、籌備中的資源退回'); }
+  s.fleet.flag.pj = { to: 'sci_2', parts: 200, fuel: 0, food: 0, water: 0 }; s.res.parts = 0; r = PM.promoReset(s); ok(r.ok && s.res.parts === 200 && PM.flagRow(s.fleet).id === 'ark_t0' && s.fleet.flag.tier === 0 && s.res.fuel === 400 && s.fleet.flag.hold.fuel === 50 && Object.keys(s.fleet.flag.hold).length === 1, '改裝回基礎船：階級歸零、籌備中的資源退回；T1 多出來的燃料 50 進待退回（基礎船上限 400）'); }
 
 // ---- 效果
 { const sci = flag(mk(), 'sci', 3), war = flag(mk(), 'war', 3), mer = flag(mk(), 'mer', 3), base = mk();
@@ -115,4 +119,63 @@ const flag = (s, branch, tier) => { s.fleet.flag = { branch, tier, pj: null, up:
   const bad = F.sanitizeFleet({ ...s.fleet, flag: { branch: 'hack', tier: 99, pj: { to: 'nope' }, up: { to: 'war_1', start: 'x', end: 5 } } }); ok(!bad.flag, '壞掉的 flag 被清掉');
   const bad2 = F.sanitizeFleet({ ...s.fleet, flag: { branch: 'war', tier: 99, pj: { to: 'war_2', parts: 99999, fuel: -4 } } }); ok(bad2.flag && bad2.flag.tier === 3 && bad2.flag.pj.parts === 1600 && bad2.flag.pj.fuel === 0, '超出範圍的值被夾住');
   const old = JSON.parse(JSON.stringify(s)); delete old.fleet.flag; const v3 = validateState(old); ok(v3 && !v3.fleet.flag && PM.flagRow(v3.fleet).id === 'ark_t0', '舊存檔沒有 flag → 基礎船'); ok(SAVE_VERSION === 1, 'SAVE_VERSION 仍是 1'); }
+
+// ---- 審查修正 ①：原型鏈 key（'__proto__' / 'constructor' / 'toString'）不能讓遊戲崩潰
+{ const BAD = ['__proto__', 'constructor', 'toString', 'hasOwnProperty'];
+  ok(BAD.every((k) => FLAG_ROWS[k] === undefined && PROMO[k] === undefined && SPECIAL_ZONES[k] === undefined && SHIPS[k] === undefined && ZONES[k] === undefined && FAC[k] === undefined && RES[k] === undefined && QUALITY[k] === undefined && PM.BRANCHES[k] === undefined), '資料表是無原型物件：__proto__ / constructor / toString 都查不到');
+  let thrown = null; try {
+    for (const k of BAD) {
+      const s = mk(); s.fleet.flag = { branch: k, tier: 2, pj: { to: k, parts: 5 }, up: { to: k, start: T0, end: T0 + 5 } };
+      const f = F.sanitizeFleet(s.fleet); if (f.flag) throw new Error('flag 沒被清掉：' + k);
+      PM.flagStats(s.fleet); PM.promoStatus(s, T0); PM.promoTick(s, T0 + 10 * H, null);   // 沒清洗的壞資料也不能丟例外
+      if (PM.promoPlan(s, k).ok) throw new Error('promoPlan 接受了 ' + k);
+      const s2 = mk(); s2.fleet.ships = [{ id: 1, type: k, name: 'x', lv: 1, hp: 100, state: 'dock', zone: k }]; const f2 = F.sanitizeFleet(s2.fleet); if (f2.ships.length) throw new Error('ships.type 沒被清掉：' + k);
+      const s3 = mk(); s3.fleet.flag = { branch: 'war', tier: 1, pj: { to: k }, up: null }; if (F.sanitizeFleet(s3.fleet).flag.pj) throw new Error('pj.to 沒被清掉');
+      const s4 = mk(); s4.fleet.flag = { branch: 'war', tier: 1, pj: null, up: { to: k, start: 0, end: 1 } }; if (F.sanitizeFleet(s4.fleet).flag.up) throw new Error('up.to 沒被清掉');
+      const v = validateState(JSON.parse(serialize(Object.assign(mk(), { fleet: { ...s.fleet } })))); if (!v) throw new Error('validateState 回 null');
+    } } catch (e) { thrown = e; }
+  ok(!thrown, '壞的 flag.branch / pj.to / up.to / ships.type 都被清掉、不丟例外' + (thrown ? '：' + thrown.message : ''));
+  // ?tier= / localStorage 'ark.tier'
+  const loadCfg = async (tag, ls, search) => { const rm = []; globalThis.location = { search }; globalThis.localStorage = { getItem: () => ls, removeItem: (k) => rm.push(k), setItem() {} }; const m = await import('../src/ship/config.js?' + tag); delete globalThis.location; delete globalThis.localStorage; return { m, rm }; };
+  { const r = await loadCfg('a1', 'constructor', ''); ok(r.m.CUR_TIER === 'ark_t0' && r.rm.includes('ark.tier') && r.m.NDECK === 5, "localStorage ark.tier='constructor' → 基礎船，並清掉壞值（自我修復）"); }
+  { const r = await loadCfg('a2', '__proto__', '?tier=__proto__'); ok(r.m.CUR_TIER === 'ark_t0' && r.m.TIER_PREVIEW === false, "?tier=__proto__ + 壞 localStorage → 基礎船"); }
+  { const r = await loadCfg('a3', 'war_2', ''); ok(r.m.CUR_TIER === 'war_2' && r.m.NDECK === 7 && r.rm.length === 0, '合法的 localStorage ark.tier=war_2 照常讀'); }
+  { const r = await loadCfg('a4', null, '?tier=war_3'); ok(r.m.CUR_TIER === 'ark_t0', '正式版（非 vite dev）忽略 ?tier= 預覽'); }
+}
+
+// ---- 審查修正 ②：取消 / 重選 / 改裝回基礎船 的退款不會被倉庫上限吃掉（進「待退回」暫存區再補回）
+{ const total = (s, k) => s.res[k] + ((s.fleet.flag && s.fleet.flag.hold && s.fleet.flag.hold[k]) || 0);
+  const s = mk(); PM.promoPlan(s, 'war_1'); s.fleet.flag.pj.parts = 900; s.res.parts = 400;   // 投入 900、倉庫已滿 400
+  const r = PM.promoCancelPlan(s); ok(r.ok && s.res.parts === 400 && s.fleet.flag.hold.parts === 900 && /待退回/.test(r.msg), `取消：倉庫放不下的 900 零件進待退回（hold=${s.fleet.flag && s.fleet.flag.hold && s.fleet.flag.hold.parts}），訊息有說明`);
+  ok(PM.holdOf(s.fleet).some((h) => h.k === 'parts' && h.v === 900) && PM.flagRow(s.fleet).id === 'ark_t0', '只有 hold 的 flag 仍然是基礎船，UI 看得到待退回');
+  const v = validateState(JSON.parse(serialize(s))); ok(v.fleet.flag && v.fleet.flag.hold && v.fleet.flag.hold.parts === 900, '待退回量存檔往返不丟');
+  s.res.parts = 100; PM.holdDrain(s); ok(s.res.parts === 400 && s.fleet.flag.hold.parts === 600, '倉庫有空位就補回（空出 300 → 補 300）');
+  const ss = JSON.stringify([s.res.parts]); for (let i = 0; i < 3; i++) { s.res.parts = 0; PM.holdDrain(s); } ok(!s.fleet.flag || !s.fleet.flag.hold, '慢慢補完後 hold 清空，沒有 tier/pj/up 的 flag 一併移除');
+  // 經過模擬 tick 也會自動補回，且離線一次算完 = 分段算
+  const a = mk(), b = mk(); for (const x of [a, b]) { PM.promoPlan(x, 'war_1'); x.fleet.flag.pj.parts = 900; x.res.parts = 400; PM.promoCancelPlan(x); x.res.parts = 0; }
+  simulateTo(a, T0 + 10 * H); for (let h = 1; h <= 10; h++) simulateTo(b, T0 + h * H); ok(strip(a) === strip(b) && a.res.parts > 0 && (a.fleet.flag && a.fleet.flag.hold ? a.fleet.flag.hold.parts : 0) < 900, `tick 自動補回、離線一次算 = 逐小時算（零件 ${Math.round(a.res.parts)}）`);
+  // 重選另一個目標（同一分支的其他路線）：舊專案的退款同樣不損失
+  const p = mk(); PM.promoPlan(p, 'war_1'); p.fleet.flag.pj.water = 80; p.fleet.flag.pj.parts = 900; p.res.parts = 400; p.res.water = 500; PM.promoPlan(p, 'mer_1'); ok(total(p, 'parts') === 400 + 900 && total(p, 'water') === 580, `改選路線：零件 / 水都完整保留（${total(p, 'parts')} / ${total(p, 'water')}）`);
+  // 改裝回基礎船：倉庫上限變小，超出的不消失
+  const m = mk(); flag(m, 'mer', 3); m.res.water = 800; m.res.parts = 1000; const cap0 = PM.capOf(m.fleet, 'water'); const R = PM.promoReset(m);
+  ok(R.ok && m.res.water === 500 && m.fleet.flag.hold.water === 300 && m.res.parts === 400 && m.fleet.flag.hold.parts === 600 && PM.flagRow(m.fleet).id === 'ark_t0' && cap0 > 800, `改裝回基礎船：水 800 → 倉庫 500 + 待退回 300（原上限 ${cap0}），零件 1000 → 400 + 600`);
+  const m2 = mk(); flag(m2, 'war', 1); PM.promoPlan(m2, 'war_2'); m2.fleet.flag.pj.parts = 700; m2.res.parts = 400; PM.promoReset(m2); ok(total(m2, 'parts') === 1100, '改裝回基礎船時籌備中的投入也進待退回，總量不變');
+  const bad = F.sanitizeFleet({ ...mk().fleet, flag: { hold: { parts: 5e9, fuel: -3, food: 'x', water: 12.9 } } }); ok(bad.flag && bad.flag.hold.parts === 20000 && !('fuel' in bad.flag.hold) && bad.flag.hold.water === 12, 'hold 清洗：上限 20000、負數 / 非數字被丟掉'); }
+
+// ---- 審查修正 ⑦：promoStart 重新檢查 nextRowId
+{ const s = mk(); PM.promoPlan(s, 'war_1'); s.fleet.flag.pj = { to: 'war_2', parts: 1600, fuel: 500, food: 200, water: 150 }; s.fleet.mat = { ember: 9, hellstone: 9, rune: 9, vortex: 9, fogpearl: 9 }; s.fleet.bp = { bp_war2: 1, bp_war1: 1 };
+  const r = PM.promoStart(s, T0); ok(!r.ok && !s.fleet.flag.pj && !s.fleet.flag.up && s.fleet.mat.ember === 9, 'promoStart：目標不是下一階（過期專案）→ 拒絕、不扣材料'); }
+
+// ---- 審查修正 ⑤⑥：海圖 ETA 用旗艦航速、警示用實際倍率
+{ const sci = mk(); flag(sci, 'sci', 3); const base = mk(); const a = W.routeCost(1000, 1000, 1900, 1000, sci.fleet), b = W.routeCost(1000, 1000, 1900, 1000, base.fleet); ok(a.minutes < b.minutes && a.minutes === Math.max(1, Math.round(900 / PM.arkSpeedOf(sci.fleet))), `ETA 依旗艦航速（星圖號 ${a.minutes} 分 < 基礎船 ${b.minutes} 分）`);
+  const Z = SPECIAL_ZONES; ok(unprepK(base.fleet, Z.fire) === 3 && unprepK(base.fleet, Z.hell) !== 3 && unprepK(sci.fleet, Z.fire) === 1, `unprepK：火焰 ×3、其他 ×${unprepK(base.fleet, Z.hell)}；達標 ×1`);
+  ok(!('mer' in (Z.fire.need.tiers || {})), '火焰的 need.tiers 沒有不會用到的 mer'); }
+
+// ---- 審查修正 ⑧：特殊海域傷害（火焰 ×3）不會把船體打到 20% 以下；自然老化與區域傷害分開
+{ const fire = SPECIAL_ZONES.fire; const P = { x: fire.x, y: fire.y };
+  const s = mk(P); s.cond = 21; let t = T0; for (let i = 0; i < 400; i++) { const pre = seaPre(s, t); seaTick(s, t, t + 60, null, pre); t += 60; } ok(s.cond >= 20 && s.fleet.world.sz.hits >= 0 && s.fleet.world.sz.hull > 0 && s.fleet.world.sz.hull <= 1.001, `區域傷害：船體 21% 在火焰中心打了 400 tick，停在 ${s.cond.toFixed(2)}%（地板 20%）`);
+  const s2 = mk(P); s2.cond = 12; t = T0; for (let i = 0; i < 100; i++) { const pre = seaPre(s2, t); seaTick(s2, t, t + 60, null, pre); t += 60; } ok(s2.cond === 12, '船體已低於地板時，區域傷害不再往下打（12% 維持 12%）');
+  const s3 = mk(P); s3.res.food = 4000; let minCond = 100; for (let h = 1; h <= 48; h++) { s3.res.food = 450; s3.res.water = 450; s3.res.fuel = 450; simulateTo(s3, T0 + h * H); minCond = Math.min(minCond, s3.cond); }
+  const zoneDmg = s3.fleet.world.sz.hull; ok(zoneDmg <= 80.0001, `停在火焰 48 小時：累計區域傷害 ${zoneDmg.toFixed(1)}% ≤ 80%（100% → 地板 20%）`); }
+
 console.log(fails ? `\n${fails} 項失敗` : '\n全部通過'); process.exit(fails ? 1 : 0);

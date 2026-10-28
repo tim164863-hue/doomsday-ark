@@ -10,7 +10,11 @@ import { FLAG_ROWS } from '../sim/promo.js';
 // 階級來源：?tier=war_2（預覽用，不寫入）> localStorage 'ark.tier'（play.js 的 tierSync 依存檔寫入）> 基礎船。
 export const TIER_KEY = 'ark.tier';
 function readTier() {
-  try { const q = new URLSearchParams(location.search).get('tier'); if (q && FLAG_ROWS[q]) return { id: q, preview: true }; const v = localStorage.getItem(TIER_KEY); if (v && FLAG_ROWS[v]) return { id: v, preview: false }; } catch (e) { /* node / 無 storage */ }
+  // ?tier= 只有開發版（vite dev）有效；localStorage 的值要在資料表裡才算數，壞掉的值直接清掉（自我修復）。FLAG_ROWS 是無原型物件，所以 'constructor' / '__proto__' 也查不到。
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.DEV) { const q = new URLSearchParams(location.search).get('tier'); if (q && Object.hasOwn(FLAG_ROWS, q)) return { id: q, preview: true }; }
+    const v = localStorage.getItem(TIER_KEY); if (v != null) { if (Object.hasOwn(FLAG_ROWS, v)) return { id: v, preview: false }; localStorage.removeItem(TIER_KEY); }
+  } catch (e) { /* node / 無 storage */ }
   return { id: 'ark_t0', preview: false };
 }
 const _T = readTier();

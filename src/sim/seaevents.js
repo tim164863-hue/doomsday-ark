@@ -1,9 +1,10 @@
 // 末日方舟 · 海上事件（純函式）。任務出發時決定「會不會有事件、發生在航程的哪個時間點」，
 // 玩家在線上可以在海圖替那艘船做決定；沒做決定 = 照原計畫（閒置玩法不變）。決定只改 m（任務）本身，所以離線補算仍然一致。
+import { tbl } from '../util.js';
 import { hash, mulberry32 } from './rng.js';
 
 // opt: res=收穫倍率, dmg=額外船體損傷, bp=額外藍圖機率, risk=失敗機率（會被火力降低；失敗：收穫再 ×0.6、再 −8% 船體）, delay=延後返航(分鐘)
-export const EVENTS = {
+export const EVENTS = tbl({
   drift:   { icon: '📦', name: '漂流貨櫃', zones: ['near', 'reef', 'ruins', 'ice'], text: '前方有個半沉的貨櫃隨浪漂浮，封條還在。',
     opts: [{ t: '靠上去撬開', d: '收穫 +35%，有點風險', res: 1.35, dmg: 3, risk: 0.2 }, { t: '拖回去', d: '收穫 +20%，多花 8 分鐘', res: 1.2, delay: 8, risk: 0.05 }, { t: '繞過去', d: '平安最重要', res: 1, dmg: -2 }] },
   pirate:  { icon: '🏴‍☠️', name: '海盜小艇', zones: ['near', 'reef', 'ruins'], text: '遠處有艘改裝小艇朝你們全速駛來，船頭站著人。',
@@ -16,7 +17,7 @@ export const EVENTS = {
     opts: [{ t: '下潛調查', d: '收穫 +60%，可能有藍圖，風險高', res: 1.6, dmg: 10, bp: 0.2, risk: 0.45 }, { t: '保持距離記錄', d: '收穫 +10%', res: 1.1 }] },
   whale:   { icon: '🐋', name: '鯨魚擱淺的訊號', zones: ['near', 'reef', 'ice', 'abyss'], text: '一頭大鯨魚在附近緩緩盤旋，似乎在帶路。',
     opts: [{ t: '跟著牠', d: '多花 6 分鐘，收穫 +25%', res: 1.25, delay: 6, risk: 0.05 }, { t: '保持航向', d: '照原計畫', res: 1 }] },
-};
+});
 const KEYS = Object.keys(EVENTS);
 
 /** 任務出發時呼叫：決定性地回傳 {k, at} 或 null（獨立亂數流，不影響任務本身的結果） */

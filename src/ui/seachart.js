@@ -9,7 +9,7 @@ import { weatherAt, coldRaw, KINDS, effectsOf, WX } from '../sim/weather.js';
 
 import { SPECIAL_ZONES, SZ_ORDER, zoneAtPoint, routeZones, MATERIALS } from '../sim/szdata.js';
 import { routeGate, gateMsg } from '../sim/promo.js';
-import { unprepared, seaStatus, rescueCan, RESCUE } from '../sim/seazones.js';
+import { unprepared, unprepK, seaStatus, rescueCan, RESCUE } from '../sim/seazones.js';
 
 const nowSec = () => clock.now();
 const $ = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstElementChild; };
@@ -51,10 +51,10 @@ export class SeaChart {
   click(cx, cy) {
     const [x, y] = this.toWorld(cx, cy); const w = this.s.fleet.world; const now = nowSec();
     if (!W.insideWorld(x, y)) { this.sel = null; this.conf.classList.add('hide'); return; }
-    const p = W.arkPos(w, now); const c = W.routeCost(p.x, p.y, x, y); const [gx, gy] = W.cellOf(x, y); const seen = W.fogHas(w, gx, gy);
+    const p = W.arkPos(w, now); const c = W.routeCost(p.x, p.y, x, y, this.s.fleet); const [gx, gy] = W.cellOf(x, y); const seen = W.fogHas(w, gx, gy);
     this.sel = { x: Math.round(x), y: Math.round(y), c, seen, zone: seen ? W.zoneAt(x, y) : null };
     const zl = seen ? W.zoneLabel(this.sel.zone) : '❓未知海域'; this.buildMini(w); const rz = routeZones(p.x, p.y, x, y).filter((id) => this.szSeen && this.szSeen[id]);
-    const warn = rz.map((id) => { const Z = SPECIAL_ZONES[id]; return `<small class="szw" style="color:${Z.color}">⚠ 航線穿過 ${Z.icon}${Z.name}：${szShort(Z)}${unprepared(this.s.fleet, Z) ? '（旗艦階級未達建議，危害 ×1.5）' : ''}</small>`; }).join(''); const lack = this.s.res.fuel < c.fuel + 15; const gate = routeGate(this.s.fleet, p.x, p.y, x, y); const gw = gate ? `<small class="szw" style="color:#ff8a7a">🔒 ${gateMsg(gate.z)}</small>` : '';
+    const warn = rz.map((id) => { const Z = SPECIAL_ZONES[id]; return `<small class="szw" style="color:${Z.color}">⚠ 航線穿過 ${Z.icon}${Z.name}：${szShort(Z)}${unprepared(this.s.fleet, Z) ? `（旗艦階級未達建議，危害 ×${unprepK(this.s.fleet, Z)}）` : ''}</small>`; }).join(''); const lack = this.s.res.fuel < c.fuel + 15; const gate = routeGate(this.s.fleet, p.x, p.y, x, y); const gw = gate ? `<small class="szw" style="color:#ff8a7a">🔒 ${gateMsg(gate.z)}</small>` : '';
     this.conf.innerHTML = `<div class="cf"><b>航向 (${this.sel.x}, ${this.sel.y})</b> · ${zl}<small>距離 ${Math.round(c.dist)} · ⛽${c.fuel}${lack ? '（燃料不足）' : ''} · 約 ${c.minutes} 分鐘（離線也會抵達）</small>${gw}${warn}</div><div class="cb"><button class="pri" data-a="go" ${lack || gate ? 'disabled' : ''}>⚓ 出航</button><button data-a="no">取消</button></div>`;
     this.conf.classList.remove('hide'); this.conf.querySelector('[data-a=no]').onclick = () => { this.sel = null; this.conf.classList.add('hide'); };
     this.conf.querySelector('[data-a=go]').onclick = () => { const r = this.hud.play.worldAct('sail', { x: this.sel.x, y: this.sel.y }); if (r && r.ok) { this.sel = null; this.conf.classList.add('hide'); this.refresh(true); } };
@@ -145,7 +145,7 @@ export class SeaChart {
   /** 特殊海域：目前所在的危害 + 已發現清單 + 材料 / 稀有藍圖；巨石陣中心有古碑按鈕 */
   szPanel(w, ark, now) {
     const s = this.s, st = seaStatus(s, now); this.buildMini(w); const seen = this.szSeen || {}; const cur = st && st.h; const sz = w.sz || {};
-    let here = ''; if (cur) { const Z = cur.z; const pz = Z.id === 'stonehenge' && cur.depth >= 0.3; here = `<p style="color:${Z.color}"><b>${Z.icon} 正在 ${Z.name}（深度 ${Math.round(cur.depth * 100)}%）</b><br><small>${szShort(Z)}${st.un ? ' · ⚠ 旗艦階級未達建議，危害 ×1.5' : ''}</small></p>${pz ? '<div class="mb"><button data-a="pz">🗿 讀古碑（每天一次）</button></div>' : ''}${Z.id === 'whirlpool' ? (() => { const rc = rescueCan(s, now); return rc.ok ? `<p class="warn">⛽ 燃料不夠開出去（要 ⛽${Math.ceil(rc.need)}）。</p><div class="mb"><button data-a="rescue">🛟 呼叫拖船（🔩${RESCUE.parts}）</button></div>` : '<p class="dim">開出漩渦：全速往外、或在海圖重新出航；燃料用完時可呼叫拖船。</p>'; })() : ''}`; }
+    let here = ''; if (cur) { const Z = cur.z; const pz = Z.id === 'stonehenge' && cur.depth >= 0.3; here = `<p style="color:${Z.color}"><b>${Z.icon} 正在 ${Z.name}（深度 ${Math.round(cur.depth * 100)}%）</b><br><small>${szShort(Z)}${st.un ? ' · ⚠ 旗艦階級未達建議，危害 ×' + unprepK(this.s.fleet, Z) : ''}</small></p>${pz ? '<div class="mb"><button data-a="pz">🗿 讀古碑（每天一次）</button></div>' : ''}${Z.id === 'whirlpool' ? (() => { const rc = rescueCan(s, now); return rc.ok ? `<p class="warn">⛽ 燃料不夠開出去（要 ⛽${Math.ceil(rc.need)}）。</p><div class="mb"><button data-a="rescue">🛟 呼叫拖船（🔩${RESCUE.parts}）</button></div>` : '<p class="dim">開出漩渦：全速往外、或在海圖重新出航；燃料用完時可呼叫拖船。</p>'; })() : ''}`; }
     const chips = SZ_ORDER.map((id) => { const Z = SPECIAL_ZONES[id]; return `<span class="zc ${seen[id] ? '' : 'un'}" style="${seen[id] ? `border-color:${Z.color};color:${Z.color}` : ''}" title="${seen[id] ? Z.blurb : '還沒找到'}">${seen[id] ? Z.icon + Z.short : '❓'}</span>`; }).join('');
     return `<div class="pk szp"><h4>🧭 特殊海域 <small>${SZ_ORDER.filter((i) => seen[i]).length}/5</small></h4>${here}<div class="zonebar">${chips}</div>${this.hud.matHtml(s)}<p class="dim">${cur ? '' : '迷霧、漩渦、火焰、地獄、巨石陣：危險，但掉稀有藍圖與晉升材料。'}${sz.n && Object.keys(sz.n).length ? '' : ''}</p></div>`;
   }
