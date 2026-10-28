@@ -2,7 +2,7 @@
 
 > 世界末日後，海上漂著一艘巨型郵輪——你是董事長 **T董**，船上的 AI 船員（你的 bot 們）會依照**真實的上班狀態**工作、休息、下班睡覺，還會聊天、打球、有心情。
 
-**線上玩：** https://tim164863-hue.github.io/doomsday-ark/  
+**線上玩：** https://tt0xcatyi.github.io/doomsday-ark/  
 純前端（Three.js + Vite），沒有後端。可手機 / 電腦遊玩。
 
 ## 操作
@@ -88,7 +88,7 @@
 
 ## 資料與隱私
 
-- 唯一的外部請求：`GET https://tim164863-hue.github.io/grokbot-office/sessions.json`（CORS `*`）。**不會對任何 bot 傳送任何東西。**
+- 唯一的外部請求：`GET https://tt0xcatyi.github.io/grokbot-office/sessions.json`（CORS `*`）。**不會對任何 bot 傳送任何東西。**
 - 進遊戲前只保留名稱 / 狀態 / 類型 / 競技場權益數字（`src/data.js` 的 `normalize`），路徑、金鑰、備註一律丟棄。
 - 交易競技場只出現在兩台電視上，與遊戲玩法完全分離。
 - 連不上時自動切換到「離線示範資料」。
