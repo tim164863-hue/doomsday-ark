@@ -4,6 +4,7 @@
 import { TICK, MAX_OFFLINE, SAVE_VERSION, RES, RES_KEYS, USE, SHIP_FUEL_USE, LV_MULT, MAX_LV, FAC, FAC_ORDER, REPAIR_FAC_COST, REPAIR_HULL, START, STATUS_BONUS, TIERS, SITES, TASKS } from './defs.js';
 import { hash, mulberry32 } from './rng.js';
 import { fleetTick, tripBlueprint, grantBlueprint } from './fleet.js';
+import { worldTick } from './world.js';
 import { SHIPS } from './fleetdefs.js';
 
 const r2 = (x) => Math.round(x * 100) / 100;
@@ -83,6 +84,7 @@ export function stepTick(s, t, rep) {
   // 1. 出海返航
   for (const tr of s.trips.filter((x) => x.end <= tEnd).sort((a, b) => a.end - b.end || a.id - b.id)) resolveTrip(s, tr, tEnd, rep);
   s.trips = s.trips.filter((x) => x.end > tEnd);
+  worldTick(s, tEnd, (e) => pushEvent(s, rep, e));   // 世界：方舟航行 / 揭開迷霧 / 抵達
   fleetTick(s, t, tEnd, rep);   // 艦隊：建造 / 返航 / 閒置自動出航（s.fleet 不存在時什麼都不做）
   // 2. 生產 / 消耗
   const r = rates(s, tEnd); const n = Object.keys(s.crew).length + 1;

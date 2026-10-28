@@ -24,7 +24,7 @@ function addHull(g, L, W, H, topMat, lowMat, opts = {}) {
   const under = new THREE.Mesh(h.under, lowMat); under.position.y = dy - H * 0.55; g.add(under);
   return top;
 }
-const stripe = (g, m, L, W, y, h = 0.18) => { const geo = hullSolid(L * 1.002, W * 1.003, h, {}).geo; const o = new THREE.Mesh(geo, m); o.position.y = y; g.add(o); };
+const stripe = (g, m, L, W, y, h = 0.18, opts = {}) => { const geo = hullSolid(L * 1.002, W * 1.003, h, opts).geo; const o = new THREE.Mesh(geo, m); o.position.y = y; g.add(o); };
 function rail(g, L, W, y, m, posts = 9, bow = 0.34) {
   const hw = W / 2 * 0.86; const xs = -L / 2 + 0.3, xe = L / 2 - L * bow - 0.2;
   for (const sd of [-1, 1]) {
@@ -51,18 +51,113 @@ function skiff(g, lv) {
   if (lv >= 2) { box(g, mat(0xe0c95a, 0.4, 0.5), L * 0.7, 0.05, 0.05, 0, 0.9, W / 2 * 0.98); }
   if (lv >= 3) { cyl(g, steel, 0.04, 0.04, 0.4, 0.2, 2.1, 0, 6); sph(g, LAMP(), 0.16, 0.2, 2.35, 0); }
 }
+// ---- 洋流號（快艇款）：橘色圓胖漁船風格，黑色下船殼、白色舷緣、繩索花環、帆上「順」、船尾旗幟「洋流」
+function canvasTex(w, h, draw) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); draw(x, w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
+}
+const CJK = "'Noto Sans CJK TC','Noto Sans TC','PingFang TC','Microsoft JhengHei','Heiti TC','WenQuanYi Zen Hei',sans-serif";
+/** 單面貼圖面板：pts = [[x,y],...]（船座標 x,y），side = ±1（法線朝 ±z），u 方向讓兩面都能正讀 */
+function panel(g, pts, tex, side, z = 0, o = {}) {
+  const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const idx = pts.length === 4 ? [0, 1, 2, 0, 2, 3] : [0, 1, 2];
+  let area = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; area += (a[0] * (side < 0 ? -1 : 1)) * b[1] - (b[0] * (side < 0 ? -1 : 1)) * a[1]; }
+  const ord = idx.slice(); if (area <= 0) for (let i = 0; i < ord.length; i += 3) { const t = ord[i + 1]; ord[i + 1] = ord[i + 2]; ord[i + 2] = t; }
+  const pos = [], uv = [];
+  for (const p of pts) { pos.push(p[0], p[1], z + side * 0.015); uv.push(side < 0 ? (x1 - p[0]) / (x1 - x0) : (p[0] - x0) / (x1 - x0), (p[1] - y0) / (y1 - y0)); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); geo.setIndex(ord); geo.computeVertexNormals();
+  const m = new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: 0xffffff, emissiveIntensity: 0.28, roughness: 0.85, side: THREE.FrontSide, ...o });
+  const mesh = new THREE.Mesh(geo, m); mesh.castShadow = true; g.add(mesh); return mesh;
+}
+function strut(g, m, a, b, r = 0.02) {
+  const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A), len = d.length();
+  const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 5), m); o.position.copy(A.clone().add(B).multiplyScalar(0.5));
+  o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); g.add(o); return o;
+}
+function festoon(g, m, pts, r = 0.05) { const c = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p))); const o = new THREE.Mesh(new THREE.TubeGeometry(c, 20, r, 5), m); o.castShadow = true; g.add(o); return o; }
+function bez(p0, p1, p2, p3, t) { const u = 1 - t; return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3; }
+/** hullSolid 頂視輪廓在 x 處的半寬（用來把舷窗、繩索貼在船殼上） */
+function hullHalfW(L, W, x, { bow = 0.34, sternW = 0.8 } = {}) {
+  const hl = L / 2, hw = W / 2, sx = -hl, bx = hl - L * bow; let best = 0, bd = 1e9;
+  const segs = [[[sx, hw * sternW], [sx + L * 0.12, hw], [bx - L * 0.2, hw], [bx, hw * 0.92]], [[bx, hw * 0.92], [bx + L * bow * 0.55, hw * 0.7], [hl - L * 0.04, hw * 0.2], [hl, 0]]];
+  for (const sg of segs) for (let i = 0; i <= 60; i++) { const t = i / 60, px = bez(sg[0][0], sg[1][0], sg[2][0], sg[3][0], t), d = Math.abs(px - x); if (d < bd) { bd = d; best = bez(sg[0][1], sg[1][1], sg[2][1], sg[3][1], t); } }
+  return best;
+}
 function speedboat(g, lv) {
-  const white = mat(0xf6f6f4, 0.35, 0.1), red = mat(0xe03a3a, 0.4), dark = mat(0x20242b, 0.5), steel = mat(0xb8bcc2, 0.3, 0.7), seat = mat(0x20242b, 0.8);
-  const L = 8.5, W = 2.6; addHull(g, L, W, 1.0, white, mat(0x14222e, 0.6), { bow: 0.5, sternW: 0.85, belly: 0.45 }); stripe(g, red, L, W, 0.3, 0.16); stripe(g, dark, L, W, 0.12, 0.1);
-  box(g, dark, L * 0.5, 0.02, W * 0.7, -0.9, 0.62, 0); // 地板
-  const ws = box(g, GLASS(), 0.05, 0.7, 2.0, 0.55, 1.15, 0); ws.rotation.z = -0.5; box(g, dark, 0.08, 0.06, 2.1, 0.62, 0.8, 0); // 擋風玻璃
-  box(g, white, 1.8, 0.45, 2.1, 1.7, 0.85, 0).scale.set(1, 1, 0.9); // 船頭艙蓋
-  for (let i = 0; i < 2; i++) { box(g, seat, 0.7, 0.18, 0.8, -0.2 - i * 1.0, 0.72, -0.5); box(g, seat, 0.1, 0.55, 0.8, -0.55 - i * 1.0, 1.0, -0.5); box(g, seat, 0.7, 0.18, 0.8, -0.2 - i * 1.0, 0.72, 0.5); box(g, seat, 0.1, 0.55, 0.8, -0.55 - i * 1.0, 1.0, 0.5); }
-  box(g, dark, 0.35, 0.3, 0.7, 0.1, 0.9, 0); // 控制台
-  for (const sz of [-1, 1]) { box(g, steel, 0.5, 0.9, 0.35, -L / 2 - 0.15, 0.65, sz * 0.55); cyl(g, dark, 0.05, 0.05, 0.9, -L / 2 - 0.5, 0.2, sz * 0.55, 8); box(g, dark, 0.35, 0.12, 0.05, -L / 2 - 0.52, -0.2, sz * 0.55); }
-  cyl(g, steel, 0.02, 0.02, 1.2, -2.8, 1.6, 0, 5); lamp(g, 3.2, 0.85, 0.0, 0.06);
-  if (lv >= 2) box(g, mat(0x2fa0e8, 0.3), L * 0.55, 0.07, 0.05, 0.4, 0.82, W / 2 * 0.92);
-  if (lv >= 3) { box(g, dark, 0.3, 0.05, 2.4, -2.4, 1.5, 0); cyl(g, steel, 0.03, 0.03, 0.9, -2.4, 1.0, -0.9, 6); cyl(g, steel, 0.03, 0.03, 0.9, -2.4, 1.0, 0.9, 6); }
+  const orange = mat(0xf0661a, 0.5, 0.05, { emissive: 0xf0661a, emissiveIntensity: 0.2 }), orange2 = mat(0xe0581a, 0.55, 0.05, { emissive: 0xe0581a, emissiveIntensity: 0.18 }), black = mat(0x16181c, 0.6), white = mat(0xf4f1e8, 0.5), cream = mat(0xf0e4c6, 0.8), brown = mat(0x7a4a26, 0.7), rope = mat(0xb99358, 0.95), dark = mat(0x16222f, 0.25, 0.3), steel = mat(0x8c9096, 0.4, 0.6), wood = mat(0xb27a44, 0.8), amber = mat(0xffb020, 0.35, 0, { emissive: 0xff9a10, emissiveIntensity: 0.8 });
+  const L = 9.5, W = 3.3, DK = 1.37, HO = { bow: 0.4, sternW: 0.9 }; addHull(g, L, W, 1.6, orange, black, { ...HO, belly: 0.5, keel: 0.62, deckY: DK - 0.12 });
+  stripe(g, black, L, W, -0.25, 0.5, HO); // 下船殼黑帶（水線附近）
+  stripe(g, white, L, W, 0.62, 0.05, HO); stripe(g, white, L, W, DK - 0.32, 0.18, HO); // 細白線 + 白舷緣
+  if (lv >= 2) stripe(g, mat(0xe8c74a, 0.4, 0.4), L, W, 0.9, 0.06, HO);
+  box(g, mat(0xa07a4c, 0.85), L * 0.6, 0.03, W * 0.66, -1.2, DK + 0.015, 0); // 甲板
+  // 船頭高起的橘色船首塊（白頂）
+  box(g, orange, 0.55, 0.62, 0.9, L / 2 - 0.55, DK + 0.3, 0).scale.set(1, 1, 1); box(g, white, 0.6, 0.08, 0.95, L / 2 - 0.55, DK + 0.64, 0);
+  // 圓舷窗（白框 + 深色玻璃）
+  for (const sd of [-1, 1]) for (const px of [2.15, 0.65, -3.4]) {
+    const zz = sd * (hullHalfW(L, W, px, HO) + 0.17); const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.06, 8, 16), white); ring.position.set(px, 0.42, zz); g.add(ring);
+    const gl = cyl(g, dark, 0.2, 0.2, 0.05, px, 0.42, zz - sd * 0.01, 14, Math.PI / 2);
+  }
+  // 繩索花環（舷側）
+  for (const sd of [-1, 1]) {
+    const zz = (x) => sd * (hullHalfW(L, W, x, HO) + 0.17);
+    const segs = [[3.2, 1.2], [1.2, -1.3], [-1.3, -3.9]]; let prev = null;
+    for (const [a, b] of segs) {
+      const pts = []; for (let i = 0; i <= 6; i++) { const t = i / 6, x = a + (b - a) * t; pts.push([x, DK - 0.12 - Math.sin(Math.PI * t) * 0.36, zz(x)]); } festoon(g, rope, pts, 0.06);
+      cyl(g, rope, 0.07, 0.07, 0.16, a, DK - 0.08, zz(a), 8, Math.PI / 2); prev = b;
+    }
+  }
+  // 駕駛艙：白艙身、橘色屋頂、深色窗
+  const CX = -1.25, CW = 2.9, CH = 1.15, CD = 2.2;
+  box(g, white, CW, CH, CD, CX, DK + CH / 2, 0); box(g, orange2, CW + 0.02, 0.16, CD + 0.02, CX, DK + 0.1, 0); // 艙底橘帶
+  box(g, orange, CW + 0.36, 0.14, CD + 0.34, CX, DK + CH + 0.07, 0); box(g, white, CW + 0.4, 0.04, CD + 0.38, CX, DK + CH - 0.01, 0);
+  for (const sd of [-1, 1]) for (let i = 0; i < 3; i++) { const wx = CX + 1.0 - i * 0.95; box(g, dark, 0.7, 0.5, 0.04, wx, DK + 0.68, sd * (CD / 2 + 0.02)); box(g, white, 0.76, 0.05, 0.05, wx, DK + 0.95, sd * (CD / 2 + 0.03)); }
+  for (let i = -1; i <= 1; i += 1) box(g, dark, 0.04, 0.5, 0.52, CX + CW / 2 + 0.02, DK + 0.68, i * 0.7); // 前窗
+  box(g, white, 0.05, 0.05, CD - 0.1, CX + CW / 2 + 0.03, DK + 0.97, 0);
+  // 屋頂：琥珀信標、灰色設備箱、探照燈
+  cyl(g, steel, 0.16, 0.18, 0.1, CX - 0.55, DK + CH + 0.19, 0.55, 12); const bc = cyl(g, amber, 0.13, 0.13, 0.22, CX - 0.55, DK + CH + 0.35, 0.55, 12); sph(g, amber, 0.13, CX - 0.55, DK + CH + 0.46, 0.55);
+  box(g, mat(0x9aa0a8, 0.6, 0.3), 0.9, 0.55, 0.8, CX - 1.0, DK + CH + 0.4, -0.55); box(g, mat(0x80868e, 0.6, 0.3), 0.7, 0.12, 0.6, CX - 1.0, DK + CH + 0.72, -0.55);
+  box(g, steel, 0.22, 0.2, 0.2, CX + 1.0, DK + CH + 0.25, 0.6); lamp(g, CX + 1.12, DK + CH + 0.25, 0.6, 0.09);
+  // 兩根褐色桅杆（前桅掛三角帆、後桅掛旗幟）+ 金屬箍
+  const MX = -0.15, MH = 5.2; cyl(g, brown, 0.075, 0.1, MH, MX, DK + MH / 2, 0, 8); const RX = -3.55, RH = 5.4; cyl(g, brown, 0.07, 0.095, RH, RX, DK + RH / 2, 0, 8);
+  for (const [mx, hh] of [[MX, MH], [RX, RH]]) for (const f of [0.35, 0.7, 0.97]) cyl(g, steel, 0.105, 0.105, 0.1, mx, DK + hh * f, 0, 8);
+  lamp(g, MX, DK + MH + 0.12, 0, 0.12); lamp(g, RX, DK + RH + 0.12, 0, 0.12);
+  // 橘色三角帆 + 「順」
+  const sy0 = DK + 2.7, sy1 = DK + 5.0, sx2 = 3.0; const tri = [[MX, sy1], [MX, sy0], [MX + sx2, sy0 + 0.4]];
+  for (const side of [-1, 1]) {
+    const tex = canvasTex(512, 512, (x, w, h) => {
+      const gr = x.createLinearGradient(0, 0, w, h); gr.addColorStop(0, '#f87822'); gr.addColorStop(1, '#e85a14'); x.fillStyle = gr; x.fillRect(0, 0, w, h);
+      x.strokeStyle = 'rgba(120,40,0,.18)'; x.lineWidth = 3; for (let i = 1; i < 5; i++) { x.beginPath(); x.moveTo(0, h * i / 5); x.lineTo(w, h * i / 5 + 20); x.stroke(); }
+      // 字放在三角形內：船座標 x≈MX+0.95、y≈中段
+      const cu = 0.95 / sx2, cv = ((sy0 + 1.15) - sy0) / (sy1 - sy0); const px = (side < 0 ? 1 - cu : cu) * w, py = (1 - cv) * h;
+      x.font = `900 ${Math.round(h * 0.4)}px ${CJK}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#fff4e6'; x.strokeStyle = '#fff4e6'; x.lineWidth = 7; x.strokeText('順', px, py); x.fillText('順', px, py);
+    });
+    panel(g, tri, tex, side, 0.0);
+  }
+  box(g, brown, sx2 + 0.1, 0.07, 0.07, MX + sx2 / 2, sy0 + 0.2, 0).rotation.z = Math.atan2(0.4, sx2); // 帆桁
+  strut(g, rope, [MX, sy1 - 0.05, 0.02], [L / 2 - 0.4, DK + 0.65, 0], 0.018); strut(g, rope, [MX + sx2, sy0 + 0.4, 0], [L / 2 - 0.6, DK + 0.7, 0.0], 0.02); // 前支索
+  strut(g, rope, [MX, DK + 3.2, 0.03], [MX + 0.9, DK + 0.1, 1.2], 0.015); strut(g, rope, [MX, DK + 3.2, -0.03], [MX + 0.9, DK + 0.1, -1.2], 0.015);
+  strut(g, rope, [MX, sy1, 0], [RX, DK + RH - 0.2, 0], 0.016); strut(g, rope, [RX, DK + RH - 0.1, 0], [-L / 2 + 0.2, DK + 0.4, 0], 0.016);
+  // 旗幟「洋流」：米色底橘邊、直書黑字，掛在後桅橫桿上
+  const bx0 = RX, bx1 = RX - 1.5, by1 = DK + RH - 0.3, by0 = DK + 2.55; box(g, brown, 1.75, 0.07, 0.07, (bx0 + bx1) / 2 - 0.1, by1 + 0.08, 0); cyl(g, steel, 0.1, 0.1, 0.1, bx1 - 0.2, by1 + 0.08, 0, 6, 0, Math.PI / 2);
+  const btex = canvasTex(256, 512, (x, w, h) => {
+    x.fillStyle = '#f0e4c6'; x.fillRect(0, 0, w, h); x.strokeStyle = '#f0661a'; x.lineWidth = 16; x.strokeRect(8, 8, w - 16, h - 16);
+    x.fillStyle = 'rgba(150,110,60,.12)'; for (let i = 0; i < 40; i++) x.fillRect(Math.random() * w, Math.random() * h, 30, 2);
+    x.font = `900 ${Math.round(w * 0.62)}px ${CJK}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#16120e'; x.strokeStyle = '#16120e'; x.lineWidth = 8;
+    x.strokeText('洋', w / 2, h * 0.3); x.fillText('洋', w / 2, h * 0.3); x.strokeText('流', w / 2, h * 0.7); x.fillText('流', w / 2, h * 0.7);
+  });
+  for (const side of [-1, 1]) panel(g, [[bx0, by1], [bx1, by1], [bx1, by0], [bx0, by0]], btex, side, 0.0, { roughness: 0.9 });
+  strut(g, rope, [RX, DK + RH - 0.5, 0], [bx1, by0 - 0.05, 0], 0.012);
+  // 船尾：舵輪、救生圈、橘色排氣管、木箱
+  const wx = -3.05, wy = DK + 0.85; const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.045, 8, 20), wood); wheel.position.set(wx, wy, 0.0); g.add(wheel);
+  for (let i = 0; i < 4; i++) { const sp = box(g, wood, 0.8, 0.04, 0.04, wx, wy, 0); sp.rotation.z = i * Math.PI / 4; } for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; box(g, wood, 0.05, 0.05, 0.14, wx + Math.cos(a) * 0.46, wy + Math.sin(a) * 0.46, 0); }
+  cyl(g, steel, 0.06, 0.06, 0.2, wx, wy, 0.0, 8, Math.PI / 2); box(g, brown, 0.1, 0.5, 0.1, wx, DK + 0.25, 0);
+  { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.1, 10, 20), orange); ring.position.set(-2.55, DK + 0.62, -CD / 2 - 0.14); g.add(ring); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; box(g, white, 0.22, 0.2, 0.2, -2.55 + Math.cos(a) * 0.3, DK + 0.62 + Math.sin(a) * 0.3, -CD / 2 - 0.14).rotation.z = a + Math.PI / 2; } }
+  cyl(g, orange, 0.26, 0.28, 1.2, -4.0, DK + 0.6, -1.05, 12); cyl(g, steel, 0.3, 0.3, 0.12, -4.0, DK + 1.24, -1.05, 12);
+  box(g, wood, 0.7, 0.55, 0.6, -3.7, DK + 0.3, 1.05); box(g, mat(0x8d949b, 0.6, 0.3), 0.55, 0.42, 0.5, -3.6, DK + 0.76, 1.0, 0.3); box(g, wood, 0.5, 0.45, 0.5, -2.6, DK + 0.25, 1.25);
+  // 船尾與兩側矮白欄杆
+  for (const sd of [-1, 1]) { box(g, white, 3.2, 0.05, 0.05, -2.4, DK + 0.55, sd * (W / 2 * 0.86)); for (let i = 0; i <= 5; i++) cyl(g, white, 0.025, 0.025, 0.55, -4.0 + i * 0.64, DK + 0.28, sd * (W / 2 * 0.86), 5); }
+  box(g, white, 0.05, 0.05, W * 0.8, -L / 2 + 0.28, DK + 0.55, 0);
+  if (lv >= 3) { flag(g, MX, DK + MH + 0.1, 0, 0xffd23a); box(g, steel, 0.3, 0.25, 0.3, CX + 1.2, DK + CH + 0.3, -0.6); lamp(g, CX + 1.38, DK + CH + 0.32, -0.6, 0.11); }
 }
 function tug(g, lv) {
   const red = mat(0xb02a22, 0.55), black = mat(0x1c1f24, 0.7), white = mat(0xeeeeea, 0.5), steel = mat(0x6a7078, 0.45, 0.6), tire = mat(0x111111, 0.95), yellow = mat(0xe8b923, 0.5), deck = mat(0x5a606a, 0.8);

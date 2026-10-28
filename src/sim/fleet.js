@@ -2,7 +2,9 @@
 // 狀態 s.fleet 為「可選欄位」：舊存檔沒有也能載入（ensureFleet 補上），因此不需升 SAVE_VERSION。
 import { TICK, RES, RES_KEYS, FAC, LV_MULT } from './defs.js';
 import { hash, mulberry32 } from './rng.js';
-import { SHIPS, SHIP_ORDER, STARTERS, ZONES, ZONE_ORDER, FLEET_MAX, LV_MAX, LV_STAT, LV_SPEED, RESERVE_FUEL, FLAGSHIP, TRIP_BP } from './fleetdefs.js';
+import { SHIPS, SHIP_ORDER, STARTERS, ZONES, ZONE_ORDER, FLEET_MAX, LV_MAX, LV_STAT, LV_SPEED, RESERVE_FUEL, FLAGSHIP, TRIP_BP, WORLD } from './fleetdefs.js';
+import * as W from './world.js';
+import { planEvent, decide as decideEvent, pending as evPending, EVENTS } from './seaevents.js';
 
 const BP_IDS = SHIP_ORDER.filter((k) => !SHIPS[k].free);   // 需要藍圖的船
 export const bpIds = () => BP_IDS.slice();
@@ -10,7 +12,7 @@ export const bpIds = () => BP_IDS.slice();
 export function newFleet(owner) {
   return { v: 1, nextId: 1, ships: [], bp: {}, flagship: owner ? 'cruise' : null, pick: owner ? 'owner' : null, stats: { missions: 0, sunk: 0 },
     // 預留給共享世界地圖（第 3 步）：出生點 / 迷霧 / 已探索海域 / 位置。目前不參與任何計算。
-    world: { spawn: null, fog: '', seen: { near: 1 }, pos: null } };
+    world: W.emptyWorld(), pilot: { day: -1, got: 0 } };
 }
 export function ensureFleet(s, owner) { if (!s.fleet || typeof s.fleet !== 'object') s.fleet = newFleet(owner); return s.fleet; }
 
@@ -18,18 +20,20 @@ export function ensureFleet(s, owner) { if (!s.fleet || typeof s.fleet !== 'obje
 export function sanitizeFleet(f) {
   if (!f || typeof f !== 'object' || !Array.isArray(f.ships)) return null;
   const n = (x, d = 0) => (typeof x === 'number' && Number.isFinite(x) ? x : d);
+  const pt = (p) => (p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: p.x, y: p.y } : null);
+  const sanEv = (e) => (e && EVENTS[e.k] ? { k: e.k, at: Math.max(0, Math.min(1, n(e.at, 0.2))), c: Number.isInteger(e.c) && e.c >= -1 && e.c < EVENTS[e.k].opts.length ? e.c : -1, bad: !!e.bad, txt: typeof e.txt === 'string' ? e.txt.slice(0, 120) : '' } : null);
   const ships = [];
   for (const sh of f.ships.slice(0, FLEET_MAX)) {
     if (!sh || !SHIPS[sh.type]) continue;
-    const o = { id: n(sh.id, 0) | 0, type: sh.type, name: String(sh.name || SHIPS[sh.type].name).slice(0, 16), lv: Math.max(1, Math.min(LV_MAX, n(sh.lv, 1) | 0)), hp: Math.max(0, Math.min(100, n(sh.hp, 100))), state: ['dock', 'sail', 'build', 'wreck'].includes(sh.state) ? sh.state : 'dock', auto: sh.auto !== false, zone: sh.zone === 'auto' || ZONES[sh.zone] ? sh.zone : 'auto', n: n(sh.n, 0) | 0, done: n(sh.done, 0), m: null };
-    if (o.state === 'sail') { const m = sh.m; if (m && ZONES[m.zone] && [m.start, m.end].every((x) => typeof x === 'number' && Number.isFinite(x))) o.m = { zone: m.zone, start: m.start, end: m.end, fuel: n(m.fuel), res: Object.fromEntries(RES_KEYS.map((k) => [k, Math.max(0, Math.min(5000, n(m.res && m.res[k]) | 0))])), dmg: Math.max(0, Math.min(100, n(m.dmg))), fail: !!m.fail, bp: BP_IDS.includes(m.bp) ? m.bp : null }; else o.state = 'dock'; }
+    const o = { id: n(sh.id, 0) | 0, type: sh.type, name: String(sh.name || SHIPS[sh.type].name).slice(0, 16), lv: Math.max(1, Math.min(LV_MAX, n(sh.lv, 1) | 0)), hp: Math.max(0, Math.min(100, n(sh.hp, 100))), state: ['dock', 'sail', 'build', 'wreck', 'pilot'].includes(sh.state) ? sh.state : 'dock', auto: sh.auto !== false, zone: sh.zone === 'auto' || ZONES[sh.zone] ? sh.zone : 'auto', n: n(sh.n, 0) | 0, done: n(sh.done, 0), pilotAt: n(sh.pilotAt, 0), m: null };
+    if (o.state === 'sail') { const m = sh.m; if (m && ZONES[m.zone] && [m.start, m.end].every((x) => typeof x === 'number' && Number.isFinite(x))) o.m = { zone: m.zone, start: m.start, end: m.end, fuel: n(m.fuel), res: Object.fromEntries(RES_KEYS.map((k) => [k, Math.max(0, Math.min(5000, n(m.res && m.res[k]) | 0))])), dmg: Math.max(0, Math.min(100, n(m.dmg))), fail: !!m.fail, bp: BP_IDS.includes(m.bp) ? m.bp : null, from: pt(m.from), to: pt(m.to), ev: sanEv(m.ev) }; else o.state = 'dock'; }
     ships.push(o);
   }
   const ids = new Set(); for (const sh of ships) { if (ids.has(sh.id) || sh.id <= 0) sh.id = 1 + Math.max(0, ...ships.map((x) => x.id)); ids.add(sh.id); }
   const bp = {}; for (const k of BP_IDS) if (f.bp && f.bp[k]) bp[k] = 1;
-  const w = f.world && typeof f.world === 'object' ? f.world : {};
+  const world = sanWorld(f.world);
   return { v: 1, nextId: Math.max(n(f.nextId, 1), 1 + Math.max(0, ...ships.map((x) => x.id))), ships, bp, flagship: f.flagship === 'cruise' ? 'cruise' : null, pick: typeof f.pick === 'string' ? f.pick.slice(0, 16) : null,
-    stats: { missions: n(f.stats && f.stats.missions) | 0, sunk: n(f.stats && f.stats.sunk) | 0 }, world: { spawn: w.spawn || null, fog: typeof w.fog === 'string' ? w.fog.slice(0, 4000) : '', seen: w.seen && typeof w.seen === 'object' ? w.seen : { near: 1 }, pos: w.pos || null } };
+    stats: { missions: n(f.stats && f.stats.missions) | 0, sunk: n(f.stats && f.stats.sunk) | 0 }, world, pilot: { day: n(f.pilot && f.pilot.day, -1) | 0, got: Math.max(0, n(f.pilot && f.pilot.got) | 0) } };
 }
 
 // ---------------------------------------------------------------- 數值
@@ -59,16 +63,24 @@ export function planMission(s, ship, zone, startSec) {
   const res = { food: 0, water: 0, fuel: 0, parts: 0 }; let ws = 0; for (const k in Z.w) ws += Z.w[k]; for (const k in Z.w) res[k] = Math.round(total * Z.w[k] / ws);
   const hit = rnd() < risk * 2.5 || fail; const dmg = hit ? Math.round((8 + rnd() * 14) * (fail ? 1.6 : 1) / (1 + st.hull / 250) * (1 + Z.danger * 3)) : 0;
   const pool = Z.bp.filter((b) => !f.bp[b]); let bp = null; if (!fail && pool.length && rnd() < Z.bpChance) bp = pool[Math.floor(rnd() * pool.length)];
-  return { zone, start: startSec, end: startSec + missionMinutes(ship, zone) * 60, fuel: missionFuel(ship, zone), res, dmg, fail, bp };
+  // 世界地圖：目的地 = 離方舟最近的該海域格；方舟已在（或緊鄰）遠方海域時，往返更快、收穫更多（預設出生在近海 → 完全不變）
+  const w = f.world; const pos = W.arkPos(w, startSec); let from = null, to = null, mins = missionMinutes(ship, zone), close = false;
+  if (w && w.pos) { from = { x: Math.round(pos.x), y: Math.round(pos.y) }; const c = W.nearestZoneCell(pos.x, pos.y, zone); if (c) { const jr = mulberry32(hash(s.seed, 'fmj', ship.id, ship.n)); to = { x: Math.round(c.x + (jr() - 0.5) * 18), y: Math.round(c.y + (jr() - 0.5) * 18) }; close = zone !== 'near' && c.d <= WORLD.near; } }
+  if (close) { mins = Math.max(5, Math.round(mins * 0.7)); for (const k in res) res[k] = Math.round(res[k] * 1.15); }
+  const m = { zone, start: startSec, end: startSec + mins * 60, fuel: missionFuel(ship, zone), res, dmg, fail, bp, from, to, ev: null };
+  if (w && w.pos) m.ev = planEvent(s.seed, ship.id, ship.n, zone, fail);
+  return m;
 }
 
 function resolveMission(s, ship, tEnd, rep) {
   const m = ship.m; const f = s.fleet; const B = SHIPS[ship.type]; const Z = ZONES[m.zone];
   for (const k of RES_KEYS) if (m.res[k]) addRes(s, k, m.res[k], rep);
   ship.hp = Math.max(0, ship.hp - m.dmg); ship.m = null; f.stats.missions++; ship.n++;
+  if (m.to && f.world && f.world.pos) { const nn = W.reveal(f.world, m.to.x, m.to.y, WORLD.revealMission); if (nn) f.world.explored = (f.world.explored || 0) + nn; }
   const gains = RES_KEYS.filter((k) => m.res[k]).map((k) => `${RES[k].icon}${m.res[k]}`).join(' ');
   let text = `${B.icon}${ship.name} ${m.fail ? '遇襲，勉強帶回' : '從' + Z.name + '返航'}：${gains}` + (m.dmg ? `（船體 −${m.dmg}%）` : '');
   if (ship.hp <= 0) { ship.state = 'wreck'; f.stats.sunk++; text += `。${ship.name} 重創擱淺，需要整修！`; } else ship.state = 'dock';
+  if (m.ev && m.ev.c >= 0 && m.ev.txt) text += `（${m.ev.txt}）`;
   if (m.bp && !f.bp[m.bp]) { f.bp[m.bp] = 1; text += `。🗺️ 在海上發現「${SHIPS[m.bp].name}」藍圖！`; ev(s, rep, { t: tEnd, type: 'blueprint', bp: m.bp, text: `發現藍圖：${SHIPS[m.bp].name}` }); }
   ev(s, rep, { t: tEnd, type: 'fleet', ship: ship.id, text, fail: m.fail });
 }
@@ -80,6 +92,7 @@ export function fleetTick(s, t, tEnd, rep) {
   for (const ship of f.ships.slice().sort((a, b) => a.id - b.id)) {
     if (ship.state === 'build' && ship.done <= tEnd) { ship.state = 'dock'; ev(s, rep, { t: tEnd, type: 'shipdone', ship: ship.id, text: `${SHIPS[ship.type].icon}${ship.name} 建造完成，已停靠在方舟旁。` }); }
     else if (ship.state === 'sail' && ship.m && ship.m.end <= tEnd) resolveMission(s, ship, tEnd, rep);
+    if (ship.state === 'pilot' && tEnd - ship.pilotAt > 1800) ship.state = 'dock';   // 忘了還船：30 分鐘後自動歸港
     if (ship.state === 'dock') {
       if (wkLv && ship.hp < 100) ship.hp = Math.min(100, ship.hp + 0.04 * LV_MULT[wkLv]);
       if (ship.auto && ship.hp >= 50) {
@@ -104,7 +117,7 @@ export function pickStarter(s, type, nowSec) {
   f.pick = type; if (!SHIPS[type].free) f.bp[type] = 1; const ship = makeShip(f, type, 'dock', 0); f.ships.push(ship); f.nextId = Math.max(f.nextId, ship.id + 1);
   const text = `${SHIPS[type].icon}你選了「${SHIPS[type].name}」作為第一艘船，出海吧！`; s.log.push({ t: s.simT, type: 'fleet', ship: ship.id, text }); return { ok: true, msg: text, ship };
 }
-function makeShip(f, type, state, done) { const id = f.nextId++; const same = f.ships.filter((x) => x.type === type).length; return { id, type, name: SHIPS[type].name + (same ? ' ' + (same + 1) + ' 號' : ''), lv: 1, hp: 100, state, auto: true, zone: 'auto', n: 0, done, m: null }; }
+function makeShip(f, type, state, done) { const id = f.nextId++; const same = f.ships.filter((x) => x.type === type).length; return { id, type, name: SHIPS[type].name + (same ? ' ' + (same + 1) + ' 號' : ''), lv: 1, hp: 100, state, auto: true, zone: 'auto', n: 0, done, pilotAt: 0, m: null }; }
 export function buildShip(s, type) {
   const c = canBuild(s, type); if (!c.ok) return { ok: false, msg: c.why }; const f = s.fleet; const B = SHIPS[type];
   pay(s, B.cost); const ship = makeShip(f, type, 'build', s.simT + B.build * 60); f.ships.push(ship);
@@ -129,3 +142,43 @@ export function setAuto(s, id, on) { const ship = findShip(s, id); if (!ship) re
 export function renameShip(s, id, name) { const ship = findShip(s, id); if (!ship) return { ok: false, msg: '找不到這艘船' }; const n = String(name || '').replace(/[<>]/g, '').trim().slice(0, 12); if (!n) return { ok: false, msg: '名字不能空白' }; ship.name = n; return { ok: true, msg: '已改名' }; }
 export const findShip = (s, id) => (s.fleet ? s.fleet.ships.find((x) => x.id === id) || null : null);
 export const flagshipInfo = () => FLAGSHIP;
+
+function sanWorld(w) {
+  const o = W.emptyWorld(); if (!w || typeof w !== 'object') return o; const n = (x) => typeof x === 'number' && Number.isFinite(x); const pt = (p) => (p && n(p.x) && n(p.y) ? { x: Math.max(0, Math.min(2000, p.x)), y: Math.max(0, Math.min(2000, p.y)) } : null);
+  if (w.spawn && n(w.spawn.x) && n(w.spawn.y)) o.spawn = { slot: Math.max(0, Math.min(WORLD.slots - 1, w.spawn.slot | 0)), ...pt(w.spawn) };
+  o.fog = typeof w.fog === 'string' && w.fog.length <= 1400 && /^[A-Za-z0-9+/=]*$/.test(w.fog) ? w.fog : ''; o.seen = {}; for (const z of ZONE_ORDER) if (w.seen && w.seen[z]) o.seen[z] = 1; o.pos = pt(w.pos); o.explored = n(w.explored) ? Math.max(0, w.explored | 0) : 0;
+  const r = w.route; if (r && n(r.x0) && n(r.y0) && n(r.x1) && n(r.y1) && n(r.t0) && n(r.t1)) o.route = { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, t0: r.t0, t1: r.t1, fuel: n(r.fuel) ? r.fuel : 0 };
+  return o;
+}
+
+// ---------------------------------------------------------------- 世界 / 航行 / 事件 / 駕駛（玩家行動）
+export const ensureWorld = (s, key) => { const f = s.fleet; if (!f) return null; return W.ensureSpawn(f, key); };
+export function sailArk(s, x, y, nowSec) { return W.sailTo(s, x, y, nowSec, RESERVE_FUEL); }
+export function decideSeaEvent(s, shipId, choice, nowSec) {
+  const ship = findShip(s, shipId); if (!ship || ship.state !== 'sail') return { ok: false, msg: '這艘船不在海上' };
+  const m = ship.m; const E = m && m.ev && EVENTS[m.ev.k]; const pool = E ? ZONES[m.zone].bp.filter((b) => !s.fleet.bp[b]) : [];
+  const r = decideEvent(s.seed, ship, shipStats(ship), choice, nowSec, pool); if (r.ok) s.log.push({ t: s.simT, type: 'fleet', ship: ship.id, text: `${SHIPS[ship.type].icon}${ship.name}｜${m.ev.txt}` }); return r;
+}
+export const pendingEvents = (s, nowSec) => (s.fleet ? s.fleet.ships.filter((x) => x.state === 'sail' && evPending(x.m, nowSec)) : []);
+export function startPilot(s, id, nowSec) {
+  const ship = findShip(s, id); if (!ship) return { ok: false, msg: '找不到這艘船' }; if (s.fleet.ships.some((x) => x.state === 'pilot')) return { ok: false, msg: '你已經在駕駛一艘船了' };
+  if (ship.state !== 'dock') return { ok: false, msg: ship.state === 'sail' ? '船在海上執行任務，等它返港' : '這艘船現在不能駕駛' }; if (ship.hp < 25) return { ok: false, msg: '船況太差，先整修' };
+  ship.state = 'pilot'; ship.pilotAt = nowSec; return { ok: true, msg: `登上 ${ship.name}，出海兜風！` };
+}
+export function endPilot(s, id) { const ship = findShip(s, id); if (!ship || ship.state !== 'pilot') return { ok: false, msg: '不在駕駛中' }; ship.state = 'dock'; ship.auto = ship.auto; return { ok: true, msg: `${ship.name} 回到港邊` }; }
+export function keepPilot(s, id, nowSec) { const ship = findShip(s, id); if (ship && ship.state === 'pilot') ship.pilotAt = nowSec; }
+/** 駕駛時撿到海面上的補給箱：每天最多 80 單位（避免變成刷資源） */
+export function pilotCollect(s, nowSec, tz = 0) {
+  const f = s.fleet; const day = Math.floor((nowSec + tz * 60) / 86400); if (f.pilot.day !== day) f.pilot = { day, got: 0 };
+  if (f.pilot.got >= 80) return { ok: false, msg: '今天撿得夠多了（每日上限 80），明天再來！' };
+  const rnd = mulberry32(hash(s.seed, 'pcol', day, f.pilot.got)); const k = RES_KEYS[Math.floor(rnd() * 4)]; const v = Math.min(80 - f.pilot.got, 4 + Math.floor(rnd() * 7));
+  s.res[k] = Math.min(RES[k].cap, s.res[k] + v); f.pilot.got += v; return { ok: true, msg: `撿到補給箱：${RES[k].icon}+${v}`, k, v };
+}
+/** 手動派船（海圖上用）：立刻出航到指定海域（不改變閒置自動設定） */
+export function sendShip(s, id, zone, nowSec) {
+  const ship = findShip(s, id); if (!ship) return { ok: false, msg: '找不到這艘船' }; if (ship.state !== 'dock') return { ok: false, msg: '船現在不在港內' }; if (ship.hp < 25) return { ok: false, msg: '船況太差，先整修' };
+  if (!ZONES[zone] || !SHIPS[ship.type].zones.includes(zone)) return { ok: false, msg: `${SHIPS[ship.type].name}無法前往該海域` };
+  const fuel = missionFuel(ship, zone); if (s.res.fuel < fuel + RESERVE_FUEL) return { ok: false, msg: `燃料不足（需要 ⛽${fuel}）` };
+  s.res.fuel -= fuel; ship.m = planMission(s, ship, zone, Math.max(s.simT, nowSec)); ship.state = 'sail'; return { ok: true, msg: `${ship.name} 出航：${ZONES[zone].name}` };
+}
+export const stopArk = (s, nowSec) => W.stopArk(s, nowSec);

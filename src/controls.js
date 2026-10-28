@@ -33,8 +33,8 @@ export class Controls {
   bind() {
     const d = this.dom;
     addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; const k = e.key.toLowerCase(); this.keys.add(k);
-      if (k === 'v') this.cycleMode(); if (k === 't') this.game.togglePause(); if (k === 'h' || k === '?') this.game.ui && this.game.ui.toggleHelp(); if (k === 'l') this.game.ui && this.game.ui.toggleCrew();
-      if (k >= '1' && k <= '5' && !e.ctrlKey && !e.metaKey) this.game.showDeck(+k - 1);
+      if (k === 'v' && !this.game.pilot) this.cycleMode(); if (k === 't') this.game.togglePause(); if (k === 'h' || k === '?') this.game.ui && this.game.ui.toggleHelp(); if (k === 'l') this.game.ui && this.game.ui.toggleCrew();
+      if (k >= '1' && k <= '5' && !e.ctrlKey && !e.metaKey && !this.game.pilot) this.game.showDeck(+k - 1);
       if (k === '0' || k === 'p') this.game.showPanorama();
       if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(k)) e.preventDefault(); });
     addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase())); addEventListener('blur', () => this.keys.clear());
@@ -92,7 +92,7 @@ export class Controls {
   update(dt) {
     const g = this.game; const cam = g.camera;
     if (this.mode === 'follow') {
-      const p = g.player.avatar.group.getWorldPosition(this.tmp); p.y += 1.25; this.target.lerp(p, 1 - Math.exp(-9 * dt));
+      const p = g.pilot ? this.tmp.copy(g.pilot.cam) : g.player.avatar.group.getWorldPosition(this.tmp); if (!g.pilot) p.y += 1.25; this.target.lerp(p, 1 - Math.exp(-(g.pilot ? 6 : 9) * dt));
     } else if (this.mode === 'overview') { this.target.lerp(this.tgtOver, 1 - Math.exp(-4 * dt)); }
     else if (this.focusBot) { const p = this.focusBot.worldPos(this.tmp); p.y += 1; this.target.lerp(p, 1 - Math.exp(-6 * dt)); }
     const cp = Math.cos(this.pitch);

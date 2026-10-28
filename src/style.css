@@ -162,3 +162,31 @@ kbd { font-family: inherit; font-size: 11px; padding: 0 5px; border: 1px solid c
 #syncdlg .st { font-weight: 700; margin-bottom: 4px; } #syncdlg .st i { font-style: normal; font-size: 11px; background: #3fbf7a; color: #04210f; padding: 1px 6px; border-radius: 99px; margin-left: 4px; } #syncdlg .sd { font-size: 12px; opacity: .8; margin-bottom: 8px; }
 #syncdlg button { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: #ffffff12; color: #fff; cursor: pointer; font-size: 13px; } #syncdlg button.pri { background: #1f7a4a; border-color: #3fbf7a; } #syncdlg button.ghost { margin-top: 10px; }
 @media (max-width: 700px) { #acct .lbl { display: none; } #acct { padding: 3px 8px; } }
+
+/* ---- 海圖 ---- */
+#seachart { position: fixed; inset: 0; z-index: 70; background: #050b14; color: #fff; font-size: 13px; } #seachart.hide { display: none; } #seachart canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+.scTop { position: absolute; left: 0; right: 0; top: 0; display: flex; gap: 6px; align-items: center; padding: calc(8px + env(safe-area-inset-top)) 10px 8px; background: linear-gradient(#050b14f0, #050b1400); pointer-events: none; } .scTop > * { pointer-events: auto; } .scTop .sp { flex: 1; pointer-events: none; } .scTop b { font-size: 15px; } .scSub { opacity: .75; font-size: 12px; }
+.scTop button { padding: 6px 11px; border-radius: 8px; border: 1px solid var(--line); background: #0d1a2ccc; color: #fff; cursor: pointer; min-height: 32px; }
+.scPanel { position: absolute; right: 8px; top: calc(52px + env(safe-area-inset-top)); width: min(310px, calc(100% - 16px)); max-height: calc(100% - 130px); overflow: auto; display: flex; flex-direction: column; gap: 8px; }
+.scPanel .pk, .evc { background: #0b1b2de8; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; } .scPanel h4 { margin: 0 0 4px; font-size: 13px; } .scPanel p { margin: 3px 0; } .scPanel small { opacity: .7; margin-left: 6px; } .scPanel .dim { opacity: .65; font-size: 12px; }
+.evc { border-color: #ff8a5e; box-shadow: 0 0 14px #ff8a5e44; } .evc .eh { font-size: 14px; } .evc .eo { display: flex; flex-direction: column; gap: 5px; margin: 6px 0; } .evc .eo button { text-align: left; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--line); background: #ffffff10; color: #fff; cursor: pointer; } .evc .eo button small { display: block; margin: 2px 0 0; font-size: 11px; }
+.msn { display: flex; gap: 8px; align-items: center; margin: 4px 0; } .msn small { display: block; margin: 0; } .evd { font-size: 12px; opacity: .85; margin-top: 4px; }
+.zc.un { opacity: .5; border-color: #ffffff30; color: #ffffff80; }
+.scConfirm { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom)); display: flex; gap: 12px; align-items: center; background: #0b1b2df5; border: 1px solid #ffd36b; border-radius: 12px; padding: 10px 14px; max-width: calc(100% - 16px); } .scConfirm.hide { display: none; } .scConfirm small { display: block; opacity: .75; } .scConfirm .cb { display: flex; gap: 6px; } .scConfirm button { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: #ffffff12; color: #fff; cursor: pointer; } .scConfirm button.pri { background: #ffd36b; color: #2a1c00; border-color: #ffd36b; font-weight: 700; } .scConfirm button:disabled { opacity: .4; }
+@media (max-width: 700px) { .scPanel { top: auto; bottom: 72px; right: 8px; left: 8px; width: auto; max-height: 34vh; } .scSub { display: none; } .scConfirm { bottom: calc(8px + env(safe-area-inset-bottom)); } }
+
+/* ---- 駕駛 ---- */
+#pilotbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 30; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 99px; background: rgba(10,22,36,.88); border: 1px solid var(--line); color: #fff; } #pilotbar.hide { display: none; }
+#pilotbar .ps { width: 110px; height: 8px; border-radius: 99px; background: #ffffff20; overflow: hidden; } #pilotbar .ps u { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #5fd0e6, #ffd36b); } #pilotbar small { opacity: .65; font-size: 11px; }
+#pilotbar button { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--line); background: #ffffff14; color: #fff; cursor: pointer; font-size: 13px; } #pilotbar button.pri { background: #ffd36b; color: #2a1c00; font-weight: 700; border-color: #ffd36b; }
+@media (max-width: 700px) { #pilotbar { bottom: calc(150px + env(safe-area-inset-bottom)); gap: 8px; padding: 6px 10px; } #pilotbar small, #pilotbar .ps { display: none; } }
+body.piloting #prompt { display: none !important; }
+/* 吉祥物名牌（奔奔 / 抱抱） */
+.ft.mascot { flex-direction: column; gap: 0; padding: 2px 9px 3px; border-color: #ffd36b; background: rgba(40,28,10,.72); }
+.ft.mascot.baobao { border-color: #ff8aa0; background: rgba(48,14,22,.72); }
+.ft.mascot .t { font-weight: 700; } .ft.mascot i { font-size: 13px; margin-right: 3px; }
+.ft.mascot .mbub { display: none; max-width: 190px; white-space: normal; text-align: center; font-size: 12px; color: #fff4d6; padding-top: 2px; }
+.ft.mascot.talk .mbub { display: block; animation: mpop .25s ease-out; }
+@keyframes mpop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.ft.mascot.far .t { display: inline; }
+.ft.mascot .r { display: flex; align-items: center; }

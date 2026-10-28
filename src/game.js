@@ -62,7 +62,7 @@ export class Game {
   updateDecks() {
     const c = this.controls; let vd;
     if (this.soloDeck != null && c.mode === 'free') vd = this.soloDeck;
-    else if (c.mode === 'follow') vd = this.player.deck; else if (c.mode === 'free') vd = this.viewOverride != null && c.focusBot ? c.focusBot.actor.deck : this.deckAtY(c.target.y); else vd = 4;
+    else if (c.mode === 'follow') vd = this.pilot ? 4 : this.player.deck; else if (c.mode === 'free') vd = this.viewOverride != null && c.focusBot ? c.focusBot.actor.deck : this.deckAtY(c.target.y); else vd = 4;
     this.viewDeck = vd; const solo = this.soloDeck != null && c.mode === 'free';
     const vis = [0, 1, 2, 3, 4].map((i) => (solo ? i === this.soloDeck : c.mode === 'overview' || i <= vd)); const bandVis = [0, 1].map((k) => (c.mode === 'overview' && !solo) || (solo ? k < this.soloDeck : k < vd)); this.ship.setVisibleDecks(vis, bandVis); this.deckVis = vis;
   }
@@ -74,6 +74,7 @@ export class Game {
   /** 全景：回到整艘船 */
   showPanorama() { this.soloDeck = null; this.controls.setMode('overview'); this.ship.setExplode(0); this.updateDecks(); this.ui && this.ui.refreshDeckBtns(); }
   onTap(x, y) {
+    if (this.pilot) return;
     const r = this.controls.pickFloor(x, y); if (!r) return; this.player.goTo(r.deck, r.x, r.z);
   }
   step(dt) {
@@ -82,7 +83,7 @@ export class Game {
     const sdt = Math.min(dt, 0.1);
     this.ocean.update(this.time, 1);
     this.ship.update(sdt, this.time);
-    this.player.update(sdt, this.controls.move, this.controls.yaw);
+    this.player.update(sdt, this.pilot ? { x: 0, y: 0, run: false } : this.controls.move, this.controls.yaw);
     this.crew.update(sdt, this.time);
     this.updateDecks();
     this.controls.update(sdt);

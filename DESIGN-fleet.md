@@ -43,3 +43,10 @@ raids/{id}                    {attacker,defender,power,loot,t}   攻守雙方可
 ## 4. PvP 在 Spark 上的作法與作弊風險
 - 只能用 Firestore + 客戶端模擬：自動戰鬥用雙方公開戰力與種子在雙方客戶端各自重算；線上時可手動下指令。
 - **作弊風險**：沒有伺服器權威（無 Cloud Functions），惡意客戶端可竄改自己的存檔與上傳的結果；規則只能做「上限、頻率、型別」檢查，不能驗證戰鬥過程。因此：離線襲擊限制在小比例（≤10%）、有冷卻、只掠奪資源不毀船，並把 PvP 當作「朋友間的玩法」而非排名競技。若日後要防作弊，需升級到 Blaze + Cloud Functions 做權威結算。
+
+## 5. 世界地圖、海圖、駕駛（Milestone 4）
+- `src/sim/world.js`：區域格網、迷霧位元集、出生點、方舟位置與航行（`worldTick` 由 `stepTick` 呼叫，離線補算與線上一致）。
+- `src/sim/seaevents.js`：海上事件與選項，結果由 `hash(seed, ship, n, choice)` 決定。
+- 存檔：`fleet.world`、`fleet.pilot`、任務的 `from/to/ev` 皆為可選欄位，舊存檔相容。
+- 駕駛：`play.startPilot/updatePilot`（不影響模擬，只有撿箱子有每日上限 80）。
+- 吉祥物：不屬於模擬，純前端，不存檔。

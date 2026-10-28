@@ -19,7 +19,7 @@ export const ZONE_ORDER = ['near', 'reef', 'ruins', 'ice', 'abyss'];
 // 6 種船。cost = 建造花費；build = 建造分鐘；starter = 新手可選的第一艘（選了即獲得該船藍圖）；free = 任何人都能直接造（只有小漁船）；zones = 可航行海域
 export const SHIPS = {
   skiff:      { id: 'skiff',      name: '小漁船',     icon: '🛶', len: 7,  role: '入門款・便宜耐用',   speed: 1.0, cargo: 30,  hull: 40,  fp: 0, fuelUse: 1.0, zones: ['near'],                          cost: { parts: 40, fuel: 10 },                    build: 10,  starter: true,  free: true, up: { parts: 30 } },
-  speedboat:  { id: 'speedboat',  name: '快艇',       icon: '🚤', len: 8.5, role: '跑得快・貨艙小',     speed: 2.2, cargo: 22,  hull: 35,  fp: 1, fuelUse: 1.6, zones: ['near', 'reef'],                  cost: { parts: 90, fuel: 30 },                    build: 20,  starter: true,  up: { parts: 60, fuel: 15 } },
+  speedboat:  { id: 'speedboat',  name: '洋流號',     icon: '🚤', len: 9.5, role: '快艇・跑得快・貨艙小',     speed: 2.2, cargo: 22,  hull: 35,  fp: 1, fuelUse: 1.6, zones: ['near', 'reef'],                  cost: { parts: 90, fuel: 30 },                    build: 20,  starter: true,  up: { parts: 60, fuel: 15 } },
   tug:        { id: 'tug',        name: '打撈拖船',   icon: '⚓', len: 14, role: '貨艙大・慢而穩',     speed: 0.8, cargo: 120, hull: 90,  fp: 0, fuelUse: 1.2, zones: ['near', 'reef', 'ruins'],         cost: { parts: 160, fuel: 40, food: 30 },         build: 40,  starter: true,  up: { parts: 110, fuel: 25 } },
   sub:        { id: 'sub',        name: '潛水艇',     icon: '🛟', len: 16, role: '可下潛深淵',         speed: 1.2, cargo: 50,  hull: 80,  fp: 2, fuelUse: 1.4, zones: ['reef', 'ruins', 'abyss'],        cost: { parts: 300, fuel: 80, water: 60 },        build: 90,  starter: false, up: { parts: 200, fuel: 50, water: 30 } },
   patrol:     { id: 'patrol',     name: '武裝巡邏艇', icon: '🛡️', len: 18, role: '火力強・護航殲敵',   speed: 1.6, cargo: 40,  hull: 110, fp: 6, fuelUse: 1.8, zones: ['near', 'reef', 'ruins'],         cost: { parts: 260, fuel: 90, food: 40 },         build: 60,  starter: false, up: { parts: 170, fuel: 60 } },
@@ -35,4 +35,7 @@ export const FLAGSHIP = { id: 'cruise', name: '末日方舟（郵輪）', icon: 
 export const TRIP_BP = [{ chance: 0.02, pool: ['speedboat'] }, { chance: 0.06, pool: ['tug', 'patrol'] }, { chance: 0.12, pool: ['sub', 'icebreaker'] }];
 
 // 共享世界地圖（第 3 步，目前只定義資料形狀；見 DESIGN-fleet.md）
-export const WORLD = { size: 2000, cell: 25, spawnMinGap: 600, fogBits: (2000 / 25) ** 2 };
+export const WORLD = { size: 2000, cell: 25, grid: 80, c: 1000, spawnR: 800, slots: 8, spawnMinGap: 600, fogBits: 80 * 80,
+  arkSpeed: 1.2,        // 方舟航速：地圖單位 / 分鐘
+  fuelPerUnit: 0.08,    // 方舟每航行 1 單位耗油
+  revealArk: 95, revealMission: 70, revealSpawn: 130, near: 120 /* 距離某海域 ≤ 此值 → 該海域任務較快較肥 */ };
