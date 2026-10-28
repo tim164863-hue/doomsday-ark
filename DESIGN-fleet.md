@@ -50,3 +50,8 @@ raids/{id}                    {attacker,defender,power,loot,t}   攻守雙方可
 - 存檔：`fleet.world`、`fleet.pilot`、任務的 `from/to/ev` 皆為可選欄位，舊存檔相容。
 - 駕駛：`play.startPilot/updatePilot`（不影響模擬，只有撿箱子有每日上限 80）。
 - 吉祥物：不屬於模擬，純前端，不存檔。
+
+## 6. 小船之家（非擁有者）
+- `fleet.home`（選填，船 id）= 旗艦；沒有就用 `fleet.pick` 那艘，再不然第一艘可當家的船（`homeShip`）。`sanitizeFleet` 只保留有效的整數 id；潛艇不能當旗艦；出海中 / 建造中不能換。
+- 沒有選船（`home=null`）→ `Game` 不建立任何船體，只有海面。擁有者路徑不變。
+- 場景裡只有一層甲板（所有 `D.*` 層索引映射到 0）；船員人數 = `min(虛擬船員, spec.cap)`。旗艦出海任務時整艘船（含船員）一起航行，鏡頭跟隨。

@@ -5,6 +5,7 @@ import { hash, mulberry32 } from './rng.js';
 import { SHIPS, SHIP_ORDER, STARTERS, ZONES, ZONE_ORDER, FLEET_MAX, LV_MAX, LV_STAT, LV_SPEED, RESERVE_FUEL, FLAGSHIP, TRIP_BP, WORLD } from './fleetdefs.js';
 import * as W from './world.js';
 import * as R from './rel.js';
+import { HOME_TYPES } from '../ship/homespec.js';
 import { planEvent, decide as decideEvent, pending as evPending, EVENTS } from './seaevents.js';
 
 const BP_IDS = SHIP_ORDER.filter((k) => !SHIPS[k].free);   // 需要藍圖的船
@@ -33,7 +34,8 @@ export function sanitizeFleet(f) {
   const ids = new Set(); for (const sh of ships) { if (ids.has(sh.id) || sh.id <= 0) sh.id = 1 + Math.max(0, ...ships.map((x) => x.id)); ids.add(sh.id); }
   const bp = {}; for (const k of BP_IDS) if (f.bp && f.bp[k]) bp[k] = 1;
   const world = sanWorld(f.world);
-  return { v: 1, nextId: Math.max(n(f.nextId, 1), 1 + Math.max(0, ...ships.map((x) => x.id))), ships, bp, flagship: f.flagship === 'cruise' ? 'cruise' : null, pick: typeof f.pick === 'string' ? f.pick.slice(0, 16) : null,
+  const home = Number.isInteger(f.home) && ships.some((x) => x.id === f.home) ? { home: f.home } : {};
+  return { ...home, v: 1, nextId: Math.max(n(f.nextId, 1), 1 + Math.max(0, ...ships.map((x) => x.id))), ships, bp, flagship: f.flagship === 'cruise' ? 'cruise' : null, pick: typeof f.pick === 'string' ? f.pick.slice(0, 16) : null,
     stats: { missions: n(f.stats && f.stats.missions) | 0, sunk: n(f.stats && f.stats.sunk) | 0 }, world, pilot: { day: n(f.pilot && f.pilot.day, -1) | 0, got: Math.max(0, n(f.pilot && f.pilot.got) | 0) } };
 }
 
@@ -114,6 +116,21 @@ export function grantBlueprint(s, bp) { const f = s.fleet; if (!f || !BP_IDS.inc
 // ---------------------------------------------------------------- 玩家行動
 const fleetCount = (f) => f.ships.length;
 export const canBuild = (s, type) => { const f = s.fleet; const B = SHIPS[type]; if (!f || !B) return { ok: false, why: '沒有這種船' }; if (fleetCount(f) >= FLEET_MAX) return { ok: false, why: `艦隊已滿（最多 ${FLEET_MAX} 艘）` }; if (!B.free && !f.bp[type]) return { ok: false, why: '需要藍圖（出海探索時有機會發現）' }; if (!canPay(s, B.cost)) return { ok: false, why: '資源不足：需要 ' + costTextF(B.cost) }; return { ok: true }; };
+/** 非擁有者的「家」：玩家選定的旗艦小船（f.home = 船 id）；沒設定就用第一艘入門船，再不然第一艘可當家的船。擁有者不使用（T董 的家是郵輪方舟）。 */
+export const canBeHome = (sh) => !!sh && HOME_TYPES.includes(sh.type) && sh.state !== 'build';
+export function homeShip(f) {
+  if (!f || !Array.isArray(f.ships)) return null;
+  const a = f.ships.find((x) => x.id === f.home); if (canBeHome(a)) return a;
+  const b = f.ships.find((x) => x.type === f.pick && canBeHome(x)); if (b) return b;
+  return f.ships.find(canBeHome) || null;
+}
+export function setHome(s, id) {
+  const f = s.fleet; const sh = f && f.ships.find((x) => x.id === id); if (!sh) return { ok: false, msg: '找不到這艘船' };
+  if (!HOME_TYPES.includes(sh.type)) return { ok: false, msg: SHIPS[sh.type].name + ' 不能當旗艦（潛艇沒有甲板）' };
+  if (sh.state === 'build') return { ok: false, msg: '還在建造中' }; if (sh.state === 'sail' || sh.state === 'pilot') return { ok: false, msg: '船在海上，返港後再換旗艦' };
+  if (homeShip(f) && homeShip(f).id === id) return { ok: true, msg: '已經是旗艦了', same: true };
+  f.home = id; const text = `⭐ 旗艦換成「${sh.name}」`; s.log.push({ t: s.simT, type: 'fleet', ship: id, text }); return { ok: true, msg: text, ship: sh };
+}
 export function pickStarter(s, type, nowSec) {
   const f = s.fleet; if (!f) return { ok: false, msg: '艦隊尚未建立' }; if (f.pick) return { ok: false, msg: '已經選過了' }; if (!STARTERS.includes(type)) return { ok: false, msg: '請從入門船型中選一艘' };
   f.pick = type; if (!SHIPS[type].free) f.bp[type] = 1; const ship = makeShip(f, type, 'dock', 0); f.ships.push(ship); f.nextId = Math.max(f.nextId, ship.id + 1);

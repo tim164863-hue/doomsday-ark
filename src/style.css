@@ -212,3 +212,13 @@ body.piloting #prompt { display: none !important; }
 #mg .mgb { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; } #mg .mgb button { padding: 10px 16px; font-size: 14px; border-radius: 10px; }
 body.mging #prompt { display: none !important; } body.mging #crewmini { display: none; }
 @media (max-width: 700px) { #mg { bottom: calc(54px + env(safe-area-inset-bottom)); } }
+
+/* ---- 船員關係 / 遊玩 */
+.rlist { list-style: none; margin: 4px 0 6px; padding: 0; } .rlist li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,.06); }
+.rlist .rn { flex: 1; min-width: 0; font-weight: 600; } .rlist .rv { min-width: 96px; text-align: right; font-size: 12.5px; } .rlist .rv small { opacity: .65; } .rlist .rv.bad, .rlist em.bad { color: #ff8a7e; font-style: normal; }
+.rbar { position: relative; width: 74px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.12); flex: none; } .rbar::after { content: ''; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: rgba(255,255,255,.35); }
+.rbar i { position: absolute; top: 0; bottom: 0; border-radius: 4px; } .rbar i.pos { background: #7dffb0; } .rbar i.neg { background: #ff8a7e; }
+.rbest { display: flex; flex-wrap: wrap; gap: 6px 10px; font-size: 12.5px; } .rbest span { background: rgba(255,255,255,.07); border-radius: 10px; padding: 3px 9px; } .rbest b { color: var(--acc); }
+#prompt .pb button small { opacity: .7; margin-left: 2px; }
+body.gaming #prompt, body.gaming #crewmini { display: none !important; }
+.ft.far.empty .lv { display: none; }

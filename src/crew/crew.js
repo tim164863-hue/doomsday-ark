@@ -7,9 +7,9 @@ import { pickConversation, greeting } from './chatter.js';
 import { pick, rand, chance, clamp } from '../util.js';
 import { DH } from '../ship/ship.js';
 import { emit } from '../events.js';
+import { D } from './decks.js';
 
 const PI = Math.PI;
-const D = { cabin: 0, gym: 1, work: 2, fun: 3, boss: 4 };
 const yawOfDir = (hx, hz) => Math.atan2(-hx, -hz);
 const rnd = Math.random;
 
@@ -67,7 +67,7 @@ class Bot {
   }
   get deckObj() { return this.game.ship.decks[this.actor.deck]; }
   say(text, dur = 3.4, kind = 'chat') { this.speech = { text, until: this.game.time + dur, kind }; }
-  setMoodNow() { const e = this.game.envState; this.mood = this.cheerUntil > Date.now() ? 'happy' : this.hurt ? 'tired' : computeMood(this.info, { nightF: e.nightF, dayF: e.dayF, workedMin: this.info.cat === 'work' ? (Date.now() - this.workStart) / 60000 : 0, sleeping: this.sleeping, playing: this.playing }); }
+  setMoodNow() { const e = this.game.envState; this.mood = this.moodForce && this.moodForce.until > Date.now() ? this.moodForce.m : this.cheerUntil > Date.now() ? 'happy' : this.hurt ? 'tired' : computeMood(this.info, { nightF: e.nightF, dayF: e.dayF, workedMin: this.info.cat === 'work' ? (Date.now() - this.workStart) / 60000 : 0, sleeping: this.sleeping, playing: this.playing }); }
   worldPos(out = new THREE.Vector3()) { return this.avatar.group.getWorldPosition(out); }
 
   // ---- 佔位
@@ -99,7 +99,7 @@ class Bot {
     if (!!on === !!this.away) return;
     if (on) { this.cleanup(); this.away = true; this.state = 'away'; this.activity = '出海中'; this.convo = null; this.speech = null; this.gen = (function* () { while (true) yield; })(); this.avatar.group.visible = false; }
     else {
-      this.away = false; this.cleanup(); const n = this.game.ship.decks[D.work].nav; const p = n.nearestFree(-19 + (rnd() - 0.5) * 6, 10.4) || [-19, 9]; this.actor.place(D.work, p[0], p[1], PI); this.avatar.group.visible = true; this.gen = this.run();
+      this.away = false; this.cleanup(); const sh = this.game.ship; const n = sh.decks[D.work].nav; const p = sh.small ? (n.nearestFree(sh.land[0] + (rnd() - 0.5) * 2, sh.land[1] + (rnd() - 0.5) * 2, 3) || sh.land) : (n.nearestFree(-19 + (rnd() - 0.5) * 6, 10.4) || [-19, 9]); this.actor.place(D.work, p[0], p[1], PI); this.avatar.group.visible = true; this.gen = this.run();
     }
   }
   *run() {
@@ -112,7 +112,8 @@ class Bot {
   }
   *wake() {
     this.wasSleeping = false; const c = this.cabin;
-    if (c) { const b = c.bed; yield* this.glide(b.x + 1.35, b.z - c.side * 1.2, b.face, 0); }
+    if (c && c.small) { this.avatar.group.visible = true; this.actor.place(0, c.door.x, c.door.z, 0); }
+    else if (c) { const b = c.bed; yield* this.glide(b.x + 1.35, b.z - c.side * 1.2, b.face, 0); }
     this.avatar.setRobe(false); this.avatar.setPose('stand'); this.actor.avatar.body.rotation.x = 0; this.pose('stretch'); yield* this.wait(1.6); this.pose('stand');
     if (c) { this.actor.routeTo(0, c.door.x, c.door.z, {}); while (this.actor.busy) yield; }
   }
@@ -156,11 +157,12 @@ class Bot {
     // 初次載入已位於休閒區就不用走
     while (true) {
       const e = this.game.envState; const night = e.nightF > 0.6;
-      const opts = [];
-      const partner = this.crew.findPartner(this);
+      let opts = [];
+      const partner = this.game.ship.small ? null : this.crew.findPartner(this);
       if (partner && !night) opts.push(['match', 4.2]); else if (partner) opts.push(['match', 1.5]);
       opts.push(['arcade', 1.6], ['bar', night ? 2.6 : 1.2], ['lounge', night ? 2.0 : 1.4], ['swim', night ? 0.2 : 1.5], ['tub', night ? 2.0 : 0.8], ['treadmill', 1.0], ['bench', 0.8],
         ['jog', night ? 0.2 : 1.2], ['hoop', night ? 0.2 : 1.4], ['eat', 1.1], ['chat', 2.0], ['rail', night ? 2.4 : 1.0], ['tv', 0.9], ['coffee', 0.6]);
+      if (this.game.ship.small) { const sm = this.game.ship.decks[0].pois.misc; const okk = { chat: !!sm.chat.length, rail: !!sm.rail.length, eat: !!(sm.canteen && sm.canteen.length), lounge: !!(sm.lounger && sm.lounger.length) }; opts = opts.filter((o) => okk[o[0]]); if (!opts.length) opts = [['chat', 1]]; }
       const tot = opts.reduce((s, o) => s + o[1], 0); let r = rnd() * tot, act = 'chat'; for (const [n, w] of opts) { r -= w; if (r <= 0) { act = n; break; } }
       this.activity = act;
       yield* this['act_' + act](partner);
@@ -206,13 +208,14 @@ class Bot {
   *act_match(partner) {
     // 這個 bot 是邀請者
     if (!partner || partner.info.cat !== 'rest' || partner.match || partner.state === 'init') return;
+    if (this.crew.social && this.crew.social.s && !this.crew.social.invite(this, partner)) { yield* this.wait(3); return; }
     const kinds = []; const gy = this.game.ship.decks[D.gym].pois;
     const tables = (gy.misc.pingpong || []).filter((t) => !t.taken); if (tables.length) kinds.push('pp'); if (gy.pickle && !gy.pickle.taken) kinds.push('pk');
     if (!kinds.length) return; const kind = pick(kinds); const fac = kind === 'pp' ? pick(tables) : gy.pickle; fac.taken = this;
     const m = new Match(this.crew, kind, D.gym, fac, this, partner); this.crew.matches.push(m);
     partner.match = m; this.match = m; partner.matchRole = 'b'; partner.joinMatch(m);
     yield* this.playMatch(m, 'a');
-    fac.taken = null;
+    fac.taken = null; if (this.crew.social && this.crew.social.s) this.crew.social.afterMatch(this, partner, m);
   }
   joinMatch(m) { this.interrupt(function* (b) { yield* b.playMatch(m, 'b'); }); }
   *playMatch(m, role) {
@@ -235,6 +238,7 @@ class Bot {
     }
     this.activity = '下班';
     yield* this.goTo(D.cabin, c.door.x, c.door.z, 0);
+    if (c.small) { this.enterBed(c, true); this.activity = '睡覺'; while (true) yield; }
     if (!this.showered || rnd() < 0.15) yield* this.takeShower(c);
     yield* this.goBed(c);
     while (true) yield;
@@ -261,6 +265,7 @@ class Bot {
     this.enterBed(c, true);
   }
   enterBed(c, anim) {
+    if (c.small) { this.sleeping = true; this.wasSleeping = true; this.actor.steps.length = 0; this.actor.cur = null; this.actor.place(0, c.door.x, c.door.z, 0); this.pose('stand'); this.avatar.group.visible = false; return; }
     const b = c.bed, s = c.side; const hx = 0, hz = s;
     this.sleeping = true; this.wasSleeping = true; this.pose('lie'); this.avatar.group.visible = true;
     this.actor.steps.length = 0; this.actor.cur = null; this.actor.place(D.cabin, b.x, b.z - hz * 0.8, yawOfDir(hx, hz)); this.actor.yOff = 0.7;
@@ -288,10 +293,14 @@ export class Crew {
     const free = d.extraDesks.find((x) => !this.deskUsed.has(x.key)); if (free) { this.deskUsed.add(free.key); return free; }
     return null;
   }
-  cabinFor(bot) { return this.game.ship.decks[D.cabin].pois.cabins[bot.key] || null; }
+  cabinFor(bot) {
+    const sh = this.game.ship; if (sh.small) { const d = sh.door; const nop = () => true; return { small: true, title: bot.title, door: { x: d[0], z: d[1] }, bed: { x: d[0], z: d[1], face: 0 }, side: 1, bathDoor: { set() {}, opened: nop, closed: nop }, bathOut: { x: d[0], z: d[1] }, bathIn: { x: d[0], z: d[1] }, corridor: { x: d[0], z: d[1] } }; }
+    return sh.decks[D.cabin].pois.cabins[bot.key] || null;
+  }
   findPartner(bot) {
-    const c = [...this.bots.values()].filter((o) => o !== bot && o.info.cat === 'rest' && !o.match && !o.playing && o.state === 'rest' && (o.activity !== 'swim'));
-    return c.length ? pick(c) : null;
+    const c = [...this.bots.values()].filter((o) => o !== bot && o.info.cat === 'rest' && !o.match && !o.playing && o.state === 'rest' && (o.activity !== 'swim') && !(o.sceneUntil > this.game.time));
+    if (!c.length) return null; if (!this.social || !this.social.s) return pick(c);
+    const w = c.map((o) => this.social.partnerWeight(bot, o)); const tot = w.reduce((a, b) => a + b, 0); if (tot <= 0) return null; let r = rnd() * tot; for (let i = 0; i < c.length; i++) { r -= w[i]; if (r <= 0) return c[i]; } return c[c.length - 1];
   }
   applyData(data) {
     this.data = data; this.arena = data.arena;
@@ -326,7 +335,7 @@ export class Crew {
       // 心情
       b.moodTimer -= dt; if (b.moodTimer <= 0) { b.moodTimer = 4; b.setMoodNow(); }
       b.nextMoodLine -= dt;
-      if (b.nextMoodLine <= 0) { b.nextMoodLine = 45 + rnd() * 75; if (!b.speech || b.speech.until < time) { if (!b.inBath) b.say(moodLine(b.mood, b.info, this.game.envState), 4.5, 'mood'); } }
+      if (b.nextMoodLine <= 0) { b.nextMoodLine = 45 + rnd() * 75; if (!b.speech || b.speech.until < time) { if (!b.inBath) b.say((this.social && this.social.s && rnd() < 0.3 && this.social.moodLine(b)) || moodLine(b.mood, b.info, this.game.envState), 4.5, 'mood'); } }
       if (b.speech && b.speech.until < time) b.speech = null;
       if (b.greetCd > 0) b.greetCd -= dt;
     }
@@ -350,7 +359,7 @@ export class Crew {
         continue;
       }
       const mode = a.info.cat === 'work' && b.info.cat === 'work' ? 'work' : 'leisure';
-      this.startConvo(a, b, pickConversation(a.info, b.info, this.game.envState, this.arena, mode));
+      this.startConvo(a, b, (this.social && this.social.s && this.social.convLines(a, b)) || pickConversation(a.info, b.info, this.game.envState, this.arena, mode));
     }
     // 球賽中的對話
     for (const m of this.matches) if (m.state === 'play' && rnd() < 0.18) { const s = rnd() < 0.5 ? m.a : m.b; if (!s.convo && (!s.speech || s.speech.kind !== 'chat')) s.say(pick(['好球！', '這球好刁！', '我發球～', '手感來了！', '不錯喔！', '差一點！', '換你發球。', '漂亮！']), 2.2); }

@@ -14,10 +14,12 @@ import { FAC, FAC_ORDER, SITES, TIERS, TICK, RES } from '../sim/defs.js';
 import * as F from '../sim/fleet.js';
 import { SHIPS, ZONES, ZONE_ORDER } from '../sim/fleetdefs.js';
 import { buildShipModel } from '../ship/fleetmodels.js';
-import { FacilityView, findSlot, blockRect, FOOT, SC } from './facilities.js';
+import { FacilityView, findSlot, blockRect, FOOT, SC, setFacScale } from './facilities.js';
 import { Avatar } from '../crew/avatar.js';
 import { SHIP_CX } from '../ship/config.js';
 import { dampAngle } from '../util.js';
+import { Games } from './games.js';
+import { Social } from '../crew/social.js';
 
 // 各設施的樓層與偏好位置（x,z）；實際位置會在附近找一塊四周留空的地方
 const ANCHOR = { purifier: [35, -5.5], generator: [35.5, 5.5], workshop: [22, 8], infirmary: [29.5, -6.6], greenhouse: [37.6, 8.2] };
@@ -53,6 +55,7 @@ export class Play {
     addEventListener('visibilitychange', () => { if (document.hidden) this.save(true); else this.resync(); });
     addEventListener('pagehide', () => this.save(true)); addEventListener('beforeunload', () => this.save(true));
     this.mascots = new Mascots(this.game, this);
+    this.games = new Games(this); this.games.init(); this.social = new Social(this); this.game.crew.social = this.social;
     this.ready = true; this.save(boot.needPush);
     hud.attach(this); this.onCrew(); this.pickWatch();
     // 載入完成後顯示離線報告（等說明視窗關閉）
@@ -63,6 +66,11 @@ export class Play {
   // ------------------------------------------------------------ 設施擺放
   placeFacilities() {
     const ship = this.game.ship; const used = [[], [], [], [], []];
+    if (this.game.small) { // 小船家：縮小的設備位（位置在 homespec 裡配好，不擋路）
+      const h = ship.home;
+      FAC_ORDER.forEach((f, i) => { const p = h.facs[i]; const v = new FacilityView(f, ship.decks[0].group, p.x, p.z, p.ry, p.sc); v.deck = 0; this.fac[f] = v; });
+      return;
+    }
     for (const f of FAC_ORDER) {
       const d = FAC[f].deck; const nav = ship.decks[d].nav; const [hw, hd] = FOOT[f];
       const [ax, az] = ANCHOR[f]; const p = findSlot(nav, ax, az, hw, hd, used[d], 1.0, 7) || findSlot(nav, ax, az, hw, hd, used[d], 0.5, 7) || findSlot(nav, ax, az, hw, hd, used[d]) || findSlot(nav, ax, az, hw, hd, used[d], 0.5) || [ax, az];
@@ -75,7 +83,11 @@ export class Play {
     for (const f of FAC_ORDER) { const st = s.fac[f]; this.fac[f].setState(st.lv, st.dmg, FAC[f].res ? r[FAC[f].res] > 0 && s.res.fuel > 0 : false); }
   }
   /** 站位：設施前方 */
-  standPos(f) { const v = this.fac[f]; const nav = this.game.ship.decks[v.deck].nav; return nav.nearestFree(v.x, v.z + v.hd + 0.9) || [v.x, v.z + v.hd + 1.2]; }
+  standPos(f) {
+    const v = this.fac[f]; const nav = this.game.ship.decks[v.deck].nav;
+    if (this.game.small) { const dd = v.hd + 0.55, ry = v.ry || 0; return nav.nearestFree(v.x + Math.sin(ry) * dd, v.z + Math.cos(ry) * dd, 3) || [v.x, v.z + dd]; }
+    return nav.nearestFree(v.x, v.z + v.hd + 0.9) || [v.x, v.z + v.hd + 1.2];
+  }
 
   // ------------------------------------------------------------ 船員同步
   onCrew() {
@@ -84,6 +96,7 @@ export class Play {
     S.syncCrew(this.state, bots.map((b) => ({ key: b.key, cat: b.info.cat })), nowSec());
     this.applyCrewFlags(); this.hud && this.hud.refresh(true);
   }
+  get gaming() { return !!(this.games && this.games.active); }
   botOf(key) { return this.game.crew.bots.get(key) || null; }
   applyCrewFlags() {
     const s = this.state, t = nowSec();
@@ -103,6 +116,7 @@ export class Play {
     for (const f of FAC_ORDER) this.fac[f].update(g.time);
     this.hud.updateTags();
     if (this.mascots) this.mascots.update(Math.min(dt, 0.1));
+    const sdt = Math.min(dt, 0.1); this.games.update(sdt); this.social.update(sdt);
     this.updateTarget(); this.updateBoats(g.time); this.updatePilot(dt, g.time); this.updateFleet(g.time);
     if (this.hudAcc >= 0.25) { this.hudAcc = 0; this.hud.refresh(); }
     if (this.saveAcc >= 10) { this.saveAcc = 0; this.save(); }
@@ -133,6 +147,8 @@ export class Play {
     else if (ev.type === 'sick') { ui.toast('🤒 ' + ev.text); const b = this.botOf(ev.who); say(b, '頭好暈…', 'mood'); }
     else if (ev.type === 'recover') { ui.toast('💪 ' + ev.text); say(this.botOf(ev.who), '好多了，謝謝關心！', 'mood'); }
     else if (ev.type === 'crate' || ev.type === 'rain') { ui.toast('🎁 ' + ev.text); say(pick(bots), ev.type === 'rain' ? '下雨了！快接水！' : '看！海上漂來一個箱子！'); }
+    else if (ev.type === 'fight' || ev.type === 'makeup' || ev.type === 'party' || ev.type === 'celebrate' || ev.type === 'help') ui.toast((ev.type === 'fight' ? '💢 ' : ev.type === 'makeup' ? '🤝 ' : ev.type === 'help' ? '🩹 ' : '') + ev.text);
+    if (this.social && ['fight', 'makeup', 'party', 'celebrate', 'help', 'storm'].includes(ev.type)) this.social.onEvent(ev);
     this.hud.logEvent(ev);
   }
   save(force = false) { if (this.state) { this.state.lastSeen = Math.max(this.state.lastSeen || 0, nowSec()); return this.adapter.save(this.state, { force }); } }
@@ -145,23 +161,29 @@ export class Play {
   // ------------------------------------------------------------ 互動目標
   updateTarget() {
     const g = this.game, pl = g.player; const a = pl.actor; let best = null, bd = 1e9;
-    if (!this.pilot && g.controls.mode !== 'overview' && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
+    if (!this.pilot && !this.gaming && g.controls.mode !== 'overview' && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
       for (const f of FAC_ORDER) { const v = this.fac[f]; if (v.deck !== a.deck) continue; const d = Math.hypot(v.x - a.x, v.z - a.z) - Math.max(v.hw, v.hd) + 1.0; if (d < 2.4 && d < bd) { bd = d; best = { type: 'fac', id: f }; } }
       for (const b of g.crew.bots.values()) { if (b.away || b.actor.deck !== a.deck || !b.avatar.group.visible) continue; const d = Math.hypot(b.actor.x - a.x, b.actor.z - a.z); if (d < 2.4 && d < bd + 0.3 && (!best || d < bd)) { bd = d; best = { type: 'bot', bot: b }; } }
     }
-    if (!this.pilot && this.mascots && g.controls.mode !== 'overview') { const m = this.mascots.nearest(a); if (m && (!best || bd > 1.2)) best = { type: 'mascot', m }; }
+    if (!this.pilot && !this.gaming && g.controls.mode !== 'overview' && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
+      let cand = null; for (const sp of this.games.spots) { if (sp.deck !== a.deck) continue; const d = Math.hypot(sp.x - a.x, sp.z - a.z); if (d < 1.55 && !(best && best.type === 'bot' && bd < 1.2) && (!cand || d < cand.d)) cand = { type: 'spot', spot: sp, id: sp.id, d }; } if (cand) best = cand;
+    }
+    if (!this.pilot && !this.gaming && this.mascots && g.controls.mode !== 'overview') { const m = this.mascots.nearest(a); if (m && (!best || bd > 1.2)) best = { type: 'mascot', m }; }
     const same = (!best && !this.target) || (best && this.target && best.type === this.target.type && best.id === this.target.id && best.bot === this.target.bot && best.m === this.target.m);
     if (!same) { this.target = best; this.hud.setTarget(best); }
   }
   primary() {
     const t = this.target; if (!t) return null; const s = this.state;
     if (t.type === 'mascot') return 'poke';
+    if (t.type === 'spot') return 'play';
     if (t.type === 'fac') { const st = s.fac[t.id]; if (st.dmg) return 'repair'; if (st.lv < 3) return 'build'; if (t.id === 'workshop' && s.cond < 99) return 'hull'; return null; }
     return 'chat';
   }
   /** 執行互動。所有效果都只存在於遊戲內。 */
   act(name, arg) {
     const s = this.state, t = this.target, ui = this.game.ui; let r = null; const now = nowSec();
+    if (name === 'play') { const sp = arg || (t && t.spot); if (sp) this.games.start(sp, null); return; }
+    if (name === 'invite') { if (arg && arg.spot && arg.bot) this.games.start(arg.spot, arg.bot); return; }
     if (name === 'poke') { if (this.mascots) this.mascots.poke(); this.hud.refreshPrompt(true); return; }
     if (name === 'build') { const f = (arg || (t && t.id)); r = S.build(s, f); if (r.ok) { this.applyFacilityStates(); const b = this.botOf(S.staffOf(s)[f]); if (b && !b.away) b.say(r.first ? '新設施完工，開工囉！' : '升級完成，效率更好了！', 4.5, 'mood'); this.fac[f].root.scale.setScalar(SC * 0.9); setTimeout(() => this.fac[f].root.scale.setScalar(SC), 160); } }
     else if (name === 'repair') { r = S.repairFac(s, arg || (t && t.id)); if (r.ok) this.applyFacilityStates(); }
@@ -201,7 +223,7 @@ export class Play {
   }
   boatPose(tr, t) {
     const site = SITES.find((x) => x.id === tr.site); const R = 70 + tr.tier * 55; const dx = Math.cos(site.angle), dz = Math.sin(site.angle);
-    const side = Math.sin(site.angle) >= 0 ? 1 : -1; const sx = -19, sz = 14 * side; const tx = dx * R, tz = dz * R;
+    const side = Math.sin(site.angle) >= 0 ? 1 : -1; let sx = -19, sz = 14 * side; if (this.game.small) { const R = this.game.ship.root, hs = this.game.ship; sx = R.position.x - 2; sz = R.position.z + side * (hs.spec.W * hs.k * 0.5 + 3); } const tx = dx * R, tz = dz * R;
     const p = Math.max(0, Math.min(1, (t - tr.start) / (tr.end - tr.start))); let k, head;
     if (p < 0.42) { k = p / 0.42; head = 1; } else if (p < 0.58) { k = 1; head = 0; } else { k = 1 - (p - 0.58) / 0.42; head = -1; }
     const e = k * k * (3 - 2 * k); let x = sx + (tx - sx) * e, z = sz + (tz - sz) * e;
@@ -219,22 +241,35 @@ export class Play {
   }
 
   // ------------------------------------------------------------ 艦隊（資料在 state.fleet；模型見 ship/fleetmodels.js）
+  /** 小船家：家（旗艦）停在原點，其他船環繞在旁邊 */
+  homeId() { return this.game.small && !this.game.homeless ? (F.homeShip(this.state.fleet) || {}).id : null; }
+  berthOf(ship) {
+    const f = this.state.fleet; const i = f.ships.indexOf(ship);
+    if (!this.game.small) return this.berthPose(i, SHIPS[ship.type].len);
+    if (ship.id === this.homeId()) return { x: 0, z: 0, yaw: 0 };
+    const others = f.ships.filter((x) => x.id !== this.homeId()); const j = Math.max(0, others.indexOf(ship)); const SL = [[-6, 17], [-6, -17], [26, 14], [26, -14], [-34, 14], [-34, -14]]; const q = SL[j % SL.length];
+    return { x: q[0] - Math.floor(j / SL.length) * 40, z: q[1] * (1 + 0.35 * Math.floor(j / SL.length)), yaw: q[1] > 0 ? 0.08 : -0.08 };
+  }
   berthPose(i, len) { const col = Math.floor(i / 2); const side = i % 2 ? 1 : -1; return { x: [-24, 4, 30][col] || 0, z: side * (21 + len * 0.12), yaw: side > 0 ? 0.08 : -0.08 }; }
   fleetPose(ship, i, t) {
     const B = SHIPS[ship.type]; const m = ship.m;
     if (ship.state === 'pilot' && this.pilot && this.pilot.id === ship.id) return { x: this.pilot.x, z: this.pilot.z, yaw: this.pilot.yaw, away: false, piloted: true };
     if (ship.state === 'sail' && m) {
-      const zi = ZONE_ORDER.indexOf(m.zone); const R = 85 + zi * 45, ang = 0.7 + ship.id * 1.37 + zi * 0.5; const tx = Math.cos(ang) * R, tz = Math.sin(ang) * R; const b = this.berthPose(i, B.len);
+      const zi = ZONE_ORDER.indexOf(m.zone); const R = 85 + zi * 45, ang = 0.7 + ship.id * 1.37 + zi * 0.5; const tx = Math.cos(ang) * R, tz = Math.sin(ang) * R; const b = this.berthOf(ship);
       const p = Math.max(0, Math.min(1, (t - m.start) / (m.end - m.start))); let k, head; if (p < 0.42) { k = p / 0.42; head = 1; } else if (p < 0.58) { k = 1; head = 0; } else { k = 1 - (p - 0.58) / 0.42; head = -1; }
       const e = k * k * (3 - 2 * k); const x = b.x + (tx - b.x) * e, z = b.z + (tz - b.z) * e; let yaw = Math.atan2(-(tz - b.z) * (head || 1), (tx - b.x) * (head || 1)); if (head === 0) yaw += Math.sin(t * 0.3) * 0.6;
       return { x, z, yaw, away: p > 0.04 && p < 0.96 };
     }
-    return { ...this.berthPose(i, B.len), away: false };
+    return { ...this.berthOf(ship), away: false };
   }
   updateFleet(time) {
     const s = this.state, f = s.fleet; if (!f) return; const t = nowSec(); const live = new Set();
     f.ships.forEach((ship, i) => {
       live.add(ship.id); let V = this.fleetViews.get(ship.id);
+      if (ship.id === this.homeId()) { // 家 = 場景裡的 SmallShip；只移動它的根節點（搖晃由 SmallShip 自己做）
+        const R = this.game.ship.root; if (!V) { V = { mesh: R, lv: ship.lv, type: ship.type, id: ship.id, home: true }; this.fleetViews.set(ship.id, V); }
+        const p = this.fleetPose(ship, i, t); R.position.set(p.x, 0, p.z); R.rotation.y = p.yaw; V.pos = p; return;
+      }
       if (!V || V.lv !== ship.lv || V.type !== ship.type) { if (V) V.mesh.removeFromParent(); V = { mesh: buildShipModel(ship.type, ship.lv), lv: ship.lv, type: ship.type, id: ship.id }; V.mesh.userData.shipId = ship.id; this.game.scene.add(V.mesh); this.fleetViews.set(ship.id, V); }
       const p = this.fleetPose(ship, i, t); const y = waveHeight(p.x, p.z, time) * 0.7 + 0.05;
       V.mesh.position.set(p.x, y, p.z); V.mesh.rotation.set(Math.sin(time * 1.2 + ship.id) * 0.03, p.yaw, Math.sin(time * 0.9 + ship.id * 2) * 0.04);
@@ -242,17 +277,17 @@ export class Play {
       if (ship.state === 'wreck') { V.mesh.rotation.z += 0.22; V.mesh.position.y -= 0.5; }
       V.mesh.scale.setScalar(sc); V.mesh.visible = true; V.pos = p;
     });
-    for (const [id, V] of this.fleetViews) if (!live.has(id)) { V.mesh.removeFromParent(); this.fleetViews.delete(id); }
+    for (const [id, V] of this.fleetViews) if (!live.has(id)) { if (!V.home) V.mesh.removeFromParent(); this.fleetViews.delete(id); }
     if (this.preview) { this.preview.mesh.position.y = waveHeight(this.preview.mesh.position.x, this.preview.mesh.position.z, time) * 0.7 + 0.05; this.preview.mesh.rotation.y += 0.004; }
   }
   /** 鏡頭移到某艘船（或展示台上的模型）來看 */
   focusModel(mesh, len) {
     const c = this.game.controls; this.game.soloDeck = null; c.setMode('free'); c.focusBot = null; c.target.set(mesh.position.x, mesh.position.y + len * 0.12 + 1, mesh.position.z); c.dist = Math.max(14, len * 2.2); c.pitch = 0.42; c.yaw = 0.9; this.game.updateDecks(); this.game.ui && this.game.ui.refreshDeckBtns && this.game.ui.refreshDeckBtns();
   }
-  viewShip(id) { const V = this.fleetViews.get(id); const ship = F.findShip(this.state, id); if (!V || !ship) return; if (V.pos && V.pos.away) { this.game.ui.toast('船在海上，返港後再看'); return; } this.focusModel(V.mesh, SHIPS[ship.type].len); this.hud.closeModal(); }
+  viewShip(id) { const V = this.fleetViews.get(id); const ship = F.findShip(this.state, id); if (!V || !ship) return; if (V.pos && V.pos.away) { this.game.ui.toast('船在海上，返港後再看'); return; } if (V.home) { this.game.controls.setMode('overview'); this.hud.closeModal(); return; } this.focusModel(V.mesh, SHIPS[ship.type].len); this.hud.closeModal(); }
   /** 展示台：看任何船型（含尚未擁有的）。放在方舟旁的海面上，旋轉展示。 */
   viewType(type, lv = 1) {
-    this.clearPreview(); const mesh = buildShipModel(type, lv); mesh.position.set(-6, 0, -52); this.game.scene.add(mesh); this.preview = { mesh, type, lv };
+    this.clearPreview(); const mesh = buildShipModel(type, lv); if (this.game.homeless) mesh.position.set(0, 0, 0); else if (this.game.small) mesh.position.set(-46, 0, -62); else mesh.position.set(-6, 0, -52); this.game.scene.add(mesh); this.preview = { mesh, type, lv };
     this.focusModel(mesh, SHIPS[type].len); this.hud.closeModal();
   }
   clearPreview() { if (this.preview) { this.preview.mesh.removeFromParent(); this.preview = null; } }
@@ -265,16 +300,24 @@ export class Play {
     else if (name === 'zone') r = F.setZone(s, a.id, a.zone);
     else if (name === 'auto') r = F.setAuto(s, a.id, a.on);
     else if (name === 'rename') r = F.renameShip(s, a.id, a.name);
+    else if (name === 'home') r = F.setHome(s, a.id);
     if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
     if (r && r.ok) { this.updateFleet(this.game.time); }
+    // 小船家：選船／換旗艦／升級旗艦 → 存檔後重新載入，場景換成新的船
+    if (r && r.ok && this.game.small && !r.same && (name === 'pick' || name === 'home' || (name === 'upgrade' && a.id === this.homeId()))) { this.reloadHome(); return r; }
     this.save(true); this.hud.refresh(true); return r;
+  }
+  reloadHome() {
+    this.reloading = true; this.game.ui.toast('⚓ 換成新的船，重新整備中…');
+    Promise.resolve(this.save(true)).catch(() => {}).then(() => { const u = new URL(location.href); u.searchParams.delete('fresh'); setTimeout(() => location.replace(u.toString()), 350); });
   }
   // ------------------------------------------------------------ 駕駛小船（T董親自開）
   HELM = { skiff: [0.35, 0.66, 0], speedboat: [-3.55, 1.28, 0], tug: [4.6, 1.6, 0], sub: [0.8, 3.2, 0], patrol: [4.1, 1.6, 1.4], icebreaker: [0.4, 9.0, 1.5] };
   startPilot(id) {
     if (this.pilot) return; const ship = F.findShip(this.state, id); if (!ship) return; const i = this.state.fleet.ships.indexOf(ship); const r = F.startPilot(this.state, id, nowSec());
     if (!r.ok) { this.game.ui.toast('⚠️ ' + r.msg); return r; }
-    const b = this.berthPose(i, SHIPS[ship.type].len); const g = this.game; const av = new Avatar('T董'); av.setPose('stand'); const V = this.fleetViews.get(id); const h = this.HELM[ship.type] || [0, 1, 0]; av.group.position.set(h[0], h[1], h[2]); av.group.rotation.y = Math.PI / 2; V && V.mesh.add(av.group);
+    const b = this.berthOf(ship); const g = this.game; const av = new Avatar('T董'); av.setPose('stand'); const V = this.fleetViews.get(id); const h = this.HELM[ship.type] || [0, 1, 0]; av.group.position.set(h[0], h[1], h[2]); av.group.rotation.y = Math.PI / 2;
+    if (V && V.home) { const sh = g.ship; av.group.position.set(h[0] * sh.k, h[1] * sh.k, h[2] * sh.k); sh.body.add(av.group); } else V && V.mesh.add(av.group);
     this.pilot = { id, type: ship.type, idx: i, x: b.x, z: b.z, yaw: b.yaw, v: 0, av, cam: new THREE.Vector3(b.x, 2, b.z), homing: false, keepT: 0, max: 7 + SHIPS[ship.type].speed * 5, t0: g.time };
     const V2 = this.fleetViews.get(id); if (V2 && V2.pos) { this.pilot.x = V2.pos.x; this.pilot.z = V2.pos.z; this.pilot.yaw = V2.pos.yaw; }
     g.pilot = this.pilot; g.player.avatar.group.visible = false; const c = g.controls; c.setMode('follow'); this.pilot.camSave = { dist: c.dist, pitch: c.pitch }; c.dist = 14 + SHIPS[ship.type].len * 1.1; c.pitch = 0.55; c.yaw = Math.PI / 2 + 0.2;
@@ -282,23 +325,23 @@ export class Play {
   }
   stopPilot(home) {
     const P = this.pilot; if (!P) return; if (home && !P.homing) { P.homing = true; P.homeT = this.game.time; this.game.ui.toast('自動返港中…'); return; }
-    const V = this.fleetViews.get(P.id); if (V) V.mesh.remove(P.av.group); this.game.pilot = null; this.pilot = null; this.game.player.avatar.group.visible = true; F.endPilot(this.state, P.id);
+    P.av.group.removeFromParent(); this.game.pilot = null; this.pilot = null; this.game.player.avatar.group.visible = true; F.endPilot(this.state, P.id);
     const c = this.game.controls; if (P.camSave) { c.dist = P.camSave.dist; c.pitch = P.camSave.pitch; } for (const k of this.crates) k.mesh.removeFromParent(); this.crates = []; this.hud.showPilotBar(false); this.save(true); this.hud.refresh(true); this.game.ui.toast('船已靠港');
   }
   spawnCrates() {
     const f = this.state.fleet; if (f.pilot && f.pilot.got >= 80) return;
-    while (this.crates.length < 4) { const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 170; const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 1.4), new THREE.MeshStandardMaterial({ color: 0xffa21f, roughness: 0.5, emissive: 0x552a00 })); const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.15, 0.4), new THREE.MeshStandardMaterial({ color: 0xffffff })); m.add(bar); m.castShadow = true; this.game.scene.add(m); this.crates.push({ mesh: m, x: Math.cos(a) * r + SHIP_CX, z: Math.sin(a) * r * 0.8, ph: Math.random() * 6 }); }
+    while (this.crates.length < 4) { const a = Math.random() * Math.PI * 2, r = 60 + Math.random() * 170; const m = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 1.4), new THREE.MeshStandardMaterial({ color: 0xffa21f, roughness: 0.5, emissive: 0x552a00 })); const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.15, 0.4), new THREE.MeshStandardMaterial({ color: 0xffffff })); m.add(bar); m.castShadow = true; this.game.scene.add(m); this.crates.push({ mesh: m, x: Math.cos(a) * r + (this.game.small ? 0 : SHIP_CX), z: Math.sin(a) * r * 0.8, ph: Math.random() * 6 }); }
   }
   updatePilot(dt, time) {
     const P = this.pilot; if (!P) return; const g = this.game; const input = g.controls.move; const sdt = Math.min(dt, 0.1);
     let mag = Math.hypot(input.x, input.y); let desired = null;
-    if (P.homing) { const b = this.berthPose(P.idx, SHIPS[P.type].len); const dx = b.x - P.x, dz = b.z - P.z; const d = Math.hypot(dx, dz); if (d < 3 || time - P.homeT > 120) { P.x = b.x; P.z = b.z; this.stopPilot(false); return; } desired = Math.atan2(-dz, dx); mag = Math.min(1, 0.25 + d / 60); }
+    if (P.homing) { const b = this.berthOf(F.findShip(this.state, P.id)); const dx = b.x - P.x, dz = b.z - P.z; const d = Math.hypot(dx, dz); if (d < 3 || time - P.homeT > 120) { P.x = b.x; P.z = b.z; this.stopPilot(false); return; } desired = Math.atan2(-dz, dx); mag = Math.min(1, 0.25 + d / 60); }
     else if (mag > 0.08) { const s = Math.sin(g.controls.yaw), c = Math.cos(g.controls.yaw); let dx = (-s) * input.y + c * input.x, dz = (-c) * input.y + (-s) * input.x; desired = Math.atan2(-dz, dx); }
     let target = 0;
     if (desired != null) { const diff = Math.abs(Math.atan2(Math.sin(desired - P.yaw), Math.cos(desired - P.yaw))); P.yaw = dampAngle(P.yaw, desired, 2.6, sdt); target = P.max * Math.min(1, mag) * (input.run && !P.homing ? 1.7 : 1) * Math.max(0.25, Math.cos(Math.min(diff, 1.4))); }
     P.v += (target - P.v) * Math.min(1, sdt * (target > P.v ? 0.9 : 1.6)); P.x += Math.cos(P.yaw) * P.v * sdt; P.z += -Math.sin(P.yaw) * P.v * sdt;
     // 方舟船體（橢圓）擋住；外圍 260 單位為邊界
-    const a = 91.2 / 2 + 3, bb = 13.6 + 3; const ex = (P.x - SHIP_CX) / a, ez = P.z / bb; const r = Math.hypot(ex, ez); if (r < 1) { const k = 1.002 / Math.max(r, 0.05); P.x = SHIP_CX + ex * k * a; P.z = ez * k * bb; P.v *= 0.9; }
+    const a = 91.2 / 2 + 3, bb = 13.6 + 3; const ex = (P.x - SHIP_CX) / a, ez = P.z / bb; const r = Math.hypot(ex, ez); if (r < 1 && !g.small) { const k = 1.002 / Math.max(r, 0.05); P.x = SHIP_CX + ex * k * a; P.z = ez * k * bb; P.v *= 0.9; }
     const R = Math.hypot(P.x, P.z); if (R > 270) { P.x *= 270 / R; P.z *= 270 / R; P.v *= 0.9; }
     P.cam.set(P.x, waveHeight(P.x, P.z, time) * 0.7 + 1.8, P.z); P.av.update(sdt, time);
     P.keepT += dt; if (P.keepT > 20) { P.keepT = 0; F.keepPilot(this.state, P.id, nowSec()); }

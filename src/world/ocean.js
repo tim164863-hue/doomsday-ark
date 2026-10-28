@@ -31,7 +31,8 @@ const frag = /* glsl */`
 precision highp float;
 uniform float uTime, uAmp, uDetail;
 uniform vec3 uDeep, uShallow, uZenith, uHorizon, uGlow, uSunDir, uSunCol, uMoonDir, uFog;
-uniform float uFogD, uDay, uMoonVis, uSunVis, uShipHL, uShipHW;
+uniform float uFogD, uDay, uMoonVis, uSunVis, uShipHL, uShipHW, uHullOn, uSmallOn;
+uniform vec4 uSmall;
 varying vec3 vWorld; varying float vH; varying float vDist; varying vec2 vGrad;
 float hash2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
@@ -80,7 +81,9 @@ void main(){
   float hw = hullHW(dx);
   float dd = dz - hw;
   float outside = (hw > 0.0) ? dd : length(vec2(dx < ${SHIP_CX.toFixed(2)} ? dx - ${HULL_XS.toFixed(2)} : dx - ${HULL_TIP.toFixed(2)}, dz));
-  float ring = smoothstep(1.7, 0.1, outside) * smoothstep(-8.0, 0.0, outside) * (0.25 + 0.6*fn);
+  float ring = 0.0;
+  if (uHullOn > 0.5) { ring = smoothstep(1.7, 0.1, outside) * smoothstep(-8.0, 0.0, outside) * (0.25 + 0.6*fn); }
+  else if (uSmallOn > 0.5) { vec2 pp = wp - uSmall.xy; float cc = cos(uSmall.z), ss = sin(uSmall.z); vec2 lq = vec2(pp.x*cc - pp.y*ss, pp.x*ss + pp.y*cc) / uSmall.w; vec2 q2 = vec2(lq.x / 1.0, lq.y / 0.34); float rr = length(q2); ring = smoothstep(1.55, 1.0, rr) * smoothstep(0.55, 1.0, rr) * (0.25 + 0.6*fn); }
   foam = max(foam, ring*0.55);
   vec3 foamCol = mix(vec3(0.8,0.88,0.92), uHorizon*1.1+0.1, 0.25) * (0.06 + 0.94*uDay);
   col = mix(col, foamCol, clamp(foam,0.0,1.0));
@@ -127,6 +130,7 @@ export class Ocean {
       uZenith: U.uZenith, uHorizon: U.uHorizon, uGlow: U.uGlow, uSunDir: U.uSunDir, uSunCol: U.uSunCol, uMoonDir: U.uMoonDir,
       uFog: { value: scene.fog.color }, uFogD: { value: 0.0005 }, uDay: U.uDay, uMoonVis: U.uMoonVis, uSunVis: U.uSunVis,
       uShipHL: { value: (HULL_XB - HULL_XS) / 2 }, uShipHW: { value: 12.3 },
+      uHullOn: { value: 1 }, uSmallOn: { value: 0 }, uSmall: { value: new THREE.Vector4(0, 0, 0, 12) },
     };
     this.mat = new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: vert, fragmentShader: frag, fog: false });
     this.scene = scene; this.build(quality);

@@ -4,16 +4,17 @@ import { Actor, ELEV_PORTAL } from './crew/actor.js';
 import { STAIR, laneCenterZ } from './ship/ship.js';
 import { emit } from './events.js';
 import { dampAngle } from './util.js';
+import { D } from './crew/decks.js';
 
 /** 玩家：T董。可手動移動（鍵盤/搖桿）也可點擊移動（路徑規劃、跨層）。 */
 export class Player {
   constructor(game) {
-    this.game = game; this.avatar = new Avatar('T董'); this.actor = new Actor(game, this.avatar, 4, 1.2, 3.2);
+    this.game = game; this.avatar = new Avatar('T董'); this.actor = new Actor(game, this.avatar, D.boss, 1.2, 3.2);
     this.actor.baseSpeed = 2.7; this.actor.speedMul = 1; this.avatar.setPose('stand'); this.key = 'T董'; this.title = 'T董';
     this.elevArmed = true; this.stairCd = 0; this.marker = null; this.moving = false; this.deckChangeTime = 0;
     this.makeMarker(); this.placeStart();
   }
-  placeStart() { const n = this.game.ship.decks[4].nav; const p = n.nearestFree(1.2, 3.4) || [1, 3]; this.actor.place(4, p[0], p[1], -Math.PI / 2); }
+  placeStart() { const sh = this.game.ship; const n = sh.decks[D.boss].nav; const p = sh.small ? sh.start : (n.nearestFree(1.2, 3.4) || [1, 3]); this.actor.place(D.boss, p[0], p[1], sh.small ? 0 : -Math.PI / 2); }
   get deck() { return this.actor.deck; }
   makeMarker() {
     const m = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.4, 24).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffd36b, transparent: true, opacity: 0.9, depthWrite: false })); m.visible = false; m.renderOrder = 6; this.marker = m;
@@ -32,16 +33,17 @@ export class Player {
       if (busyAuto) a.clear();
       const s = Math.sin(camYaw), c = Math.cos(camYaw);
       let dx = (-s) * input.y + c * input.x, dz = (-c) * input.y + (-s) * input.x; const l = Math.hypot(dx, dz); dx /= l; dz /= l;
+      if (ship.small) { const ry = ship.root.rotation.y, cr = Math.cos(ry), sr = Math.sin(ry); const lx = dx * cr - dz * sr, lz = dx * sr + dz * cr; dx = lx; dz = lz; }
       const sp = (input.run ? 4.6 : 2.7) * Math.min(1, mag);
       const r = ship.decks[a.deck].nav.move(a.x, a.z, dx * sp * dt, dz * sp * dt, 0.26); a.x = r[0]; a.z = r[1];
       a.yaw = dampAngle(a.yaw, Math.atan2(dx, dz), 14, dt); a.speed += (sp - a.speed) * Math.min(1, dt * 12); this.avatar.speed = a.speed; this.avatar.gait = input.run ? 'run' : 'walk'; a.sync(); this.marker.visible = false;
     } else if (busyAuto) { a.update(dt); this.avatar.speed = a.speed; if (!a.busy) this.marker.visible = false; }
-    else { a.speed += (0 - a.speed) * Math.min(1, dt * 10); this.avatar.speed = a.speed; a.sync(); }
+    else { a.speed += (0 - a.speed) * Math.min(1, dt * 10); this.avatar.speed = this.avatar.fixedSpeed ?? a.speed; if (this.avatar.fixedGait) this.avatar.gait = this.avatar.fixedGait; a.sync(); }
     this.avatar.update(dt, this.game.time);
     if (this.marker.visible) { this.markerT += dt; const k = 1 + Math.sin(this.markerT * 6) * 0.12; this.marker.scale.setScalar(k); }
     // 樓梯 / 電梯觸發
     this.stairCd -= dt; const d = a.deck;
-    if (!a.cur || (a.cur.t === 'walk')) {
+    if (!ship.small && (!a.cur || (a.cur.t === 'walk'))) {
       const zUp = d < 4 ? { x: STAIR.upTrig, z: laneCenterZ(d) } : null, zDn = d > 0 ? { x: STAIR.downTrig, z: laneCenterZ(d - 1) } : null;
       if (mag > 0.08 && this.stairCd <= 0 && !a.busy) {
         if (zUp && Math.hypot(a.x - zUp.x, a.z - zUp.z) < 0.55) this.takeStairs(1);

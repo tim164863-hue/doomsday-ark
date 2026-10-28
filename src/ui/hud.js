@@ -10,20 +10,22 @@ import { RES, RES_KEYS, FAC, FAC_ORDER, SITES, TIERS, LV_MULT, MAX_LV, REPAIR_FA
 const $ = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstElementChild; };
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 import { clock } from '../clock.js';
+import * as R from '../sim/rel.js';
+import { KIND, spotTaken } from '../play/games.js';
 const nowSec = () => clock.now();
 const hm = (ts) => { const d = new Date(ts * 1000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const dur = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h ? `${h} 小時 ${m} 分` : m ? `${m} 分 ${String(s).padStart(2, '0')} 秒` : `${s} 秒`; };
 const mmss = (sec) => { sec = Math.max(0, Math.ceil(sec)); const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${String(s).padStart(2, '0')}`; };
 const fmt = (n) => (Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10);
 const costHTML = (c, s) => Object.keys(c).map((k) => `<span class="${s && s.res[k] < c[k] ? 'lack' : ''}">${RES[k].icon}${c[k]}</span>`).join(' ');
-const EV_ICON = { storm: '⛈', shortage: '⚠️', trip: '🚣', sick: '🤒', recover: '💪', crate: '🎁', rain: '🌧', build: '🔨' };
+const EV_ICON = { storm: '⛈', shortage: '⚠️', trip: '🚣', sick: '🤒', recover: '💪', crate: '🎁', rain: '🌧', build: '🔨', fight: '💢', makeup: '🤝', party: '🎉', celebrate: '🎊', help: '🩹', meal: '🍽' };
 const CAT_ICON = { work: '⌨️', rest: '🛋', off: '😴' };
 const REASON = { focus: '專心工作中', happy: '心情不錯', tired: '有點累了', anxious: '有點不安', bored: '有點無聊' };
 
 export class HUD {
   constructor(game) {
     this.game = game; this.ui = game.ui; this.play = null; this.root = game.ui.root; this.tags = new Map(); this.log = []; this.modalKind = null; this.crewOpen = innerWidth > 700; this.rows = new Map(); this.moreOpen = false;
-    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">📋<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">🚣<span class="bdg hide"></span></button><button class="rb" id="btnFleet" title="艦隊 (F)">⚓<span class="bdg hide"></span></button><button class="rb" id="btnChart" title="海圖 (M)">🧭<span class="bdg hide"></span></button><button class="rb" id="btnCrewL" title="船員列表">👥</button></div></div>`);
+    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">📋<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">🚣<span class="bdg hide"></span></button><button class="rb" id="btnFleet" title="艦隊 (F)">⚓<span class="bdg hide"></span></button><button class="rb" id="btnChart" title="海圖 (M)">🧭<span class="bdg hide"></span></button><button class="rb" id="btnRel" title="船員關係 (R)">💞</button><button class="rb" id="btnCrewL" title="船員列表">👥</button></div></div>`);
     this.crewList = $(`<div id="crewmini"></div>`);
     this.prompt = $(`<div id="prompt" class="hide"></div>`);
     this.modal = $(`<div id="modal" class="hide"><div class="mcard"></div></div>`);
@@ -33,6 +35,7 @@ export class HUD {
     for (const k of RES_KEYS) rcs.append($(`<div class="rc" data-k="${k}" title="${RES[k].name}"><i>${RES[k].icon}</i><b>0</b><small></small></div>`));
     rcs.append($(`<div class="rc cond" data-k="cond" title="船體狀況"><i>🛠</i><b>0%</b><span class="bar"><u></u></span></div>`));
     this.bar.querySelector('#btnTasks').onclick = () => this.openModal('tasks'); this.bar.querySelector('#btnTrips').onclick = () => this.openModal('trips'); this.bar.querySelector('#btnFleet').onclick = () => this.openModal('fleet'); this.bar.querySelector('#btnChart').onclick = () => this.chart.toggle(); this.chart = new SeaChart(this);
+    this.bar.querySelector('#btnRel').onclick = () => this.openModal('rel');
     this.bar.querySelector('#btnCrewL').onclick = () => { this.crewOpen = !this.crewOpen; this.renderCrew(true); };
     this.modal.addEventListener('pointerdown', (e) => { if (e.target === this.modal) this.closeModal(); });
     addEventListener('keydown', (e) => {
@@ -41,7 +44,7 @@ export class HUD {
       if (k === 'm' && this.play && !this.modalKind && this.ui.help.classList.contains('hide')) { this.chart.toggle(); return; } if (this.chart.isOpen()) return;
       if (!this.play || this.modalKind || !this.ui.help.classList.contains('hide')) return;
       if (k === 'e') { const a = this.play.primary(); if (a) this.doPrimary(a); else if (this.play.target && this.play.target.type === 'bot') this.play.act('chat'); }
-      else if (k === 'j') this.openModal('tasks'); else if (k === 'b') this.openModal('trips'); else if (k === 'f') this.openModal('fleet');
+      else if (k === 'j') this.openModal('tasks'); else if (k === 'b') this.openModal('trips'); else if (k === 'f') this.openModal('fleet'); else if (k === 'r') this.openModal('rel');
     });
     this.lastPromptKey = '';
   }
@@ -92,9 +95,9 @@ export class HUD {
       let ok = deckOk; let dist = 0; if (ok) { dist = cam.position.distanceTo(v); v.project(cam); ok = !(v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05 || dist > maxD); }
       if (!ok) { if (T.on !== false) { T.el.style.display = 'none'; T.on = false; } return; }
       if (T.on !== true) { T.el.style.display = ''; T.on = true; }
-      T.el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W).toFixed(1)}px,${((-v.y * 0.5 + 0.5) * H).toFixed(1)}px) translate(-50%,-100%)`; T.el.style.zIndex = 500 - Math.round(dist); T.el.classList.toggle('far', dist > 60);
+      T.el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W).toFixed(1)}px,${((-v.y * 0.5 + 0.5) * H).toFixed(1)}px) translate(-50%,-100%)`; T.el.style.zIndex = 500 - Math.round(dist); T.el.classList.toggle('far', dist > (g.small ? 22 : 60));
     };
-    for (const f of FAC_ORDER) { const T = this.tags.get(f); const fv = play.fac[f]; const deckOk = (g.deckVis ? g.deckVis[fv.deck] : true) && (g.controls.mode === 'overview' || fv.deck === g.viewDeck); fv.worldPos(T.v); place(T, T.v, deckOk); }
+    for (const f of FAC_ORDER) { const T = this.tags.get(f); const fv = play.fac[f]; const deckOk = !g.homeless && (g.deckVis ? g.deckVis[fv.deck] : true) && (g.controls.mode === 'overview' || fv.deck === g.viewDeck); fv.worldPos(T.v); place(T, T.v, deckOk); }
     const live = new Set(); for (const tr of this.s.trips) {
       live.add('b' + tr.id); let T = this.tags.get('b' + tr.id); if (!T) { const el = $(`<div class="ft boat"></div>`); this.tagLayer.append(el); T = { el, v: new THREE.Vector3(), on: null }; this.tags.set('b' + tr.id, T); }
       const site = SITES.find((x) => x.id === tr.site); T.el.innerHTML = `🚣 ${esc(site.name)}<small>${tr.crew.map(esc).join('、')} · ${mmss(tr.end - nowSec())}</small>`;
@@ -108,10 +111,15 @@ export class HUD {
   refreshPrompt(force) {
     const t = this.play && this.play.target; const el = this.prompt;
     if (!t) { if (!el.classList.contains('hide')) { el.classList.add('hide'); this.lastPromptKey = ''; } return; }
-    const s = this.s, now = nowSec(); const key = JSON.stringify(t.type === 'mascot' ? ['m', t.m.bub, t.m.type] : t.type === 'fac' ? [t.id, s.fac[t.id], Object.values(s.res).map(Math.floor), s.cond | 0] : [t.bot.key, t.bot.mood, !!t.bot.hurt, this.moreOpen, (s.cdCheer[t.bot.key] || 0) > now, t.bot.sleeping, t.bot.info.cat]);
+    const s = this.s, now = nowSec(); const key = JSON.stringify(t.type === 'spot' ? ['s', t.id, spotTaken(t.spot), this.play.games.nearBots(t.spot).map((b) => [b.key, b.mood, b.info.cat, !!b.hurt, Math.round(this.play.games.chance(b) * 20)])] : t.type === 'mascot' ? ['m', t.m.bub, t.m.type] : t.type === 'fac' ? [t.id, s.fac[t.id], Object.values(s.res).map(Math.floor), s.cond | 0] : [t.bot.key, t.bot.mood, !!t.bot.hurt, this.moreOpen, (s.cdCheer[t.bot.key] || 0) > now, t.bot.sleeping, t.bot.info.cat]);
     if (!force && key === this.lastPromptKey && !el.classList.contains('hide')) return; this.lastPromptKey = key; el.classList.remove('hide');
-    if (t.type === 'mascot') this.renderMascotPrompt(t.m); else if (t.type === 'fac') this.renderFacPrompt(t.id); else this.renderBotPrompt(t.bot);
-    el.querySelectorAll('button[data-a]').forEach((b) => (b.onclick = () => this.promptClick(b.dataset.a, t)));
+    if (t.type === 'spot') this.renderSpotPrompt(t.spot); else if (t.type === 'mascot') this.renderMascotPrompt(t.m); else if (t.type === 'fac') this.renderFacPrompt(t.id); else this.renderBotPrompt(t.bot);
+    el.querySelectorAll('button[data-a]').forEach((b) => (b.onclick = () => this.promptClick(b.dataset.a, t, b.dataset.k)));
+  }
+  renderSpotPrompt(sp) {
+    const s = this.s; const K = KIND[sp.kind]; const taken = spotTaken(sp); const best = s.rel && s.rel.best && s.rel.best[sp.kind]; const G = this.play.games; const vs = sp.kind === 'pickle' || sp.kind === 'pingpong';
+    const inv = G.nearBots(sp).map((b) => { const aff = R.affOf(s, R.BOSS, b.key); return `<button data-a="invite" data-k="${esc(b.key)}" ${taken ? 'disabled' : ''}>🤝 邀 ${esc(b.title)} <small>${R.label(aff)}·${Math.round(G.chance(b) * 100)}%</small></button>`; }).join('');
+    this.prompt.innerHTML = `<div class="ph"><span class="ic">${K.icon}</span><b>${K.name}</b><em>${taken ? '使用中' : '可以玩'}</em>${best ? `<em>🏆 ${best}${K.unit}</em>` : ''}</div><div class="pd">${esc(K.desc)}</div><div class="pb"><button class="pri" data-a="play" ${taken ? 'disabled' : ''}><kbd>E</kbd> ${K.icon} ${vs ? '先跟發球機練習' : '開始玩'}</button>${inv}</div>${inv ? '<div class="pd2" style="opacity:.7">邀請成功率看對方的心情、忙不忙與你們的交情。</div>' : ''}`;
   }
   renderMascotPrompt(m) {
     const bn = m.type === 'benben'; const line = m.bub || (bn ? '戴著圓眼鏡、愛跑步的綠色毛球。' : '紅通通愛心形狀，最愛跟著奔奔。');
@@ -132,20 +140,43 @@ export class HUD {
     const s = this.s, now = nowSec(); const m = MOODS[b.mood] || MOODS.focus; const st = S.staffOf(s); const f = FAC_ORDER.find((x) => st[x] === b.key);
     const cool = (s.cdCheer[b.key] || 0) - now; const sleepy = b.sleeping || b.inBath;
     let info = `${m.icon} ${m.name} · ${{ work: '工作中', rest: '休息中', off: '下班' }[b.info.cat] || ''}${f && s.fac[f].lv ? ' · 駐守' + FAC[f].name : ''}`; if (b.hurt) info = '🤕 受傷休養中 · ' + info;
+    const aff = R.affOf(s, R.BOSS, b.key); info += ` · 💞${R.label(aff)}`;
     const more = this.moreOpen ? `<div class="pd2">${esc(b.hurt ? '身體不舒服，需要休息。' : REASON[b.mood] || '')}${b.cheerUntil > Date.now() ? ' · 剛被你打氣 💖' : ''}</div>` : '';
-    this.prompt.innerHTML = `<div class="ph"><span class="ic">${b.hurt ? '🤕' : m.icon}</span><b>${esc(b.title)}</b><em>${esc(info)}</em></div>${more}<div class="pb"><button class="pri" data-a="chat" ${sleepy ? 'disabled' : ''}><kbd>E</kbd> 💬 聊天</button><button data-a="mood">👀 看心情</button><button data-a="cheer" ${sleepy || cool > 0 ? 'disabled' : ''}>💖 打氣${cool > 0 ? ` (${Math.ceil(cool)}s)` : ''}</button></div>`;
+    this.prompt.innerHTML = `<div class="ph"><span class="ic">${b.hurt ? '🤕' : m.icon}</span><b>${esc(b.title)}</b><em>${esc(info)}</em></div>${more}<div class="pb"><button class="pri" data-a="chat" ${sleepy ? 'disabled' : ''}><kbd>E</kbd> 💬 聊天</button><button data-a="mood">👀 看心情</button><button data-a="rel">💞 關係</button><button data-a="cheer" ${sleepy || cool > 0 ? 'disabled' : ''}>💖 打氣${cool > 0 ? ` (${Math.ceil(cool)}s)` : ''}</button></div>`;
   }
-  promptClick(a, t) {
+  promptClick(a, t, k) {
+    if (t.type === 'spot') { if (a === 'invite') this.play.act('invite', { spot: t.spot, bot: this.play.botOf(k) }); else this.play.act('play', t.spot); return; }
+    if (a === 'rel') { this.openModal('rel'); return; }
     if (a === 'mood') { this.moreOpen = !this.moreOpen; this.refreshPrompt(true); return; }
     if (t.type === 'mascot') this.play.act(a); else if (t.type === 'fac') this.play.act(a, t.id); else this.play.act(a, t.bot);
   }
   doPrimary(a) { this.play.act(a); }
 
+  // ------------------------------------------------------------ 船員關係
+  renderRel() {
+    const c = this.modal.querySelector('.mcard'); const s = this.s; const now = nowSec(); const crew = this.game.crew; const keys = Object.keys(s.crew).sort(); const nm = (k) => { const b = crew.bots.get(k); return esc(b ? b.title : k); };
+    const bar = (v) => `<span class="rbar"><i class="${v < 0 ? 'neg' : 'pos'}" style="${v < 0 ? 'right:50%' : 'left:50%'};width:${Math.min(50, Math.abs(v) / 2)}%"></i></span>`;
+    const row = (name, aff, extra = '') => `<li><span class="rn">${name}</span>${bar(aff)}<span class="rv">${R.label(aff)} <small>${aff > 0 ? '+' : ''}${Math.round(aff)}</small>${extra}</span></li>`;
+    const boss = keys.map((k) => [k, R.affOf(s, R.BOSS, k)]).sort((a, b) => b[1] - a[1]);
+    const pairs = []; for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) { const a = R.affOf(s, keys[i], keys[j]); pairs.push([keys[i], keys[j], a, R.inFeud(s, keys[i], keys[j], now)]); }
+    const fr = pairs.filter((p) => p[2] >= R.FRIEND).sort((a, b) => b[2] - a[2]).slice(0, 8), rv = pairs.filter((p) => p[2] <= R.RIVAL || p[3]).sort((a, b) => a[2] - b[2]).slice(0, 8);
+    const team = keys.map((k) => [k, R.teamBonus(s, k, now)]).filter((x) => Math.abs(x[1]) >= 0.005);
+    const best = s.rel && s.rel.best ? Object.keys(s.rel.best).filter((k) => KIND[k]) : [];
+    c.innerHTML = `<h2>💞 船員關係 <button class="x" data-x="close">✕</button></h2><p class="sub">交情會因為一起玩、吃飯、共患難而變好，也會因為摩擦變差；氣氛好駐守效率 +，冷戰時 −。船員偶爾也會吵架、再和好。</p>
+      <h3>你 ↔ 船員</h3><ul class="rlist">${boss.length ? boss.map(([k, a]) => row(nm(k), a)).join('') : '<li class="sub">還沒有船員</li>'}</ul>
+      <h3>❤️ 好朋友</h3><ul class="rlist">${fr.length ? fr.map((p) => row(`${nm(p[0])} × ${nm(p[1])}`, p[2])).join('') : '<li class="sub">還沒有人特別要好——一起吃飯、打球、度過風暴就會慢慢變熟。</li>'}</ul>
+      <h3>⚔️ 對頭 / 冷戰</h3><ul class="rlist">${rv.length ? rv.map((p) => row(`${nm(p[0])} × ${nm(p[1])}`, p[2], p[3] ? ` <em class="bad">💢 冷戰中 ${dur(R.feudUntil(s, p[0], p[1]) - now)}</em>` : '')).join('') : '<li class="sub">目前相安無事。</li>'}</ul>
+      <h3>⚙️ 團隊氣氛對效率的影響</h3><ul class="rlist">${team.length ? team.map(([k, b]) => `<li><span class="rn">${nm(k)}</span><span class="rv ${b < 0 ? 'bad' : ''}">${b > 0 ? '+' : ''}${Math.round(b * 100)}%</span></li>`).join('') : '<li class="sub">氣氛普通，沒有加成。</li>'}</ul>
+      ${best.length ? `<h3>🏆 個人紀錄</h3><div class="rbest">${best.map((k) => `<span>${KIND[k].icon} ${KIND[k].name} <b>${s.rel.best[k]}${KIND[k].unit}</b></span>`).join('')}</div>` : ''}
+      <p class="sub" style="margin-top:8px">在娛樂 / 運動設施旁按 E 就能玩；也可以邀請附近的船員一起。</p>`;
+    c.querySelector('.x').onclick = () => this.closeModal();
+  }
+
   // ------------------------------------------------------------ 彈窗
   openModal(kind, payload) { this.modalKind = kind; this.payload = payload || this.payload; this.modal.classList.remove('hide'); this.modal.dataset.kind = kind; this.renderModal(); }
   closeModal() { if (this.modalKind === 'fleet' && !this.pvBar) this.play && this.play.clearPreview(); this.modalKind = null; this.modal.classList.add('hide'); this.modalOpenedAt = 0; }
   refreshModal(force) { if (this.modalKind === 'fleet') this.renderFleetLive(force); else if (this.modalKind === 'tasks') this.renderTasksLive(); else if (this.modalKind === 'trips') this.renderTripsLive(); }
-  renderModal() { const c = this.modal.querySelector('.mcard'); c.scrollTop = 0; if (this.modalKind === 'report') this.renderReport(); else if (this.modalKind === 'tasks') this.renderTasks(); else if (this.modalKind === 'trips') this.renderTrips(); else if (this.modalKind === 'fleet') this.renderFleet(); else if (this.modalKind === 'pick') this.renderPick(); }
+  renderModal() { const c = this.modal.querySelector('.mcard'); c.scrollTop = 0; if (this.modalKind === 'report') this.renderReport(); else if (this.modalKind === 'tasks') this.renderTasks(); else if (this.modalKind === 'trips') this.renderTrips(); else if (this.modalKind === 'fleet') this.renderFleet(); else if (this.modalKind === 'pick') this.renderPick(); else if (this.modalKind === 'rel') this.renderRel(); }
   logEvent(ev) { this.log.unshift(ev); if (this.log.length > 10) this.log.pop(); }
 
   // -- 離線報告
@@ -210,7 +241,7 @@ export class HUD {
     this.pvBar = el; this.root.append(el);
   }
   hidePvBar() { if (this.pvBar) { this.pvBar.remove(); this.pvBar = null; } }
-  fleetSig() { const f = this.s.fleet; return JSON.stringify([f.ships.map((x) => [x.id, x.name, x.lv, x.state, x.auto, x.zone, Math.round(x.hp), x.m && x.m.zone]), f.bp, RES_KEYS.map((k) => Math.floor(this.s.res[k] / 5)), f.pick]); }
+  fleetSig() { const f = this.s.fleet; return JSON.stringify([f.ships.map((x) => [x.id, x.name, x.lv, x.state, x.auto, x.zone, Math.round(x.hp), x.m && x.m.zone]), f.bp, RES_KEYS.map((k) => Math.floor(this.s.res[k] / 5)), f.pick, f.home]); }
   renderFleet() {
     const c = this.modal.querySelector('.mcard'); const s = this.s; const f = s.fleet; this.fleetSigV = this.fleetSig();
     const flag = f.flagship ? `<div class="shipc flag"><div class="sh"><span class="ic">${FLAGSHIP.icon}</span><div><b>${FLAGSHIP.name}</b><em>旗艦</em><small>${FLAGSHIP.role}</small></div></div><div class="strow"><span class="st">💨 ${FLAGSHIP.speed}</span><span class="st">📦 ${FLAGSHIP.cargo}</span><span class="st">🛡 ${FLAGSHIP.hull}</span><span class="st">🎯 ${FLAGSHIP.fp}</span><span class="st zn">${ZONE_ORDER.map((z) => ZONES[z].icon).join('')}</span></div></div>` : '';
@@ -228,7 +259,7 @@ export class HUD {
     const op = c.querySelector('[data-a=openpick]'); if (op) op.onclick = () => this.openModal('pick');
     c.querySelectorAll('.dk').forEach((el) => { const t = el.dataset.t; el.querySelector('[data-a=view]').onclick = () => this.preview(t, 1, 'fleet'); el.querySelector('[data-a=build]').onclick = () => { this.play.fleetAct('build', { type: t }); this.renderFleet(); }; });
     c.querySelectorAll('.shipc[data-id]').forEach((el) => { const id = +el.dataset.id; const A = (n, fn) => { const b = el.querySelector(`[data-a=${n}]`); if (b) b.onclick = fn; };
-      A('view', () => { const sh = FL.findShip(this.s, id); if (sh.state === 'sail') { this.ui.toast('船在海上，返港後再看'); return; } this.showPvBar(el.dataset.type, 'fleet'); this.play.viewShip(id); }); A('pilot', () => { this.closeModal(); this.play.startPilot(id); }); A('up', () => { this.play.fleetAct('upgrade', { id }); this.renderFleet(); }); A('fix', () => { this.play.fleetAct('repair', { id }); this.renderFleet(); });
+      A('view', () => { const sh = FL.findShip(this.s, id); if (sh.state === 'sail') { this.ui.toast('船在海上，返港後再看'); return; } this.showPvBar(el.dataset.type, 'fleet'); this.play.viewShip(id); }); A('pilot', () => { this.closeModal(); this.play.startPilot(id); }); A('home', () => { this.play.fleetAct('home', { id }); }); A('up', () => { this.play.fleetAct('upgrade', { id }); this.renderFleet(); }); A('fix', () => { this.play.fleetAct('repair', { id }); this.renderFleet(); });
       A('auto', () => { const sh = FL.findShip(this.s, id); this.play.fleetAct('auto', { id, on: !sh.auto }); this.renderFleet(); }); A('rename', () => { const sh = FL.findShip(this.s, id); const n = prompt('幫船取個名字（最多 12 字）', sh.name); if (n) { this.play.fleetAct('rename', { id, name: n }); this.renderFleet(); } });
       const sel = el.querySelector('select'); if (sel) sel.onchange = () => { this.play.fleetAct('zone', { id, zone: sel.value }); this.renderFleet(); }; });
     this.renderFleetLive(true);
@@ -237,12 +268,13 @@ export class HUD {
     const B = SHIPS[sh.type]; const s = this.s; const st = FL.shipStats(sh); const z = FL.zoneOf(sh); const uc = FL.upgradeCost(sh);
     const stateTxt = { dock: sh.auto ? '停港待命（即將出航）' : '停港中（自動出航已關）', build: '建造中', wreck: '重創擱淺，需整修', sail: sh.m ? `航向 ${ZONES[sh.m.zone].icon}${ZONES[sh.m.zone].name}` : '航行中', pilot: '🎮 T董駕駛中' }[sh.state];
     const opts = `<option value="auto" ${sh.zone === 'auto' ? 'selected' : ''}>自動（推薦：${ZONES[FL.autoZone(sh)].name}）</option>` + B.zones.map((q) => `<option value="${q}" ${sh.zone === q ? 'selected' : ''}>${ZONES[q].icon} ${ZONES[q].name}（危險 ${Math.round(FL.missionRisk(sh, q) * 100)}% · ${FL.missionMinutes(sh, q)} 分 · ⛽${FL.missionFuel(sh, q)}）</option>`).join('');
-    return `<div class="shipc" data-id="${sh.id}" data-type="${sh.type}"><div class="sh"><span class="ic">${B.icon}</span><div><b>${esc(sh.name)} <button class="mini" data-a="rename" title="改名">✎</button></b><em>Lv${sh.lv}</em><small>${stateTxt}</small></div><button data-a="view" ${sh.state === 'sail' ? 'title="航行中，返港後才能檢視"' : ''}>👁 檢視</button></div>
+    const hs = this.game.small ? FL.homeShip(s.fleet) : null; const isHome = !!hs && hs.id === sh.id; const homeBtn = this.game.small && !isHome && FL.canBeHome(sh) && sh.state === 'dock' ? '<button data-a="home" title="把這艘換成你的家（甲板 / 船員都會搬過去）">⭐ 設為旗艦</button>' : '';
+    return `<div class="shipc${isHome ? ' flag' : ''}" data-id="${sh.id}" data-type="${sh.type}"><div class="sh"><span class="ic">${B.icon}</span><div><b>${esc(sh.name)} <button class="mini" data-a="rename" title="改名">✎</button></b><em>${isHome ? '⭐ 旗艦 · ' : ''}Lv${sh.lv}</em><small>${stateTxt}</small></div><button data-a="view" ${sh.state === 'sail' ? 'title="航行中，返港後才能檢視"' : ''}>👁 檢視</button></div>
       <div class="strow">${this.statsRow(sh.type, sh.lv)}</div>
       <div class="hpbar" title="船況 ${Math.round(sh.hp)}%"><u style="width:${sh.hp}%;background:${sh.hp < 35 ? '#ff6b5e' : sh.hp < 65 ? '#ffc65e' : '#6fd78f'}"></u></div>
       ${sh.state === 'sail' || sh.state === 'build' ? `<div class="tb"><u data-prog></u><span data-eta></span></div>` : ''}
       <div class="ctl"><label>目標海域 <select ${sh.state === 'build' ? 'disabled' : ''}>${opts}</select></label></div>
-      <div class="pb">${sh.state === 'dock' ? `<button data-a="pilot">🎮 駕駛</button>` : ''}<button data-a="auto" class="${sh.auto ? 'pri' : ''}">${sh.auto ? '⏵ 自動出航：開' : '⏸ 自動出航：關'}</button>${sh.hp < 99 && sh.state !== 'sail' && sh.state !== 'build' ? `<button data-a="fix" class="${sh.state === 'wreck' ? 'pri' : ''}">🔧 整修 ${costHTML(FL.repairCostShip(sh), s)}</button>` : ''}${uc ? `<button data-a="up" ${sh.state === 'dock' ? '' : 'disabled'}>⬆ 升到 Lv${sh.lv + 1} ${costHTML(uc, s)}</button>` : '<span class="maxed">已達最高等級 ✨</span>'}</div></div>`;
+      <div class="pb">${homeBtn}${sh.state === 'dock' ? `<button data-a="pilot">🎮 駕駛</button>` : ''}<button data-a="auto" class="${sh.auto ? 'pri' : ''}">${sh.auto ? '⏵ 自動出航：開' : '⏸ 自動出航：關'}</button>${sh.hp < 99 && sh.state !== 'sail' && sh.state !== 'build' ? `<button data-a="fix" class="${sh.state === 'wreck' ? 'pri' : ''}">🔧 整修 ${costHTML(FL.repairCostShip(sh), s)}</button>` : ''}${uc ? `<button data-a="up" ${sh.state === 'dock' ? '' : 'disabled'}>⬆ 升到 Lv${sh.lv + 1} ${costHTML(uc, s)}</button>` : '<span class="maxed">已達最高等級 ✨</span>'}</div></div>`;
   }
   renderFleetLive(force) {
     const c = this.modal.querySelector('.mcard'); if (!c.querySelector('#flShips')) return; const s = this.s; const now = nowSec();

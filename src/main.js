@@ -8,6 +8,7 @@ import { initCloud, cloud } from './save/cloud.js';
 import { bootSave, entryDecision, MODE_KEY } from './save/boot.js';
 import { showEntry } from './ui/entry.js';
 import { AccountUI, chooseSave } from './ui/account.js';
+import { homeShip } from './sim/fleet.js';
 
 const canvas = document.getElementById('gl');
 const P = new URLSearchParams(location.search);
@@ -19,7 +20,10 @@ await Promise.all([preloadAvatars(), initCloud()]);
   if (dec === 'ask') await showEntry({ cloud }); else if (dec === 'guest' && lm !== 'guest') localStorage.setItem(MODE_KEY, 'guest'); }
 const boot = await bootSave({ cloud, choose: chooseSave, fresh: !!P.get('fresh'), demo: !!P.get('demo') });
 try {
-  game = new Game(canvas, { owner: boot.owner });
+  // 非擁有者（訪客／其他帳號）的家 = 自己選的小船；尚未選船（home=null）時只看海面，不顯示任何船體
+  const ownerView = boot.owner || (import.meta.env.DEV && P.get('devowner') === '1'); // devowner 只在 vite dev 有效，正式版會被移除
+  const hs = ownerView ? null : homeShip(boot.state && boot.state.fleet);
+  game = new Game(canvas, { owner: ownerView, home: hs ? hs.type : null, homeLv: hs ? hs.lv : 1 });
 } catch (e) {
   document.getElementById('loading').innerHTML = '<div class="ld-title">😢</div><div class="ld-sub">你的瀏覽器不支援 WebGL，無法啟動末日方舟</div>';
   throw e;

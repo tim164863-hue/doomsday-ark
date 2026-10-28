@@ -4,6 +4,8 @@ import { QUALITY, ORDER, detectQuality } from './config.js';
 import { Environment } from './world/environment.js';
 import { Ocean } from './world/ocean.js';
 import { Ship } from './ship/ship.js';
+import { SmallShip } from './ship/smallship.js';
+import { mapDecksTo } from './crew/decks.js';
 import { ContestTV } from './ship/tv.js';
 import { systems, emit } from './events.js';
 import { SeaLife } from './world/sealife.js';
@@ -28,17 +30,20 @@ export class Game {
     this.env = new Environment(this.scene, this.renderer, this.quality);
     this.ocean = new Ocean(this.scene, this.env, this.quality);
     this.tv = new ContestTV();
-    this.ship = new Ship(this.env, this.quality, this.tv.tex);
-    this.scene.add(this.ship.root);
+    // 擁有者：T董 的郵輪方舟；其他人（訪客 / 其他帳號）：只有自己選的小船（尚未選時：只有海，不顯示任何船殼）
+    this.small = !opts.owner; this.homeless = this.small && !opts.home; this.homeType = this.small ? (opts.home || 'skiff') : null;
+    if (this.small) { mapDecksTo(0); this.ship = new SmallShip(this.env, this.quality, this.tv.tex, this.homeType, opts.homeLv || 1); this.ship.root.visible = !this.homeless; }
+    else this.ship = new Ship(this.env, this.quality, this.tv.tex);
+    this.scene.add(this.ship.root); this.ocean.uniforms.uHullOn.value = this.small ? 0 : 1;
     this.dayT = 0.7; this.dayRate = 1 / 1800; this.speed = 1; this.paused = false;
     this.focus = new THREE.Vector3(0, 8, 0);
     this.ctx = this; this.fps = 60; this.fpsAcc = 0; this.fpsN = 0; this.lowCount = 0; this.soloDeck = null; this.viewDeck = 4; this.viewOverride = null;
     this.envState = this.env.update(this.dayT, 0, this.camera, this.focus); this.updatePhase();
     this.sealife = new SeaLife(this.scene, this.env, this.quality);
     this.player = new Player(this); this.crew = new Crew(this);
-    this.controls = new Controls(this, canvas); this.controls.tapCb = (x, y) => this.onTap(x, y);
+    this.controls = new Controls(this, canvas); this.controls.tapCb = (x, y) => this.onTap(x, y); if (this.small) { this.controls.setMode('overview'); this.controls.target.copy(this.controls.tgtOver); }
     const P = new URLSearchParams(location.search);
-    this.ds = new DataSource({ mode: P.get('demo') === 'cycle' ? 'cycle' : P.get('demo') ? 'demo' : opts.owner ? 'live' : 'virtual' });
+    this.ds = new DataSource({ mode: P.get('demo') === 'cycle' ? 'cycle' : P.get('demo') ? 'demo' : opts.owner ? 'live' : 'virtual', cap: this.small ? (this.homeless ? 0 : this.ship.cap) : undefined });
     this.owner = !!opts.owner; this.tv.setLocked(!this.owner && !P.get('demo'));
     this.ds.onData((d) => { this.dataInfo = d; this.crew.applyData(d); });
     this.resize();
@@ -58,9 +63,10 @@ export class Game {
   togglePause() { this.paused = !this.paused; emit('time', null); }
   setTime(t) { this.dayT = ((t % 1) + 1) % 1; }
   setViewDeck(d) { this.viewOverride = d; }
-  deckAtY(y) { return Math.max(0, Math.min(4, Math.floor((y - BASE_Y + 0.9) / (DH + this.ship.explode)))); }
+  deckAtY(y) { if (this.small) return 0; return Math.max(0, Math.min(4, Math.floor((y - BASE_Y + 0.9) / (DH + this.ship.explode)))); }
   updateDecks() {
     const c = this.controls; let vd;
+    if (this.small) { this.viewDeck = 0; this.deckVis = [true]; this.ship.setVisibleDecks([true]); return; }
     if (this.soloDeck != null && c.mode === 'free') vd = this.soloDeck;
     else if (c.mode === 'follow') vd = this.pilot ? 4 : this.player.deck; else if (c.mode === 'free') vd = this.viewOverride != null && c.focusBot ? c.focusBot.actor.deck : this.deckAtY(c.target.y); else vd = 4;
     this.viewDeck = vd; const solo = this.soloDeck != null && c.mode === 'free';
@@ -68,13 +74,18 @@ export class Game {
   }
   /** 只顯示某一層並把鏡頭對準它（點右側樓層按鈕） */
   showDeck(i) {
+    if (this.small) return;
     const c = this.controls; this.ship.setExplode(0); c.setMode('free'); this.soloDeck = i; this.viewOverride = null; c.focusBot = null;
     c.target.set(8, this.ship.deckY(i) + 0.4, 0); const m = innerWidth < 700; c.pitch = m ? 1.15 : 1.02; c.yaw = 0.55; c.dist = (m ? 78 : 66) * (i <= 2 ? 1.2 : 1); this.updateDecks(); this.ui && this.ui.refreshDeckBtns();
   }
   /** 全景：回到整艘船 */
   showPanorama() { this.soloDeck = null; this.controls.setMode('overview'); this.ship.setExplode(0); this.updateDecks(); this.ui && this.ui.refreshDeckBtns(); }
+  syncSmallFoam() {
+    const u = this.ocean.uniforms, sh = this.ship, r = sh.root; u.uSmallOn.value = this.homeless ? 0 : 1;
+    u.uSmall.value.set(r.position.x, r.position.z, r.rotation.y, sh.spec.L * sh.k * 0.5);
+  }
   onTap(x, y) {
-    if (this.pilot) return;
+    if (this.pilot || (this.play && this.play.gaming)) return;
     const r = this.controls.pickFloor(x, y); if (!r) return; this.player.goTo(r.deck, r.x, r.z);
   }
   step(dt) {
@@ -83,7 +94,8 @@ export class Game {
     const sdt = Math.min(dt, 0.1);
     this.ocean.update(this.time, 1);
     this.ship.update(sdt, this.time);
-    this.player.update(sdt, this.pilot ? { x: 0, y: 0, run: false } : this.controls.move, this.controls.yaw);
+    if (this.small) this.syncSmallFoam();
+    this.player.update(sdt, this.pilot || (this.play && this.play.gaming) ? { x: 0, y: 0, run: false } : this.controls.move, this.controls.yaw);
     this.crew.update(sdt, this.time);
     this.updateDecks();
     this.controls.update(sdt);
@@ -109,15 +121,15 @@ export class Game {
   /** 導航自測：每層所有 POI 是否可由樓梯口 / 電梯到達 */
   selfTest() {
     const out = []; this.ship.decks.forEach((d) => {
-      const nav = d.nav; const starts = []; if (d.index < 4) starts.push(['up', stairEntry(d.index, 1)]); if (d.index > 0) starts.push(['dn', stairEntry(d.index - 1, -1)]); starts.push(['elev', ELEV_PORTAL]);
-      const pts = []; const add = (n, o) => { if (o && typeof o.x === 'number' && typeof o.z === 'number') pts.push([n, o]); };
+      const nav = d.nav; const starts = []; if (this.small) starts.push(['start', { x: this.ship.start[0], z: this.ship.start[1] }]); else { if (d.index < 4) starts.push(['up', stairEntry(d.index, 1)]); if (d.index > 0) starts.push(['dn', stairEntry(d.index - 1, -1)]); starts.push(['elev', ELEV_PORTAL]); }
+      const pts = []; const add = (n, o) => { if (o && typeof o.x === 'number' && typeof o.z === 'number') pts.push([n, this.small && o.head ? { x: o.x, z: o.z - o.head[1] * 1.3 } : o]); };
       for (const k in d.pois.misc) { const v = d.pois.misc[k]; if (Array.isArray(v)) v.forEach((o, i) => add(k + i, o)); else add(k, v); }
       (d.pois.desks || []).forEach((o) => add('desk' + o.key, o)); for (const t in (d.pois.cabins || {})) { const c = d.pois.cabins[t]; add('cabin.' + t + '.corridor', c.corridor); add('cabin.' + t + '.bathIn', c.bathIn); add('cabin.' + t + '.bathOut', c.bathOut); }
       const s0 = starts[0][1]; for (const [n, o] of pts) { const p = nav.findPath(s0.x, s0.z, o.x, o.z); const last = p && p[p.length - 1]; const miss = !p || Math.hypot(last[0] - o.x, last[1] - o.z) > 1.3; if (miss) out.push(`${d.name}:${n} (${o.x.toFixed(1)},${o.z.toFixed(1)}) ${!p ? '無路徑' : '終點偏差'}`); }
       for (const [n, o] of starts) { const f = nav.free(nav.ix(o.x), nav.iz(o.z)); if (!f) out.push(`${d.name}:${n} 入口不可走 (${o.x},${o.z})`); }
     });
     out.push(...runSelfTest());
-    if (this.play) for (const f in this.play.fac) { const v = this.play.fac[f]; const nav = this.ship.decks[v.deck].nav; const st = this.play.standPos(f); const s0 = v.deck < 4 ? stairEntry(v.deck, 1) : ELEV_PORTAL; const p = nav.findPath(s0.x, s0.z, st[0], st[1]); const last = p && p[p.length - 1]; if (!p || Math.hypot(last[0] - st[0], last[1] - st[1]) > 1.3) out.push(`設施 ${f} 的站位走不到`); }
+    if (this.play) for (const f in this.play.fac) { const v = this.play.fac[f]; const nav = this.ship.decks[v.deck].nav; const st = this.play.standPos(f); const s0 = this.small ? { x: this.ship.start[0], z: this.ship.start[1] } : v.deck < 4 ? stairEntry(v.deck, 1) : ELEV_PORTAL; const p = nav.findPath(s0.x, s0.z, st[0], st[1]); const last = p && p[p.length - 1]; if (!p || Math.hypot(last[0] - st[0], last[1] - st[1]) > 1.3) out.push(`設施 ${f} 的站位走不到`); }
     return out;
   }
   render() { this.renderer.render(this.scene, this.camera); }

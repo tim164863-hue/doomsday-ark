@@ -18,9 +18,10 @@ const box = (m, w, h, d, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeo
 const cyl = (m, r, h, x, y, z, seg = 14, r2 = r) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r2, r, h, seg), m); o.position.set(x, y + h / 2, z); o.castShadow = true; return o; };
 const add = (g, ...a) => { for (const o of a) g.add(o); return g; };
 
-export const SC = 1.7; // 模型放大倍率（甲板很大，太小看不到）
+export let SC = 1.7; // 模型放大倍率（甲板很大，太小看不到）；小船家園會縮小（setFacScale）
 const RAW = { purifier: [1.3, 0.8], greenhouse: [1.4, 1.0], generator: [1.3, 0.8], infirmary: [1.3, 1.0], workshop: [1.4, 0.8] };
 export const FOOT = Object.fromEntries(Object.entries(RAW).map(([k, v]) => [k, [v[0] * SC, v[1] * SC]]));
+export function setFacScale(sc) { SC = sc; for (const k in RAW) { FOOT[k][0] = RAW[k][0] * sc; FOOT[k][1] = RAW[k][1] * sc; } }
 
 function plinth(g, hw, hd, m = MAT.dark) { g.add(box(m, hw * 2, 0.12, hd * 2, 0, 0, 0)); }
 
@@ -91,9 +92,9 @@ export function blockRect(nav, x, z, hw, hd) {
 }
 
 export class FacilityView {
-  constructor(id, deckGroup, x, z) {
-    this.id = id; this.x = x; this.z = z; this.hw = FOOT[id][0]; this.hd = FOOT[id][1]; const [rw, rd] = RAW[id];
-    this.root = new THREE.Group(); this.root.position.set(x, 0, z); this.root.scale.setScalar(SC); deckGroup.add(this.root);
+  constructor(id, deckGroup, x, z, ry = 0, sc = SC) {
+    this.id = id; this.x = x; this.z = z; this.ry = ry; this.sc = sc; this.hw = RAW[id][0] * sc; this.hd = RAW[id][1] * sc; const [rw, rd] = RAW[id];
+    this.root = new THREE.Group(); this.root.position.set(x, 0, z); this.root.scale.setScalar(sc); this.root.rotation.y = ry; deckGroup.add(this.root);
     this.levels = MODELS[id](); this.levels.forEach((l) => this.root.add(l));
     // 藍圖（未建造）
     this.bp = new THREE.Group(); const bg = new THREE.BoxGeometry(rw * 2, 1.4, rd * 2);
@@ -103,7 +104,7 @@ export class FacilityView {
     // 故障燈 + 煙
     this.warn = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), MAT.warn); this.warn.position.set(0, 2.2, 0); this.root.add(this.warn);
     this.puffs = []; for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), MAT.smoke.clone()); p.visible = false; this.root.add(p); this.puffs.push(p); }
-    this.lv = 0; this.dmg = false; this.active = false; this.top = 2.6 * SC;
+    this.lv = 0; this.dmg = false; this.active = false; this.top = 2.6 * sc;
     this.setState(0, false, false);
   }
   setState(lv, dmg, active) {

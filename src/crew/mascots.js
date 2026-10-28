@@ -79,12 +79,12 @@ export class Mascots {
   get active() { return this.list.length > 0; }
   /** 找甲板上較開闊的可走位置 */
   spot(deck, near, maxR = 99) {
-    const nav = this.game.ship.decks[deck].nav; let best = null, bs = -1;
+    const nav = this.game.ship.decks[deck].nav; let best = null, bs = -1; const sm = this.game.small; const rr = sm ? 1.3 : 2.4;
     for (let i = 0; i < 90; i++) {
-      let x, z; if (near) { const a = Math.random() * 6.28, d = rnd(3, maxR); x = near.x + Math.cos(a) * d; z = near.z + Math.sin(a) * d; } else { x = nav.cx(Math.floor(Math.random() * 232)); z = nav.cz(Math.floor(Math.random() * 64)); }
-      if (!nav.walkable(x, z, 0.5)) continue; if (near && !nav.los(near.x, near.z, x, z)) continue;
-      let open = 0; for (let a = 0; a < 8; a++) if (nav.walkable(x + Math.cos(a * 0.785) * 2.4, z + Math.sin(a * 0.785) * 2.4, 0.4)) open++;
-      if (open > bs) { bs = open; best = { x, z }; } if (open >= 8) break;
+      let x, z; if (near) { const a = Math.random() * 6.28, d = rnd(this.game.small ? 1.5 : 3, maxR); x = near.x + Math.cos(a) * d; z = near.z + Math.sin(a) * d; } else { if (sm) { const o = this.game.ship.anchors; x = o.party.x + (Math.random() - 0.5) * 14; z = (Math.random() - 0.5) * 7; } else { x = nav.cx(Math.floor(Math.random() * 232)); z = nav.cz(Math.floor(Math.random() * 64)); } }
+      if (!nav.walkable(x, z, sm ? 0.3 : 0.5)) continue; if (near && !nav.los(near.x, near.z, x, z)) continue;
+      let open = 0; for (let a = 0; a < 8; a++) if (nav.walkable(x + Math.cos(a * 0.785) * rr, z + Math.sin(a * 0.785) * rr, sm ? 0.28 : 0.4)) open++;
+      if (open > bs) { bs = open; best = { x, z }; } if (open >= (sm ? 5 : 8)) break;
     }
     return best;
   }
@@ -98,7 +98,7 @@ export class Mascots {
     const b = mk('benben', p.x, p.z), h = mk('baobao', p.x - 1.0, p.z); this.list = [b, h]; this.trail = []; this.wp = null; this.pause = 0; this.stay = rnd(70, 110); this.leaving = 0; this.age = 0;
     for (const m of this.list) { m.model.userData.s = 0; }
     this.spark(deck, p.x, 0.5, p.z, 14);
-    const g = this.game, ui = g.ui; if (ui && ui.toast && (deck === g.viewDeck || g.controls.mode === 'overview')) ui.toast(`🟢❤️ 奔奔和抱抱跑上了 ${deck + 1}F！`);
+    const g = this.game, ui = g.ui; if (ui && ui.toast && (deck === g.viewDeck || g.controls.mode === 'overview')) ui.toast(g.small ? '🟢❤️ 奔奔和抱抱跑上了甲板！' : `🟢❤️ 奔奔和抱抱跑上了 ${deck + 1}F！`);
     this.botsNear(deck, p, 16, BOT_SPAWN, 2); return true;
   }
   botsNear(deck, p, R, lines, n) {
@@ -130,7 +130,7 @@ export class Mascots {
     this.t += dt; const sh = this.game.ship;
     // 火花
     for (let i = this.sparks.length - 1; i >= 0; i--) { const s = this.sparks[i]; s.life += dt; const k = s.life / s.max; s.o.position.x += s.vx * dt; s.o.position.y += s.vy * dt; s.o.position.z += s.vz * dt; s.vy -= 2.2 * dt; s.o.rotation.y += dt * 6; s.o.rotation.x += dt * 4; s.m.opacity = Math.max(0, 1 - k); if (k >= 1) { s.o.removeFromParent(); s.m.dispose(); s.o.geometry.dispose(); this.sparks.splice(i, 1); } }
-    if (!this.active) { this.next -= dt; if (this.next <= 0) { this.next = rnd(150, 330); if (!document.hidden && this.play.hud) this.spawnNow(); else this.next = 20; } this.updateTags(); return; }
+    if (!this.active) { this.next -= dt; if (this.next <= 0) { this.next = rnd(150, 330); if (!document.hidden && this.play.hud && !this.game.homeless) this.spawnNow(); else this.next = 20; } this.updateTags(); return; }
     const [b, h] = this.list; const nav = sh.decks[b.deck].nav; this.age += dt;
     // 出現 / 離開縮放
     const sc = this.age < 0.5 ? this.age / 0.5 : this.leaving ? Math.max(0, 1 - (this.t - this.leaving) / 0.45) : 1; const ease = sc * sc * (3 - 2 * sc);
