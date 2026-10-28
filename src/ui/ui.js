@@ -61,7 +61,9 @@ export class UI {
     const eb = this.elev.querySelector('.b'); for (let i = 4; i >= 0; i--) { const b = $(`<button data-d="${i}">${NAMES[i]}<small>${TITLES[i]}</small></button>`); b.onclick = () => { g.player.useElevator(i); this.showElevator(null); }; eb.appendChild(b); }
     if (!localStorage.getItem('ark.helped')) setTimeout(() => this.toggleHelp(true), 1200);
   }
-  toast(t) { this.toastEl.textContent = t; this.toastEl.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => this.toastEl.classList.remove('show'), 2400); }
+  /** 提示條放在頂部列（品牌/資源/工具）正下方，並避開右側按鈕欄；高度用實測。 */
+  placeToast() { const st = this.toastEl.style; const tb = this.top.getBoundingClientRect(); const rr = this.right ? this.right.getBoundingClientRect() : null; let y = tb.bottom; const rb = document.getElementById('resbar'); if (rb) { const q = rb.getBoundingClientRect(); if (q.height > 0 && getComputedStyle(rb).display !== 'none') y = Math.max(y, q.bottom); } st.setProperty('--tty', Math.round(y + 8) + 'px'); st.setProperty('--ttr', Math.round(rr && rr.width ? innerWidth - rr.left + 8 : 12) + 'px'); }
+  toast(t) { this.placeToast(); this.toastEl.textContent = t; this.toastEl.classList.add('show'); clearTimeout(this._tt); this._tt = setTimeout(() => this.toastEl.classList.remove('show'), 2400); }
   toggleHelp(v) { this.help.classList.toggle('hide', v === undefined ? !this.help.classList.contains('hide') : !v); }
   toggleCrew(v) { this.crewPanel.classList.toggle('hide', v === undefined ? !this.crewPanel.classList.contains('hide') : !v); this.renderList(); }
   refreshDeckBtns() { const g = this.game; this.deckBtns.forEach((b, i) => { b.classList.toggle('sel', g.soloDeck === i); b.classList.toggle('here', g.player.deck === i); }); this.right.querySelector('#panBtn').classList.toggle('sel', g.controls.mode === 'overview'); }

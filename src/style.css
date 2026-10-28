@@ -47,7 +47,7 @@ button.deck.sel, #panBtn.sel { border-color: var(--acc); color: var(--acc); back
 #slider::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid var(--acc); box-shadow: 0 0 6px #000a; }
 #slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--acc); }
 
-#joy { position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: calc(112px + env(safe-area-inset-bottom)); width: 128px; height: 128px; touch-action: none; display: none; z-index: 5; }
+#joy { position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: calc(max(112px, var(--tbx, 0px)) + env(safe-area-inset-bottom)); width: 128px; height: 128px; touch-action: none; display: none; z-index: 5; }
 #joy .ring { position: absolute; inset: 0; border-radius: 50%; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.35); backdrop-filter: blur(2px); }
 #joy .knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: rgba(255,211,107,.75); border: 2px solid #fff8; box-shadow: 0 2px 8px #0008; }
 
@@ -56,7 +56,7 @@ button.deck.sel, #panBtn.sel { border-color: var(--acc); color: var(--acc); back
 #help { position: absolute; inset: 0; background: rgba(2,8,16,.6); display: flex; align-items: center; justify-content: center; padding: 14px; z-index: 20; backdrop-filter: blur(3px); }
 #help .card { max-width: 640px; width: 100%; max-height: 100%; overflow: auto; background: rgba(10,22,38,.95); border: 1px solid var(--line); border-radius: 18px; padding: 18px 22px; }
 #help h2 { margin: 0 0 8px; color: var(--acc); letter-spacing: .1em; } #help h3 { margin: 8px 0 4px; font-size: 14px; } #help p { margin: 3px 0; font-size: 13px; line-height: 1.5; } #help .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } #help .note { opacity: .65; font-size: 12px; margin-top: 10px; } #help .ok { margin-top: 10px; width: 100%; border-color: var(--acc); color: var(--acc); padding: 9px; }
-#toast { position: absolute; left: 50%; top: 64px; transform: translate(-50%,-10px); background: rgba(10,22,38,.85); border: 1px solid var(--line); padding: 6px 14px; border-radius: 99px; font-size: 13px; opacity: 0; transition: .25s; pointer-events: none !important; } #toast.show { opacity: 1; transform: translate(-50%,0); }
+#toast { position: absolute; left: 50%; top: var(--tty, 64px); width: max-content; max-width: calc(100% - 2 * var(--ttr, 12px)); text-align: center; transform: translate(-50%,-10px); background: rgba(10,22,38,.85); border: 1px solid var(--line); padding: 6px 14px; border-radius: 16px; font-size: 13px; opacity: 0; transition: .25s; pointer-events: none !important; } #toast.show { opacity: 1; transform: translate(-50%,0); }
 
 /* 頭上標籤 */
 .lb { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; white-space: nowrap; pointer-events: auto; cursor: pointer; will-change: transform; }
@@ -78,7 +78,7 @@ button.deck.sel, #panBtn.sel { border-color: var(--acc); color: var(--acc); back
   #top { gap: 6px; } .brand { padding: 4px 9px; } .brand b { font-size: 15px; } .chips .dim { display: none; } .tools { margin-left: 0; } #qsel { max-width: 92px; font-size: 12px; }
   #right { top: 108px; right: 8px; } button.deck { padding: 4px 8px; font-size: 12px; } #right button { font-size: 12px; padding: 5px 8px; }
   #crew { left: 8px; right: 8px; width: auto; top: 108px; max-height: 46%; } #timebar { padding: 6px 8px 4px; } #timebar .row1 button { padding: 4px 7px; min-width: 32px; font-size: 13px; } #tbBtn { font-size: 13px; } #timebar[data-size="m"] .row1 .ex { justify-content: flex-start; } #timebar[data-size="l"] .row1 button { padding: 8px 10px; font-size: 15px; min-width: 40px; }
-  #help .cols { grid-template-columns: 1fr; } #joy { bottom: calc(132px + env(safe-area-inset-bottom)); }
+  #help .cols { grid-template-columns: 1fr; } #joy { bottom: calc(max(132px, var(--tbx, 0px)) + env(safe-area-inset-bottom)); }
 }
 
 /* ===== 階段 2：玩法 HUD ===== */
@@ -248,6 +248,8 @@ body.piloting #tags .ft, body.piloting #labels .lb, body.helming #tags .ft, body
   #mg .mgcard { padding: 6px 10px 8px; } #mg .mgmsg { min-height: 16px; margin: 2px 0 4px; font-size: 12.5px; } #mg .mgbar { height: 22px; } #mg .mgbtn { margin-top: 6px; padding: 9px 12px; }
   #mg .mgst { font-size: 22px; } #mg .mgl { margin: 2px 0 6px; line-height: 1.45; }
 }
-body.touch kbd { display: none; }
+body.touch kbd { display: none; } body.touch .nt { display: none; } body:not(.touch) .to { display: none; }
 @media (min-width: 701px) { body.helming #timebar.collapsed { left: 14px; transform: none; } }
 @media (max-width: 700px) { body.mging #timebar { display: none; } }
+
+@media (max-width: 700px) { #toast { left: 8px; max-width: calc(100% - 8px - var(--ttr, 12px)); transform: translateY(-10px); text-align: left; } #toast.show { transform: none; } }

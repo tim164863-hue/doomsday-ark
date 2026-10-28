@@ -61,7 +61,7 @@ export class HUD {
     const busy = vis(this.prompt) || cl.contains('mging') || cl.contains('helming') || vis(this.pilotBar) || vis(this.helmBar);
     if (busy && !this._busy && !tb.classList.contains('collapsed')) { tb.classList.add('collapsed'); const car = tb.querySelector('#tbBtn .car'); if (car) car.textContent = '▴'; }
     this._busy = busy;
-    const ex = busy && !tb.classList.contains('collapsed') ? Math.round(tb.offsetHeight + 18) : 0; document.documentElement.style.setProperty('--tbh', ex + 'px');
+    const ex = busy && !tb.classList.contains('collapsed') ? Math.round(tb.offsetHeight + 18) : 0; document.documentElement.style.setProperty('--tbh', ex + 'px'); document.documentElement.style.setProperty('--tbx', (tb.classList.contains('collapsed') ? 0 : Math.round(tb.offsetHeight + 18)) + 'px');
   }
   showHelmBar(on) { this.helmBar.classList.toggle('hide', !on); this.bar.querySelector('#btnHelm').classList.toggle('on', !!on); if (on) this.updateHelmBar(this.play.helm); }
   updateHelmBar(H) {
@@ -209,7 +209,7 @@ export class HUD {
     const { first, away, rep } = this.payload; const c = this.modal.querySelector('.mcard'); const s = this.s;
     if (first) {
       c.innerHTML = `<h2>🚢 歡迎登上末日方舟，${this.game.owner ? 'T董' : '船長'}！</h2><p class="sub">這艘船即使你不在也會自己運轉（最多補算 48 小時）。</p>
-      <ul class="how"><li>🍖💧⛽🔩 <b>四種資源</b>會隨時間生產與消耗，船員越多消耗越多。</li><li>🔨 走近設施按 <kbd>E</kbd>（手機：點提示按鈕）<b>建造／升級／修理</b>；點資源列旁的標籤可自動走過去。</li><li>💬 走近船員可以<b>聊天、看心情、打氣</b>（只影響遊戲裡的小人）。</li><li>🎾 走到<b>遊樂設施</b>（匹克球、桌球、籃框、街機、吧台、躺椅、泡湯…）按 <kbd>E</kbd> 就能玩：指針掃到綠色區塊時按 <kbd>E</kbd>／點一下。可以邀請旁邊的船員一起玩，交情會變好；船員之間也會變成朋友、吵架、和好，點 💞 看關係。</li><li>🚣 點 🚣 派船員<b>出海探索</b>沉船殘骸：風險越高，收穫越多，也可能受傷。</li><li>📋 每天 3 個<b>每日任務</b>，完成可領資源。</li></ul>
+      <ul class="how"><li>🍖💧⛽🔩 <b>四種資源</b>會隨時間生產與消耗，船員越多消耗越多。</li><li>🔨 走近設施<span class="nt">按 <kbd>E</kbd> </span><span class="to">點提示按鈕</span><b>建造／升級／修理</b>；點資源列旁的標籤可自動走過去。</li><li>💬 走近船員可以<b>聊天、看心情、打氣</b>（只影響遊戲裡的小人）。</li><li>🎾 走到<b>遊樂設施</b>（匹克球、桌球、籃框、街機、吧台、躺椅、泡湯…）<span class="nt">按 <kbd>E</kbd> 就能玩：指針掃到綠色區塊時按 <kbd>E</kbd>／點一下。</span><span class="to">點提示按鈕就能玩：指針掃到綠色區塊時點一下。</span>可以邀請旁邊的船員一起玩，交情會變好；船員之間也會變成朋友、吵架、和好，點 💞 看關係。</li><li>🚣 點 🚣 派船員<b>出海探索</b>沉船殘骸：風險越高，收穫越多，也可能受傷。</li><li>📋 每天 3 個<b>每日任務</b>，完成可領資源。</li></ul>
       <div class="mb"><button class="pri" data-x="close">開始航行</button></div>`;
     } else {
       const sm = S.summarize(rep); const lost = rep.capped ? '（超過 48 小時的部分不計）' : '';
