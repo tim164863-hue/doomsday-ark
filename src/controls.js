@@ -11,7 +11,7 @@ export class Controls {
   constructor(game, dom) {
     this.game = game; this.dom = dom; this.keys = new Set(); this.joy = { x: 0, y: 0 }; this.pointers = new Map(); this.tapCb = null;
     this.mode = 'follow'; this.yaw = 0.95; this.pitch = 0.95; this.dist = innerWidth < 700 ? 12.5 : 17; this.target = new THREE.Vector3(0, 18, 0); this.saved = {};
-    this.touch = isTouchDevice() || new URLSearchParams(location.search).get('joy') === '1';
+    this.touch = isTouchDevice() || new URLSearchParams(location.search).get('joy') === '1'; document.body.classList.toggle('touch', !!this.touch);
     this.rc = new THREE.Raycaster(); this.tmp = new THREE.Vector3(); this.pinch = 0; this.drag = false; this.focusBot = null;
     this.bind();
   }
@@ -19,7 +19,7 @@ export class Controls {
     if (m === this.mode) return;
     this.saved[this.mode] = { yaw: this.yaw, pitch: this.pitch, dist: this.dist, target: this.target.clone() };
     this.mode = m; const s = this.saved[m];
-    if (m === 'overview' && this.game.small) { const f = this.game.ship.frame, r = this.game.ship.root.position; this.yaw = f.yaw; this.pitch = f.pitch; this.dist = f.dist * (innerWidth < 700 ? 1.25 : 1); this.tgtOver = new THREE.Vector3(r.x + f.target[0], f.target[1], r.z + 0); }
+    if (m === 'overview' && this.game.small) { const f = this.game.ship.frame, r = this.game.ship.root.position; this.yaw = f.yaw; this.pitch = f.pitch; this.dist = f.dist * (innerWidth < 700 ? 1.25 : 1); { const asp = innerWidth / Math.max(1, innerHeight); if (asp < 0.9 && f.len) this.dist = Math.max(this.dist, f.len * 1.1 / (0.728 * asp)); } this.tgtOver = new THREE.Vector3(r.x + f.target[0], f.target[1], r.z + 0); }
     else if (m === 'overview') { this.yaw = 0.8; this.pitch = 0.5; this.dist = 175; { const h = this.game.helm; this.tgtOver = new THREE.Vector3(h ? h.x : SHIP_CX, 9, h ? h.z : 0); } this.game.ship.setExplode(0); }
     else if (m === 'follow') { if (s) { this.yaw = s.yaw; this.pitch = s.pitch; this.dist = s.dist; } else { this.dist = 17; this.pitch = 0.95; } }
     else { if (s) { this.yaw = s.yaw; this.pitch = s.pitch; this.dist = s.dist; this.target.copy(s.target); } else { this.dist = 45; this.pitch = 0.8; } }

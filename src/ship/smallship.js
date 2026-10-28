@@ -45,7 +45,7 @@ export class SmallShip {
     this.land = home.land; this.door = home.door; this.start = home.start; this.cap = home.cap;
     // 夜間燈
     this.lights = []; for (const p of [home.party, home.start]) { const l = new THREE.PointLight(0xffd9a0, 0, 26, 1.5); l.position.set(p[0], this.deckTop + 3.2, p[1]); this.body.add(l); this.lights.push(l); }
-    const Lw = S.L * k; this.body.updateMatrixWorld(true); const Hm = new THREE.Box3().setFromObject(this.model).max.y; const fd = Math.max(40, Lw * 1.6, Hm * 3.1); this.frame = { dist: fd, pitch: 0.55, yaw: 0.85, target: [((S.xr[0] + S.xr[1]) / 2) * k * 0.25, Math.max(this.deckTop * 0.4, Hm * 0.28), 0], zoom: [9, fd * 3] };
+    const Lw = S.L * k; this.body.updateMatrixWorld(true); const Hm = new THREE.Box3().setFromObject(this.model).max.y; const fd = Math.max(40, Lw * 1.6, Hm * 3.1); this.frame = { dist: fd, pitch: 0.55, yaw: 0.85, target: [((S.xr[0] + S.xr[1]) / 2) * k * 0.25, Math.max(this.deckTop * 0.4, Hm * 0.28), 0], len: Lw, zoom: [9, fd * 3.6] };
   }
   hideProps(model, r, yMax) {
     const kill = []; const bb = new THREE.Box3(); const e = 0.12;

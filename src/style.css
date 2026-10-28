@@ -99,7 +99,7 @@ button.deck.sel, #panBtn.sel { border-color: var(--acc); color: var(--acc); back
 .ft { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 4px; padding: 3px 9px; font-size: 12px; border-radius: 99px; background: rgba(10,22,38,.78); border: 1px solid rgba(143,220,255,.5); color: var(--txt); pointer-events: auto; white-space: nowrap; cursor: pointer; will-change: transform; }
 .ft i { font-style: normal; font-size: 14px; } .ft .lv { opacity: .8; font-size: 11px; } .ft.empty { border-style: dashed; border-color: #8fdcff; color: #bfe9ff; } .ft.dmg { border-color: #ff5a4a; color: #ffb4aa; animation: lowp 1.2s infinite; }
 .ft.far .t { display: none; } .ft.far { padding: 2px 6px; } .ft.boat { flex-direction: column; gap: 0; cursor: default; pointer-events: none; border-color: #ffb066; background: rgba(40,22,8,.78); } .ft.boat small { font-size: 10px; opacity: .85; }
-#prompt { position: absolute; left: 50%; bottom: calc(62px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(460px, calc(100% - 20px)); background: rgba(10,22,38,.88); border: 1px solid rgba(255,211,107,.55); border-radius: 14px; padding: 9px 12px 10px; backdrop-filter: blur(10px); z-index: 6; box-shadow: 0 6px 24px rgba(0,0,0,.4); }
+#prompt { position: absolute; left: 50%; bottom: calc(max(62px, var(--tbh, 0px)) + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(460px, calc(100% - 20px)); background: rgba(10,22,38,.88); border: 1px solid rgba(255,211,107,.55); border-radius: 14px; padding: 9px 12px 10px; backdrop-filter: blur(10px); z-index: 6; box-shadow: 0 6px 24px rgba(0,0,0,.4); }
 #prompt .ph { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; } #prompt .ic { font-size: 22px; } #prompt .ph b { font-size: 15px; } #prompt .ph em { font-style: normal; font-size: 11.5px; padding: 1px 8px; border-radius: 99px; border: 1px solid var(--line); opacity: .9; } #prompt .ph em.bad { color: #ff9a8e; border-color: #ff6b5e; }
 #prompt .pd { font-size: 12px; opacity: .8; margin: 4px 0 2px; line-height: 1.45; } #prompt .pd2 { font-size: 12px; margin: 3px 0; opacity: .9; } #prompt .pb { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 7px; }
 #prompt button, .mcard button { padding: 6px 12px; font-size: 13px; border-radius: 10px; } #prompt button.pri, .mcard button.pri { border-color: var(--acc); color: var(--acc); } #prompt button:disabled, .mcard button:disabled { opacity: .4; }
@@ -137,7 +137,7 @@ kbd { font-family: inherit; font-size: 11px; padding: 0 5px; border: 1px solid c
   #resbar { top: 106px; left: 8px; max-width: calc(100% - 92px); flex-direction: column; align-items: flex-start; gap: 5px; }
   #resbar .rcs { gap: 4px; } .rc { padding: 3px 7px; font-size: 12px; gap: 3px; } .rc small { display: none; } .rc b { min-width: 0; } .rc .bar { width: 26px; } .rc i { font-size: 14px; }
   #crewmini { top: 176px; width: 164px; max-height: 32vh; } #right { top: 108px; } 
-  #prompt { left: 152px; right: 8px; transform: none; width: auto; bottom: calc(54px + env(safe-area-inset-bottom)); padding: 8px 9px; } #prompt .pb button { padding: 8px 10px; flex: 1 1 auto; }
+  #prompt { left: 152px; right: 8px; transform: none; width: auto; bottom: calc(max(54px, var(--tbh, 0px)) + env(safe-area-inset-bottom)); padding: 8px 9px; } #prompt .pb button { padding: 8px 10px; flex: 1 1 auto; }
   .sites { grid-template-columns: 1fr; } .mcard { padding: 14px; } .tk { grid-template-columns: 1fr; } .tk button { justify-self: end; }
 }
 @media (min-width: 701px) { #right { top: 100px; } #crew { top: 100px; } }
@@ -176,10 +176,10 @@ kbd { font-family: inherit; font-size: 11px; padding: 0 5px; border: 1px solid c
 @media (max-width: 700px) { .scPanel { top: auto; bottom: 72px; right: 8px; left: 8px; width: auto; max-height: 34vh; } .scSub { display: none; } .scConfirm { bottom: calc(8px + env(safe-area-inset-bottom)); } }
 
 /* ---- 駕駛 ---- */
-#pilotbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 30; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 99px; background: rgba(10,22,36,.88); border: 1px solid var(--line); color: #fff; } #pilotbar.hide { display: none; }
+#pilotbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(18px, var(--tbh, 0px)) + env(safe-area-inset-bottom)); z-index: 30; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 99px; background: rgba(10,22,36,.88); border: 1px solid var(--line); color: #fff; } #pilotbar.hide { display: none; }
 #pilotbar .ps { width: 110px; height: 8px; border-radius: 99px; background: #ffffff20; overflow: hidden; } #pilotbar .ps u { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #5fd0e6, #ffd36b); } #pilotbar small { opacity: .65; font-size: 11px; }
 #pilotbar button { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--line); background: #ffffff14; color: #fff; cursor: pointer; font-size: 13px; } #pilotbar button.pri { background: #ffd36b; color: #2a1c00; font-weight: 700; border-color: #ffd36b; }
-@media (max-width: 700px) { #pilotbar { bottom: calc(150px + env(safe-area-inset-bottom)); gap: 8px; padding: 6px 10px; } #pilotbar small, #pilotbar .ps { display: none; } }
+@media (max-width: 700px) { #pilotbar { bottom: calc(max(150px, var(--tbh, 0px)) + env(safe-area-inset-bottom)); gap: 8px; padding: 6px 10px; } #pilotbar small, #pilotbar .ps { display: none; } }
 body.piloting #prompt { display: none !important; }
 /* 吉祥物名牌（奔奔 / 抱抱） */
 .ft.mascot { flex-direction: column; gap: 0; padding: 2px 9px 3px; border-color: #ffd36b; background: rgba(40,28,10,.72); }
@@ -200,7 +200,7 @@ body.piloting #prompt { display: none !important; }
 #entry .guest { width: 100%; margin-top: 10px; padding: 13px 12px; border-radius: 10px; font-size: 16px; font-weight: 700; border-color: var(--acc); color: var(--acc); }
 #entry .en { font-size: 12px; opacity: .7; line-height: 1.7; margin: 16px 0 0; } #entry .ew { font-size: 12px; color: #ffb86b; margin: 10px 0 0; } #entry .em { min-height: 18px; font-size: 12.5px; color: var(--acc); margin-top: 8px; }
 /* ---- 計時小遊戲 ---- */
-#mg { position: absolute; left: 50%; bottom: calc(62px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(480px, calc(100% - 20px)); z-index: 22; pointer-events: none; }
+#mg { position: absolute; left: 50%; bottom: calc(max(62px, var(--tbh, 0px)) + env(safe-area-inset-bottom)); transform: translateX(-50%); width: min(480px, calc(100% - 20px)); z-index: 22; pointer-events: none; }
 #mg .mgcard { pointer-events: auto; background: rgba(10,22,38,.9); border: 1px solid rgba(255,211,107,.6); border-radius: 16px; padding: 10px 14px 12px; box-shadow: 0 8px 30px rgba(0,0,0,.45); backdrop-filter: blur(4px); }
 #mg .mgh { display: flex; align-items: center; gap: 8px; } #mg .mgi { font-size: 22px; } #mg .mgt { font-size: 15px; } #mg .mgs { margin-left: auto; font-size: 15px; font-weight: 700; color: var(--acc); font-variant-numeric: tabular-nums; } #mg .mgx { padding: 2px 9px; font-size: 13px; border-radius: 9px; }
 #mg .mgmsg { min-height: 20px; font-size: 13.5px; margin: 4px 0 6px; opacity: .95; text-align: center; font-weight: 600; }
@@ -211,7 +211,7 @@ body.piloting #prompt { display: none !important; }
 #mg .mgres { text-align: center; } #mg .mgrt { font-size: 18px; font-weight: 800; color: var(--acc); margin: 4px 0; } #mg .mgst { font-size: 28px; letter-spacing: 6px; color: #ffd36b; } #mg .mgl { font-size: 13px; opacity: .9; margin: 4px 0 8px; line-height: 1.6; }
 #mg .mgb { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; } #mg .mgb button { padding: 10px 16px; font-size: 14px; border-radius: 10px; }
 body.mging #prompt { display: none !important; } body.mging #crewmini { display: none; }
-@media (max-width: 700px) { #mg { bottom: calc(54px + env(safe-area-inset-bottom)); } }
+@media (max-width: 700px) { #mg { bottom: calc(max(54px, var(--tbh, 0px)) + env(safe-area-inset-bottom)); } }
 
 /* ---- 船員關係 / 遊玩 */
 .rlist { list-style: none; margin: 4px 0 6px; padding: 0; } .rlist li { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,.06); }
@@ -224,14 +224,14 @@ body.gaming #prompt, body.gaming #crewmini { display: none !important; }
 .ft.far.empty .lv { display: none; }
 
 /* 駕駛母船 */
-#helmbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 30; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 99px; background: rgba(10,22,34,.82); border: 1px solid var(--line); color: #fff; backdrop-filter: blur(8px); font-size: 13px; }
+#helmbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(max(18px, var(--tbh, 0px)) + env(safe-area-inset-bottom)); z-index: 30; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 99px; background: rgba(10,22,34,.82); border: 1px solid var(--line); color: #fff; backdrop-filter: blur(8px); font-size: 13px; }
 #helmbar.hide { display: none; }
 #helmbar .hk { display: flex; align-items: baseline; gap: 4px; } #helmbar .hk b { font-size: 17px; font-variant-numeric: tabular-nums; min-width: 2.4em; text-align: right; } #helmbar .hk .hd { margin-left: 8px; color: #ffd36b; } #helmbar .hk small { opacity: .7; } #helmbar .hk .hp { margin-left: 8px; }
 #helmbar .ps { width: 110px; height: 8px; border-radius: 99px; background: #ffffff20; overflow: hidden; } #helmbar .ps u { display: block; height: 100%; width: 0; background: linear-gradient(90deg,#4fd3ff,#ffd36b); } #helmbar .ps.rev u { background: #ff8a5c; }
 #helmbar button { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--line); background: #ffffff14; color: #fff; cursor: pointer; font-size: 13px; } #helmbar button.pri { background: #2f7fd1; border-color: #4fa3ff; }
 #btnHelm.on { background: #2f7fd1; box-shadow: 0 0 0 2px #7fc4ff88; }
 body.helming #prompt { display: none !important; }
-@media (max-width: 700px) { #helmbar { left: auto; right: 8px; transform: none; bottom: calc(138px + env(safe-area-inset-bottom)); gap: 6px; padding: 6px 8px; max-width: calc(100vw - 168px); } #helmbar small.pt, #helmbar .ps, #helmbar .hk .hp, #helmbar .hn, #helmbar .hk small { display: none; } #helmbar .hk b { font-size: 15px; min-width: 2em; } #helmbar .hk .hd { margin-left: 4px; } #helmbar button { padding: 7px 9px; font-size: 12px; } }
+@media (max-width: 700px) { #helmbar { left: auto; right: 8px; transform: none; bottom: calc(max(138px, var(--tbh, 0px)) + env(safe-area-inset-bottom)); gap: 6px; padding: 6px 8px; max-width: calc(100vw - 168px); } #helmbar small.pt, #helmbar .ps, #helmbar .hk .hp, #helmbar .hn, #helmbar .hk small { display: none; } #helmbar .hk b { font-size: 15px; min-width: 2em; } #helmbar .hk .hd { margin-left: 4px; } #helmbar button { padding: 7px 9px; font-size: 12px; } }
 #helmbar .hn { white-space: nowrap; font-weight: 600; }
 
 /* ---- 審查回饋修正 ---- */
@@ -243,8 +243,11 @@ body.piloting #tags .ft, body.piloting #labels .lb, body.helming #tags .ft, body
 #helmbar .hs { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; font-variant-numeric: tabular-nums; padding: 3px 12px; border-radius: 99px; background: rgba(10,22,34,.82); border: 1px solid var(--line); }
 @media (max-width: 700px) {
   #resbar .racts { flex-wrap: wrap; max-width: 100%; row-gap: 5px; }
-  #helmbar .hs { left: auto; right: 0; transform: none; font-size: 11px; padding: 3px 10px; white-space: normal; width: 200px; text-align: right; border-radius: 12px; line-height: 1.35; }
-  #mg { bottom: calc(6px + env(safe-area-inset-bottom)); width: calc(100% - 12px); }
+  #helmbar .hs { left: auto; right: 0; transform: none; font-size: 11px; padding: 3px 10px; white-space: nowrap; width: auto; text-align: right; font-size: 10.5px; bottom: calc(100% + 38px); }
+  #mg { bottom: calc(max(6px, var(--tbh, 0px)) + env(safe-area-inset-bottom)); width: calc(100% - 12px); }
   #mg .mgcard { padding: 6px 10px 8px; } #mg .mgmsg { min-height: 16px; margin: 2px 0 4px; font-size: 12.5px; } #mg .mgbar { height: 22px; } #mg .mgbtn { margin-top: 6px; padding: 9px 12px; }
   #mg .mgst { font-size: 22px; } #mg .mgl { margin: 2px 0 6px; line-height: 1.45; }
 }
+body.touch kbd { display: none; }
+@media (min-width: 701px) { body.helming #timebar.collapsed { left: 14px; transform: none; } }
+@media (max-width: 700px) { body.mging #timebar { display: none; } }

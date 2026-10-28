@@ -1,5 +1,6 @@
 // 計時小遊戲介面：一條橫條，指針來回掃，在綠色「甜蜜區」按 E / 空白鍵 / 點一下。手機：點大按鈕。
 // 只負責 UI 與計時；各設施玩法在 src/play/games.js，用 await mg.arm(...) 一拍一拍串起來。
+import { tt } from '../touch.js';
 import { markerPos, timingQuality, gradeOf } from '../sim/rel.js';
 
 const GRADE = { perfect: ['完美！', '#7dffb0'], good: ['不錯！', '#c8ff7a'], ok: ['差一點', '#ffd36b'], miss: ['失誤', '#ff8a7e'] };
@@ -32,7 +33,7 @@ export class MiniGame {
     this.ui.icon.textContent = icon; this.ui.title.textContent = title; this.setScore(score); this.msg(hint); this.idle();
   }
   setScore(t) { this.ui.score.textContent = t; }
-  msg(t, color) { this.ui.msg.textContent = t; this.ui.msg.style.color = color || ''; }
+  msg(t, color) { this.ui.msg.textContent = tt(t); this.ui.msg.style.color = color || ''; }
   idle() { this.cur = null; this.ui.bar.classList.add('off'); this.ui.btn.disabled = true; this.ui.mk.style.left = '50%'; }
   /** 武裝一拍：回傳 Promise<{q, grade, timedOut, pos}>。timeout 秒內沒按 → q = 0。 */
   arm({ speed = 1.2, sweet = 0.09, center, timeout = 0, label = '' } = {}) {
