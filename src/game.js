@@ -14,6 +14,7 @@ import { Player } from './player.js';
 import { Controls } from './controls.js';
 import { Crew } from './crew/crew.js';
 import { DataSource } from './data.js';
+import { isChar, randomChar, crewSpec, charById } from './crew/characters.js';
 import { stairEntry, ELEV_PORTAL } from './crew/actor.js';
 import { BASE_Y, DH } from './ship/ship.js';
 import { waveHeight, waveState } from './world/waves.js';
@@ -37,6 +38,8 @@ export class Game {
     this.ocean = new Ocean(this.scene, this.env, this.quality);
     this.tv = new ContestTV();
     // 擁有者：T董 的郵輪方舟；其他人（訪客 / 其他帳號）：只有自己選的小船（尚未選時：只有海，不顯示任何船殼）
+    this.owner = !!opts.owner; // 要在 Player / Crew 之前設好
+    this.charId = this.owner ? null : (isChar(opts.char) ? opts.char : randomChar()); this.crewSeed = this.owner ? 0 : (Number.isFinite(opts.crewSeed) ? opts.crewSeed >>> 0 : (Math.random() * 2 ** 32) >>> 0);
     this.small = !opts.owner; this.homeless = this.small && !opts.home; this.homeType = this.small ? (opts.home || 'skiff') : null;
     if (this.small) { mapDecksTo(0); this.ship = new SmallShip(this.env, this.quality, this.tv.tex, this.homeType, opts.homeLv || 1); this.ship.root.visible = !this.homeless; }
     else this.ship = new Ship(this.env, this.quality, this.tv.tex);
@@ -54,8 +57,8 @@ export class Game {
     this.player = new Player(this); this.crew = new Crew(this);
     this.controls = new Controls(this, canvas); this.controls.tapCb = (x, y) => this.onTap(x, y); if (this.small) { this.controls.setMode('overview'); this.controls.target.copy(this.controls.tgtOver); }
     const P = new URLSearchParams(location.search);
-    this.ds = new DataSource({ mode: P.get('demo') === 'cycle' ? 'cycle' : P.get('demo') ? 'demo' : opts.owner ? 'live' : 'virtual', cap: this.small ? (this.homeless ? 0 : this.ship.cap) : undefined });
-    this.owner = !!opts.owner; this.tv.setLocked(!this.owner && !P.get('demo'));
+    this.ds = new DataSource({ mode: P.get('demo') === 'cycle' ? 'cycle' : P.get('demo') ? 'demo' : opts.owner ? 'live' : 'virtual', cap: this.small ? (this.homeless ? 0 : this.ship.cap) : undefined, crew: this.small ? crewSpec(this.crewSeed, this.homeless ? 0 : this.ship.cap, [charById(this.charId).name]) : undefined });
+    this.tv.setLocked(!this.owner && !P.get('demo'));
     this.ds.onData((d) => { this.dataInfo = d; this.crew.applyData(d); });
     this.resize();
     addEventListener('resize', () => this.resize());
@@ -127,6 +130,14 @@ export class Game {
   /** 目前地圖位置（地圖單位）；沒有存檔 / 世界 → null */
   mapPos() { const p = this.play, w = p && p.state && p.state.fleet && p.state.fleet.world; return w && w.pos ? arkPos(w, clock.now()) : null; }
   /** 視覺用天氣覆寫（截圖 / 試玩）：'storm' | 'rain' | 'snow' | 'blizzard' | 'aurora' | 'clear'，可加 ,n / ,s（北 / 南極）；null 取消。不影響存檔與模擬。 */
+  /** 換角色（非船東）：換模型 + 寫進存檔 pl.c。 */
+  setChar(id) {
+    if (this.owner || !isChar(id)) return false;
+    const pl = this.play && this.play.games; if (pl && pl.active) { this.ui.toast('先結束目前的活動再換角色'); return false; }
+    if (!this.player.setCharacter(id)) return false;
+    if (this.play && this.play.state) { this.play.state.pl = { c: id, s: this.crewSeed }; this.play.save(true); }
+    return true;
+  }
   setWx(spec) {
     if (!spec) { this.wxOv = null; this.wxT = 0; return; }
     const parts = String(spec).split(','), k = parts[0], hemi = parts.includes('s') ? 'south' : parts.includes('n') ? 'north' : null;

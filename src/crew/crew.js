@@ -59,7 +59,7 @@ class SteamFX {
 class Bot {
   constructor(crew, info) {
     this.crew = crew; this.game = crew.game; this.info = info; this.key = info.key; this.title = info.title; this.kind = info.kind;
-    this.avatar = new Avatar(info.key); this.actor = new Actor(this.game, this.avatar, D.work, 0, 0);
+    this.avatar = new Avatar(info.key, info.look); this.actor = new Actor(this.game, this.avatar, D.work, 0, 0);
     this.actor.baseSpeed = 1.3 + rnd() * 0.35; this.gen = null; this.dt = 0.016; this.claimed = []; this.speech = null; this.mood = 'focus'; this.moodTimer = rnd() * 8;
     this.nextMoodLine = 20 + rnd() * 40; this.workStart = Date.now() - rnd() * 25 * 60000; this.sleeping = false; this.showered = false; this.shower = 0; this.inBath = false;
     this.cabin = null; this.desk = null; this.playing = false; this.convo = null; this.talkT = 0; this.greetCd = 0; this.lastChat = -999; this.state = 'init'; this.activity = '';
@@ -122,11 +122,11 @@ class Bot {
   *workLoop() {
     const desk = this.crew.deskFor(this); this.desk = desk;
     if (desk) { yield* this.goTo(D.work, desk.x, desk.z, desk.face); }
-    let nextBreak = 55 + rnd() * 70;
+    let nextBreak = desk ? 55 + rnd() * 70 : 4 + rnd() * 8; // 沒有桌子（小船甲板）：站著值班，很快就去做別的事（巡欄杆 / 聊天）
     while (true) {
       if (desk) { yield* this.glide(desk.x, desk.z, desk.face, 0); this.pose('type'); if (desk.screen) desk.screen.color.set(0x2a6a9a); }
       else this.pose('stand');
-      let t = 0; const dur = 25 + rnd() * 45;
+      let t = 0; const dur = desk ? 25 + rnd() * 45 : 6 + rnd() * 10;
       while (t < dur) {
         t += this.dt; yield;
         if (desk && rnd() < 0.0025) { this.pose('think'); yield* this.wait(3 + rnd() * 4); this.pose('type'); }
@@ -134,7 +134,7 @@ class Bot {
       }
       nextBreak -= dur;
       if (nextBreak < 0) {
-        nextBreak = (this.game.envState.nightF > 0.6 ? 110 : 60) + rnd() * 80;
+        nextBreak = desk ? (this.game.envState.nightF > 0.6 ? 110 : 60) + rnd() * 80 : 6 + rnd() * 10;
         if (desk && desk.screen) desk.screen.color.set(0x15324a);
         yield* this.breakTime();
       }
@@ -317,7 +317,7 @@ export class Crew {
   /** 載入時依狀態直接把人放到合理位置（不用走過來）。 */
   spawn(b) {
     const info = b.info; const ship = this.game.ship; b.state = info.cat; b.setMoodNow();
-    if (info.cat === 'work') { const dk = this.deskFor(b); b.desk = dk; if (dk) { b.actor.place(D.work, dk.x, dk.z, dk.face); b.pose('type'); if (dk.screen) dk.screen.color.set(0x2a6a9a); } b.gen = b.run(); }
+    if (info.cat === 'work') { const dk = this.deskFor(b); b.desk = dk; if (dk) { b.actor.place(D.work, dk.x, dk.z, dk.face); b.pose('type'); if (dk.screen) dk.screen.color.set(0x2a6a9a); } else { const sm = ship.decks[D.work].pois.misc.chat; const p0 = sm && sm.length ? pick(sm) : { x: 0, z: 0 }; const q = ship.decks[D.work].nav.nearestFree(p0.x + (rnd() - 0.5) * 2, p0.z + (rnd() - 0.5) * 2, 3) || [p0.x, p0.z]; b.actor.place(D.work, q[0], q[1], rnd() * 6); b.pose('stand'); } b.gen = b.run(); }
     else if (info.cat === 'rest') {
       const p = pick(ship.decks[D.fun].pois.misc.chat); b.actor.place(D.fun, p.x + (rnd() - 0.5) * 3, p.z + (rnd() - 0.5) * 3, rnd() * 6); b.pose('stand'); b.gen = b.run();
     } else {

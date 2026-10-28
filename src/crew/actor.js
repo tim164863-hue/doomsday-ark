@@ -74,7 +74,7 @@ export class Actor {
           if (dist < 0.08) { this.pi++; if (this.pi >= this.path.length) this.finishStep(); }
           else {
             const nx = this.x + dx / dist * adv, nz = this.z + dz / dist * adv;
-            if (s.fallback) { this.x = nx; this.z = nz; } else { const r = deckNav.move(this.x, this.z, nx - this.x, nz - this.z, 0.26); this.x = r[0]; this.z = r[1]; if (Math.hypot(r[0] - nx, r[1] - nz) > 0.001) { s.stuck = (s.stuck || 0) + dt; if (s.stuck > 1.5) { this.pi++; s.stuck = 0; if (this.pi >= this.path.length) this.finishStep(); } } else s.stuck = 0; }
+            if (s.fallback) { this.x = nx; this.z = nz; } else { const r = deckNav.move(this.x, this.z, nx - this.x, nz - this.z, 0.16); this.x = r[0]; this.z = r[1]; if (Math.hypot(r[0] - nx, r[1] - nz) > 0.001) { s.stuck = (s.stuck || 0) + dt; if (s.stuck > 1.5) { this.pi++; s.stuck = 0; if (this.pi >= this.path.length) this.finishStep(); } } else s.stuck = 0; }
             this.yaw = dampAngle(this.yaw, Math.atan2(dx, dz), 12, dt); moved = adv / dt;
           }
         }

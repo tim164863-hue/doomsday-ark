@@ -6,6 +6,7 @@ import { clock } from '../clock.js';
 import { SAVE_VERSION } from '../sim/defs.js';
 import { sanitizeFleet } from '../sim/fleet.js';
 import { sanitizeRel } from '../sim/rel.js';
+import { isChar, sanitizePl } from '../crew/characters.js';
 
 // 公開的 Web 用戶端設定（可公開，安全性靠 Firestore 規則與授權網域）。
 export const FIREBASE_CONFIG = {
@@ -46,6 +47,7 @@ export function validateState(s) {
   for (const k of ['food', 'water', 'fuel', 'parts']) s.res[k] = Math.max(0, Math.min(1e6, s.res[k]));
   if (s.fleet != null) { const f = sanitizeFleet(s.fleet); if (f) s.fleet = f; else delete s.fleet; }   // 艦隊是可選欄位（舊存檔沒有）
   if (s.rel != null) { const r = sanitizeRel(s.rel); if (r) s.rel = r; else delete s.rel; }   // 船員關係：可選欄位
+  if (s.pl != null) { if (s.pl && typeof s.pl === 'object' && isChar(s.pl.c)) s.pl = sanitizePl(s.pl); else delete s.pl; }   // 角色 / 船員種子：可選欄位
   return s;
 }
 function parseDoc(data) {

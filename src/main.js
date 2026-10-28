@@ -23,7 +23,8 @@ try {
   // 非擁有者（訪客／其他帳號）的家 = 自己選的小船；尚未選船（home=null）時只看海面，不顯示任何船體
   const ownerView = boot.owner || (import.meta.env.DEV && P.get('devowner') === '1'); // devowner 只在 vite dev 有效，正式版會被移除
   const hs = ownerView ? null : homeShip(boot.state && boot.state.fleet);
-  game = new Game(canvas, { owner: ownerView, home: hs ? hs.type : null, homeLv: hs ? hs.lv : 1 });
+  const pl0 = ownerView ? null : (boot.state && boot.state.pl); // 非船東：角色 id + 船員種子（存檔可選欄位；沒有就隨機分配，play.init 會寫回存檔）
+  game = new Game(canvas, { owner: ownerView, home: hs ? hs.type : null, homeLv: hs ? hs.lv : 1, char: pl0 && pl0.c, crewSeed: pl0 && pl0.s });
 } catch (e) {
   document.getElementById('loading').innerHTML = '<div class="ld-title">😢</div><div class="ld-sub">你的瀏覽器不支援 WebGL，無法啟動末日方舟</div>';
   throw e;

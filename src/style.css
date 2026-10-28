@@ -290,3 +290,11 @@ body.touch kbd { display: none; } body.touch .nt { display: none; } body:not(.to
   .scSub { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1 1 auto; }
 }
 @media (min-width: 701px) { #resbar .rc.wx { display: none !important; } }
+/* ---- 角色挑選（非船東）*/
+#modal[data-kind=char] .mcard { max-width: 700px; }
+.chargrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 8px; }
+.chc { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px 8px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.035); color: inherit; font: inherit; cursor: pointer; position: relative; min-width: 0; }
+.chc:hover { background: rgba(255,255,255,.08); } .chc.on { border-color: #ffd36b; background: rgba(255,211,107,.12); }
+.chc .cp { width: 100%; aspect-ratio: 180 / 230; display: flex; align-items: center; justify-content: center; } .chc .cp img { width: 100%; height: 100%; object-fit: contain; display: block; } .chc .cp i { font-size: 42px; font-style: normal; }
+.chc b { font-size: 12.5px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; } .chc small { font-size: 10.5px; opacity: .68; line-height: 1.25; text-align: center; max-width: 100%; } .chc em { font-style: normal; font-size: 11px; color: #ffd36b; font-weight: 700; }
+@media (max-width: 700px) { .chargrid { grid-template-columns: repeat(2, 1fr); } .chc .cp { width: 62%; } }

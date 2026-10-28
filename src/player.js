@@ -5,14 +5,29 @@ import { STAIR, laneCenterZ } from './ship/ship.js';
 import { emit } from './events.js';
 import { dampAngle } from './util.js';
 import { D } from './crew/decks.js';
+import { charById, lookOf, isChar, CHARS } from './crew/characters.js';
 
 /** 玩家：T董。可手動移動（鍵盤/搖桿）也可點擊移動（路徑規劃、跨層）。 */
 export class Player {
   constructor(game) {
-    this.game = game; this.avatar = new Avatar('T董'); this.actor = new Actor(game, this.avatar, D.boss, 1.2, 3.2);
-    this.actor.baseSpeed = 2.7; this.actor.speedMul = 1; this.avatar.setPose('stand'); this.key = 'T董'; this.title = game.small ? '船長' : 'T董'; // key 是關係表的固定鍵；title 是顯示名稱（訪客稱「船長」）
+    this.game = game; this.avatar = Player.makeAvatar(game); this.actor = new Actor(game, this.avatar, D.boss, 1.2, 3.2);
+    this.actor.baseSpeed = 2.7; this.actor.speedMul = 1; this.avatar.setPose('stand'); this.key = 'T董'; this.title = game.small ? '船長' : 'T董'; // T董 是船東專屬角色：只有 owner 看得到
+     // key 是關係表的固定鍵；title 是顯示名稱（訪客稱「船長」）
     this.elevArmed = true; this.stairCd = 0; this.marker = null; this.moving = false; this.deckChangeTime = 0;
     this.makeMarker(); this.placeStart();
+  }
+  /** 船東 → T董（專屬造型）；其他人 → 自己挑的角色（資料庫 10 位之一），絕不會是 T董。 */
+  static makeAvatar(game) {
+    if (game.owner) return new Avatar('T董');
+    const id = isChar(game.charId) ? game.charId : CHARS[0].id; return new Avatar('P:' + id, lookOf(id));
+  }
+  /** 換角色（非船東）：換掉模型但保留位置 / 方向 / 路徑。回傳是否成功。 */
+  setCharacter(id) {
+    if (this.game.owner || !isChar(id)) return false;
+    this.game.charId = id; const old = this.avatar, a = this.actor; const av = new Avatar('P:' + id, lookOf(id));
+    const vis = old.group.visible; old.group.removeFromParent(); av.group.visible = vis; av.setPose('stand');
+    this.avatar = av; a.avatar = av; a.place(a.deck, a.x, a.z, a.yaw);
+    return true;
   }
   placeStart() { const sh = this.game.ship; const n = sh.decks[D.boss].nav; const p = sh.small ? sh.start : (n.nearestFree(1.2, 3.4) || [1, 3]); this.actor.place(D.boss, p[0], p[1], sh.small ? 0 : -Math.PI / 2); }
   get deck() { return this.actor.deck; }
@@ -35,7 +50,7 @@ export class Player {
       let dx = (-s) * input.y + c * input.x, dz = (-c) * input.y + (-s) * input.x; const l = Math.hypot(dx, dz); dx /= l; dz /= l;
       if (ship.small) { const ry = ship.root.rotation.y, cr = Math.cos(ry), sr = Math.sin(ry); const lx = dx * cr - dz * sr, lz = dx * sr + dz * cr; dx = lx; dz = lz; }
       const sp = (input.run ? 4.6 : 2.7) * Math.min(1, mag);
-      const r = ship.decks[a.deck].nav.move(a.x, a.z, dx * sp * dt, dz * sp * dt, 0.26); a.x = r[0]; a.z = r[1];
+      const r = ship.decks[a.deck].nav.move(a.x, a.z, dx * sp * dt, dz * sp * dt, 0.16); a.x = r[0]; a.z = r[1];
       a.yaw = dampAngle(a.yaw, Math.atan2(dx, dz), 14, dt); a.speed += (sp - a.speed) * Math.min(1, dt * 12); this.avatar.speed = a.speed; this.avatar.gait = input.run ? 'run' : 'walk'; a.sync(); this.marker.visible = false;
     } else if (busyAuto) { a.update(dt); this.avatar.speed = a.speed; if (!a.busy) this.marker.visible = false; }
     else { a.speed += (0 - a.speed) * Math.min(1, dt * 10); this.avatar.speed = this.avatar.fixedSpeed ?? a.speed; if (this.avatar.fixedGait) this.avatar.gait = this.avatar.fixedGait; a.sync(); }

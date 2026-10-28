@@ -15,6 +15,7 @@ export function preloadAvatars() {
 
 const matCache = new Map();
 const mat = (hex, o = {}) => { const k = hex + JSON.stringify(o); if (!matCache.has(k)) matCache.set(k, new THREE.MeshStandardMaterial({ color: hex, roughness: 0.7, metalness: 0, ...o })); return matCache.get(k); };
+const gold = () => mat(0xffc93a, { metalness: 0.85, roughness: 0.28, emissive: 0x6b4a00, emissiveIntensity: 0.35 });
 const G = {}; const geo = (k, f) => (G[k] ||= f());
 
 /** 每位成員：使用哪個模型 + 配件。shirt 供毯子等顏色用。 */
@@ -31,6 +32,35 @@ const SPARE = ['male-c', 'female-c', 'female-d', 'female-f', 'male-e'];
 function hashLook(key) {
   let h = 0; for (const c of key) h = (h * 31 + c.charCodeAt(0)) | 0;
   return { model: SPARE[Math.abs(h) % SPARE.length], shirt: 0x5b7fc4, acc: [] };
+}
+
+
+// ---- 角色換色：所有 Kenney 角色共用一張 512×512 調色盤貼圖；把「衣服」色系（藍紫 / 綠 / 橘紅黃）轉到指定色相，膚色 / 髮色 / 灰階不動。
+const rgb2hsv = (r, g, b) => { const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0; if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h *= 60; if (h < 0) h += 360; } return [h, mx ? d / mx : 0, mx / 255]; };
+const hsv2rgb = (h, s, v) => { const c = v * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = v - c; let r = 0, g = 0, b = 0; const i = Math.floor((((h % 360) + 360) % 360) / 60); if (i === 0) [r, g, b] = [c, x, 0]; else if (i === 1) [r, g, b] = [x, c, 0]; else if (i === 2) [r, g, b] = [0, c, x]; else if (i === 3) [r, g, b] = [0, x, c]; else if (i === 4) [r, g, b] = [x, 0, c]; else [r, g, b] = [c, 0, x]; return [(r + m) * 255, (g + m) * 255, (b + m) * 255]; };
+const CENTER = { cool: 235, green: 150, warm: 30 };
+export function recolorPixels(d, col) {
+  for (let i = 0; i < d.length; i += 4) {
+    const r = d[i], g = d[i + 1], b = d[i + 2]; if (r + g + b === 0) continue; const [h, s, v] = rgb2hsv(r, g, b); if (s < 0.25) continue;
+    let k = null; const hh = h >= 340 ? h - 360 : h;
+    if (h >= 185 && h < 300) k = 'cool'; else if (h >= 95 && h < 185) k = 'green';
+    else if (hh < 62 && (s >= 0.7 || (hh >= 33 && s > 0.55) || (hh < 12 && s >= 0.6))) k = 'warm';
+    if (!k || col[k] == null) continue;
+    const nh = col[k] + (hh - CENTER[k]) * 0.5; const [nr, ng, nb] = hsv2rgb(nh, s, v); d[i] = nr; d[i + 1] = ng; d[i + 2] = nb;
+  }
+}
+const recolorCache = new Map();
+function recolor(model, srcScene, name, col) {
+  const key = name + JSON.stringify(col); let m = recolorCache.get(key);
+  if (!m) {
+    let base = null; srcScene.traverse((o) => { if (!base && o.isMesh && o.material && o.material.map) base = o.material; });
+    if (!base || !base.map.image) return; const img = base.map.image, w = img.width || 512, h = img.height || 512;
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const cx = cv.getContext('2d', { willReadFrequently: true }); cx.drawImage(img, 0, 0, w, h);
+    const id = cx.getImageData(0, 0, w, h); recolorPixels(id.data, col); cx.putImageData(id, 0, 0);
+    const t = new THREE.CanvasTexture(cv); t.flipY = base.map.flipY; t.colorSpace = base.map.colorSpace; t.wrapS = base.map.wrapS; t.wrapT = base.map.wrapT; t.anisotropy = base.map.anisotropy;
+    m = base.clone(); m.map = t; recolorCache.set(key, m);
+  }
+  model.traverse((o) => { if (o.isMesh && o.material && o.material.map) o.material = m; });
 }
 
 const H_TARGET = 1.42; // 世界單位身高（Q 版大頭，比真人矮一點）
@@ -65,6 +95,7 @@ export class Avatar {
     this.body = new THREE.Group(); root.add(this.body);
     this.sc = (H_TARGET / NATIVE_H) * (look.scale || 1);
     this.model = cloneSkinned(gl.scene); this.model.scale.setScalar(this.sc); this.body.add(this.model);
+    if (look.col && Object.keys(look.col).length) recolor(this.model, gl.scene, look.model, look.col);
     this.model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
     const B = (this.bones = {});
     this.model.traverse((o) => { if (['head', 'torso', 'arm-left', 'arm-right', 'leg-left', 'leg-right'].includes(o.name)) B[o.name] = o; });
@@ -72,7 +103,7 @@ export class Avatar {
     this.mixer = new THREE.AnimationMixer(this.model); this.actions = {};
     for (const c of gl.animations) this.actions[c.name] = this.mixer.clipAction(c);
     this.cur = null; this.play('idle', 0);
-    this.accessories(look);
+    this.accessories(look); this.accessories2(look);
     this.makeRobe(); this.makeItems();
     this.poseName = 'stand'; this.speed = 0; this.gait = 'walk'; this.swingT = 0; this.talk = 0; this.t = Math.random() * 10; this.stairLean = 0;
     this.pitch = 0; this.sitK = 0; this.fixedSpeed = null; this.fixedGait = null;
@@ -96,6 +127,27 @@ export class Avatar {
     if (A.has('cap')) { const c = mat(0x0e7585); add(head, geo('cap', () => new THREE.SphereGeometry(0.235, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.42)), c, 0, 0.2, 0).scale.z = 0.8; add(head, geo('capb', () => new THREE.BoxGeometry(0.3, 0.014, 0.15)), c, 0, 0.24, 0.2).rotation.x = 0.1; }
     if (A.has('scarf')) { add(head, geo('scarf', () => new THREE.TorusGeometry(0.16, 0.045, 8, 18).rotateX(Math.PI / 2)), mat(0xe0762a), 0, 0.0, 0).scale.z = 0.8; add(torso, geo('scarft', () => new THREE.BoxGeometry(0.06, 0.15, 0.03)), mat(0xe0762a), 0.06, 0.06, 0.105); }
     if (A.has('goggles')) { const g = new THREE.Group(); g.position.set(0, 0.27, 0.0); head.add(g); add(g, geo('ggb', () => new THREE.BoxGeometry(0.36, 0.06, 0.04)), mat(0x2a2f33), 0, 0, 0.16); for (const s of [-1, 1]) add(g, geo('ggl', () => new THREE.CylinderGeometry(0.04, 0.04, 0.03, 10).rotateX(Math.PI / 2)), mat(0x6fd0ff, { roughness: 0.1, metalness: 0.3 }), s * 0.09, 0, 0.18); }
+  }
+
+  /** 新增配件（角色資料庫用）：帽子 / 眼鏡 / 耳機 / 背包…，顏色由 look.ac 指定。 */
+  accessories2(look) {
+    const A = new Set(look.acc || []), head = this.bones.head, torso = this.bones.torso, add = this.add.bind(this); const ac = look.ac || {};
+    const col = (k, d) => (ac[k] != null ? ac[k] : d); const M = (hex, o) => mat(hex, o);
+    const dome = (r, y, hex, sz = 0.82, phi = 0.46) => { const m = add(head, geo('dome' + r + '_' + phi, () => new THREE.SphereGeometry(r, 20, 10, 0, Math.PI * 2, 0, Math.PI * phi)), M(hex), 0, y, 0); m.scale.z = sz; return m; };
+    const ring = (r, h, y, hex, sz = 0.8) => { const m = add(head, geo('ringH' + r + '_' + h, () => new THREE.CylinderGeometry(r, r, h, 24, 1, true)), M(hex, { side: THREE.DoubleSide }), 0, y, 0); m.scale.z = sz; return m; };
+    if (A.has('sailor')) { const c = col('sailor', 0x1f3f7a); add(head, geo('slr', () => new THREE.CylinderGeometry(0.2, 0.215, 0.1, 22)), M(0xffffff), 0, 0.3, 0).scale.z = 0.86; ring(0.222, 0.05, 0.245, c, 0.86); add(head, geo('slt', () => new THREE.CylinderGeometry(0.19, 0.19, 0.012, 20)), M(c), 0, 0.352, 0).scale.z = 0.86; }
+    if (A.has('captain')) { dome(0.24, 0.2, 0xf4f4f0, 0.84, 0.44); add(head, geo('cpv', () => new THREE.BoxGeometry(0.3, 0.025, 0.13)), M(0x1c1f24), 0, 0.225, 0.2); add(head, geo('cpb', () => new THREE.SphereGeometry(0.03, 10, 8)), gold(), 0, 0.3, 0.17); ring(0.242, 0.035, 0.23, 0x1f2d4a, 0.84); }
+    if (A.has('bucket')) { const c = col('bucket', 0xe8c441); add(head, geo('bkc', () => new THREE.CylinderGeometry(0.17, 0.21, 0.13, 20)), M(c), 0, 0.31, 0).scale.z = 0.85; add(head, geo('bkb', () => new THREE.CylinderGeometry(0.31, 0.31, 0.016, 24)), M(c), 0, 0.245, 0).scale.z = 0.92; }
+    if (A.has('hardhat')) { const c = col('hardhat', 0xffc21a); dome(0.245, 0.2, c, 0.84, 0.46); add(head, geo('hhb', () => new THREE.BoxGeometry(0.34, 0.022, 0.12)), M(c), 0, 0.21, 0.2); add(head, geo('hhr', () => new THREE.BoxGeometry(0.05, 0.035, 0.36)), M(c), 0, 0.445, 0); }
+    if (A.has('chef')) { const c = col('chef', 0xffffff); add(head, geo('chc', () => new THREE.CylinderGeometry(0.17, 0.18, 0.12, 20)), M(c), 0, 0.27, 0).scale.z = 0.86; add(head, geo('chp', () => new THREE.SphereGeometry(0.21, 16, 12)), M(c), 0, 0.4, 0).scale.set(1, 0.72, 0.9); }
+    if (A.has('explorer')) { const c = col('explorer', 0xc9a766); add(head, geo('exb', () => new THREE.CylinderGeometry(0.35, 0.35, 0.016, 28)), M(c), 0, 0.245, 0).scale.z = 0.95; add(head, geo('exc', () => new THREE.CylinderGeometry(0.17, 0.2, 0.14, 20)), M(c), 0, 0.31, 0).scale.z = 0.88; ring(0.205, 0.04, 0.275, 0x6b4a2a, 0.88); }
+    if (A.has('glasses')) { const c = col('glasses', 0x2b2f3a); for (const sx of [-1, 1]) { add(head, geo('gls', () => new THREE.TorusGeometry(0.058, 0.011, 8, 18)), M(c), sx * 0.095, 0.17, 0.2); add(head, geo('glt', () => new THREE.BoxGeometry(0.012, 0.012, 0.2)), M(c), sx * 0.2, 0.17, 0.1); } add(head, geo('glb', () => new THREE.BoxGeometry(0.06, 0.012, 0.012)), M(c), 0, 0.18, 0.2); }
+    if (A.has('headphones')) { const c = col('headphones', 0x2b2f3a); const t = add(head, geo('hpt', () => new THREE.TorusGeometry(0.235, 0.018, 8, 24, Math.PI)), M(c), 0, 0.14, 0); t.scale.z = 0.85; for (const sx of [-1, 1]) add(head, geo('hpc', () => new THREE.CylinderGeometry(0.065, 0.065, 0.055, 14).rotateZ(Math.PI / 2)), M(0xe9407a), sx * 0.235, 0.14, 0); }
+    if (A.has('bow')) { const c = col('bow', 0xffffff); const g = new THREE.Group(); g.position.set(-0.15, 0.31, 0.13); g.rotation.z = 0.5; head.add(g); for (const sx of [-1, 1]) { const w = add(g, geo('bw', () => new THREE.ConeGeometry(0.05, 0.1, 6)), M(c), sx * 0.05, 0, 0); w.rotation.z = -sx * Math.PI / 2; } add(g, geo('bk', () => new THREE.SphereGeometry(0.022, 8, 6)), M(c), 0, 0, 0); }
+    if (A.has('divermask')) { const c = col('divermask', 0xff7a2a); ring(0.224, 0.04, 0.25, c, 0.8); add(head, geo('dml', () => new THREE.BoxGeometry(0.3, 0.075, 0.03)), M(0x1d4f7a, { transparent: true, opacity: 0.8, roughness: 0.2 }), 0, 0.25, 0.185); add(head, geo('dmf', () => new THREE.BoxGeometry(0.33, 0.09, 0.02)), M(c), 0, 0.25, 0.175); }
+    if (A.has('beanie')) { const c = col('beanie', 0xe0382b); dome(0.238, 0.19, c, 0.82, 0.48); ring(0.242, 0.065, 0.2, 0xf4efe6, 0.82); add(head, geo('bnp', () => new THREE.SphereGeometry(0.05, 10, 8)), M(0xf4efe6), 0, 0.45, 0); }
+    if (A.has('bandana')) { const c = col('bandana', 0xf08a2a); ring(0.226, 0.07, 0.2, c, 0.8); add(head, geo('bdk', () => new THREE.BoxGeometry(0.1, 0.1, 0.03)), M(c), 0, 0.2, -0.2).rotation.z = 0.6; }
+    if (A.has('bag')) { const c = col('bag', 0x7a5a3a); add(torso, geo('bgb', () => new THREE.BoxGeometry(0.22, 0.26, 0.1)), M(c), 0, 0.03, -0.14); add(torso, geo('bgl', () => new THREE.BoxGeometry(0.2, 0.08, 0.02)), M(0xe8e2d4, { roughness: 0.9 }), 0, 0.1, -0.2); for (const sx of [-1, 1]) add(torso, geo('bgs', () => new THREE.BoxGeometry(0.03, 0.22, 0.012)), M(c), sx * 0.075, 0.07, 0.108); }
   }
 
   makeRobe() {

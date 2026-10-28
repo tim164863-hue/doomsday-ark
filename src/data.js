@@ -38,12 +38,14 @@ export function normalize(raw) {
 
 /** 虛擬船員（非船東帳號 / 訪客）：通用名字，狀態依裝置本地時段 + 時間桶決定（確定性），完全不含任何真實 bot / 交易資料。 */
 export const VIRTUAL_CREW = [['舵手小艾', 'manager'], ['工程師阿鐵', 'other'], ['廚師小米', 'other'], ['醫護小安', 'research'], ['甲板長阿浪', 'other'], ['研究員小星', 'research']];
-export function virtualData(nowMs = Date.now(), offline = false, cap = VIRTUAL_CREW.length) {
+/** crew：[{title,kind,look}]（小船的 2–3 位隨機船員，crew/characters.js 的 crewSpec）；沒給就用舊的固定名單。 */
+export function virtualData(nowMs = Date.now(), offline = false, cap = VIRTUAL_CREW.length, spec = null) {
   const h = new Date(nowMs).getHours(); const bucket = Math.floor(nowMs / (25 * 60000));
   const pWork = h >= 9 && h < 19 ? 0.62 : h >= 19 && h < 24 ? 0.3 : 0.1, pRest = h >= 9 && h < 24 ? 0.28 : 0.12;
-  const crew = VIRTUAL_CREW.slice(0, cap).map(([title, kind], i) => {
+  const list = spec ? spec.slice(0, cap).map((c) => [c.title, c.kind, c.look]) : VIRTUAL_CREW.slice(0, cap);
+  const crew = list.map(([title, kind, look], i) => {
     const r = mulberry32(hash('virt', i, bucket))(); const cat = r < pWork ? 'work' : r < pWork + pRest ? 'rest' : 'off';
-    return { key: title, title, kind, status: cat === 'work' ? 'tool' : cat === 'rest' ? 'done' : 'idle', cat, ageMin: cat === 'rest' ? 12 : 600, since: nowMs - 600000, virtual: true };
+    return { key: title, title, kind, status: cat === 'work' ? 'tool' : cat === 'rest' ? 'done' : 'idle', cat, ageMin: cat === 'rest' ? 12 : 600, since: nowMs - 600000, virtual: true, ...(look ? { look } : {}) };
   });
   return { now: nowMs, crew, arena: null, offline, demo: false, virtual: true };
 }
@@ -64,7 +66,7 @@ export function demoData(tick = 0, cycle = false) {
 export class DataSource {
   constructor(opts = {}) {
     this.url = opts.url || DATA_URL; this.every = opts.every || 45000; this.data = null; this.lastOk = 0; this.mode = opts.mode || 'live'; this.demoTick = 0;
-    this.listeners = []; this.cap = opts.cap == null ? undefined : opts.cap;
+    this.listeners = []; this.cap = opts.cap == null ? undefined : opts.cap; this.crewSpec = opts.crew || null;
   }
   onData(fn) { this.listeners.push(fn); }
   push(d) { this.data = d; for (const f of this.listeners) f(d); emit('data', d); }
@@ -74,14 +76,14 @@ export class DataSource {
       if (!r.ok) throw new Error('http ' + r.status);
       const raw = await r.json(); this.lastOk = Date.now(); this.push(normalize(raw)); return true;
     } catch (e) {
-      if (!this.data) this.push(virtualData(Date.now(), true, this.cap));
+      if (!this.data) this.push(virtualData(Date.now(), true, this.cap, this.crewSpec));
       else if (Date.now() - this.lastOk > 5 * 60000 && !this.data.offline) this.push({ ...this.data, offline: true });
       return false;
     }
   }
   start() {
     if (this.mode === 'cycle') { this.push(demoData(0, true)); setInterval(() => { this.demoTick++; this.push(demoData(this.demoTick, true)); }, 30000); return; }
-    if (this.mode === 'virtual') { this.push(virtualData(Date.now(), false, this.cap)); setInterval(() => this.push(virtualData(Date.now(), false, this.cap)), 60000); return; }
+    if (this.mode === 'virtual') { this.push(virtualData(Date.now(), false, this.cap, this.crewSpec)); setInterval(() => this.push(virtualData(Date.now(), false, this.cap, this.crewSpec)), 60000); return; }
     if (this.mode === 'demo') { this.push(demoData(0, false)); return; }
     this.fetchOnce(); setInterval(() => this.fetchOnce(), this.every);
   }

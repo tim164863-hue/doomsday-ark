@@ -49,6 +49,7 @@ export class Play {
     }
     F.ensureFleet(st, this.game.owner); st.fleet = F.sanitizeFleet(st.fleet) || F.newFleet(this.game.owner);
     F.ensureWorld(st, (boot.user && boot.user.uid) || 'seed' + st.seed); for (const sh of st.fleet.ships) if (sh.state === 'pilot') sh.state = 'dock';   // 上次駕駛到一半關掉頁面：船回港
+    if (!this.game.owner) st.pl = { c: this.game.charId, s: this.game.crewSeed }; else delete st.pl; // 角色與船員種子寫回存檔（owner 永遠是 T董，不存）
     this.state = st; this.placeFacilities(); this.applyFacilityStates();
     this.pendingReport = { first, away, rep };
     registerSystem({ name: 'play', update: (dt) => this.update(dt) });

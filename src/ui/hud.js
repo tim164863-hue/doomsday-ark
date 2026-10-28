@@ -13,6 +13,8 @@ const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 import { clock } from '../clock.js';
 import * as R from '../sim/rel.js';
 import { KIND, spotTaken } from '../play/games.js';
+import { CHARS, charById } from '../crew/characters.js';
+import { charPreviews } from './charpreview.js';
 const nowSec = () => clock.now();
 const hm = (ts) => { const d = new Date(ts * 1000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 const dur = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60; return h ? `${h} 小時 ${m} 分` : m ? `${m} 分 ${String(s).padStart(2, '0')} 秒` : `${s} 秒`; };
@@ -26,7 +28,7 @@ const REASON = { focus: '專心工作中', happy: '心情不錯', tired: '有點
 export class HUD {
   constructor(game) {
     this.game = game; this.ui = game.ui; this.play = null; this.root = game.ui.root; this.tags = new Map(); this.log = []; this.modalKind = null; this.crewOpen = innerWidth > 700; this.rows = new Map(); this.moreOpen = false;
-    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">📋<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">🚣<span class="bdg hide"></span></button><button class="rb" id="btnFleet" title="艦隊 (F)">⚓<span class="bdg hide"></span></button><button class="rb" id="btnChart" title="海圖 (M)">🧭<span class="bdg hide"></span></button><button class="rb" id="btnHelm" title="駕駛母船 (G)">🛳️</button><button class="rb" id="btnRel" title="船員關係 (R)">💞</button><button class="rb" id="btnCrewL" title="船員列表">👥</button></div></div>`);
+    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">📋<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">🚣<span class="bdg hide"></span></button><button class="rb" id="btnFleet" title="艦隊 (F)">⚓<span class="bdg hide"></span></button><button class="rb" id="btnChart" title="海圖 (M)">🧭<span class="bdg hide"></span></button><button class="rb" id="btnHelm" title="駕駛母船 (G)">🛳️</button><button class="rb" id="btnRel" title="船員關係 (R)">💞</button><button class="rb" id="btnCrewL" title="船員列表">👥</button>${game.small ? '<button class="rb" id="btnChar" title="更換角色">🧑‍✈️</button>' : ''}</div></div>`);
     this.crewList = $(`<div id="crewmini"></div>`);
     this.prompt = $(`<div id="prompt" class="hide"></div>`);
     this.modal = $(`<div id="modal" class="hide"><div class="mcard"></div></div>`);
@@ -40,6 +42,7 @@ export class HUD {
     rcs.append($(`<div class="rc wx" data-k="wx" title="目前天氣" style="display:none"><i>🌤</i><b></b></div>`));
     this.bar.querySelector('#btnTasks').onclick = () => this.openModal('tasks'); this.bar.querySelector('#btnTrips').onclick = () => this.openModal('trips'); this.bar.querySelector('#btnFleet').onclick = () => this.openModal('fleet'); this.bar.querySelector('#btnChart').onclick = () => this.chart.toggle(); this.chart = new SeaChart(this);
     this.bar.querySelector('#btnRel').onclick = () => this.openModal('rel');
+    { const cb = this.bar.querySelector('#btnChar'); if (cb) cb.onclick = () => this.openModal('char'); }
     this.bar.querySelector('#btnCrewL').onclick = () => { this.crewOpen = !this.crewOpen; this.renderCrew(true); };
     this.modal.addEventListener('pointerdown', (e) => { if (e.target === this.modal) this.closeModal(); });
     addEventListener('keydown', (e) => {
@@ -203,7 +206,7 @@ export class HUD {
   openModal(kind, payload) { this.modalKind = kind; this.payload = payload || this.payload; this.modal.classList.remove('hide'); this.modal.dataset.kind = kind; this.renderModal(); }
   closeModal() { if (this.modalKind === 'fleet' && !this.pvBar) this.play && this.play.clearPreview(); this.modalKind = null; this.modal.classList.add('hide'); this.modalOpenedAt = 0; }
   refreshModal(force) { if (this.modalKind === 'fleet') this.renderFleetLive(force); else if (this.modalKind === 'tasks') this.renderTasksLive(); else if (this.modalKind === 'trips') this.renderTripsLive(); }
-  renderModal() { const c = this.modal.querySelector('.mcard'); c.scrollTop = 0; if (this.modalKind === 'report') this.renderReport(); else if (this.modalKind === 'tasks') this.renderTasks(); else if (this.modalKind === 'trips') this.renderTrips(); else if (this.modalKind === 'fleet') this.renderFleet(); else if (this.modalKind === 'pick') this.renderPick(); else if (this.modalKind === 'rel') this.renderRel(); }
+  renderModal() { const c = this.modal.querySelector('.mcard'); c.scrollTop = 0; if (this.modalKind === 'report') this.renderReport(); else if (this.modalKind === 'tasks') this.renderTasks(); else if (this.modalKind === 'trips') this.renderTrips(); else if (this.modalKind === 'fleet') this.renderFleet(); else if (this.modalKind === 'pick') this.renderPick(); else if (this.modalKind === 'rel') this.renderRel(); else if (this.modalKind === 'char') this.renderChar(); }
   logEvent(ev) { this.log.unshift(ev); if (this.log.length > 10) this.log.pop(); }
 
   // -- 離線報告
@@ -249,6 +252,15 @@ export class HUD {
   statsRow(type, lv = 1) {
     const st = FL.shipStats({ type, lv }); const B = SHIPS[type];
     return `<span class="st" title="速度">💨 ${st.speed.toFixed(1)}</span><span class="st" title="載貨量（每趟收穫上限）">📦 ${st.cargo}</span><span class="st" title="耐久">🛡 ${st.hull}</span><span class="st" title="火力：降低遇襲風險、提高戰果">🎯 ${st.fp}</span><span class="st zn" title="可航行海域">${B.zones.map((z) => ZONES[z].icon).join('')}</span>`;
+  }
+  /** 角色挑選（非船東）：10 位角色；點一下立刻換上，存在存檔的 pl.c。 */
+  renderChar() {
+    const c = this.modal.querySelector('.mcard'); const cur = this.game.charId; let imgs = null;
+    const html = () => `<h2>🧑‍✈️ 選擇你的角色 <button class="x" data-x="close">✕</button></h2><p class="sub">點一下就會換上，下次登入還是這位。<small>（T董 是船東專屬角色，這裡不會出現）</small></p>
+    <div class="chargrid">${CHARS.map((ch) => `<button class="chc${ch.id === this.game.charId ? ' on' : ''}" data-c="${ch.id}"><span class="cp">${imgs && imgs[ch.id] ? `<img alt="${ch.name}" src="${imgs[ch.id]}">` : `<i>${ch.tag}</i>`}</span><b>${ch.name}</b><small>${ch.blurb}</small>${ch.id === this.game.charId ? '<em>✔ 使用中</em>' : ''}</button>`).join('')}</div>`;
+    const bind = () => { c.querySelector('.x').onclick = () => this.closeModal(); c.querySelectorAll('.chc').forEach((el) => { el.onclick = () => { const id = el.dataset.c; if (id === this.game.charId) return; if (this.game.setChar(id)) { c.innerHTML = html(); bind(); this.ui.toast(`換上「${charById(id).name}」`); } }; }); };
+    c.innerHTML = html(); bind();
+    setTimeout(() => { if (this.modalKind !== 'char') return; imgs = charPreviews(CHARS.map((x) => x.id)); const sc = c.scrollTop; c.innerHTML = html(); c.scrollTop = sc; bind(); }, 30);
   }
   renderPick() {
     const c = this.modal.querySelector('.mcard');
