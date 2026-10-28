@@ -1,5 +1,8 @@
 import * as THREE from 'three';
-import { HULL_XS, HULL_TIP } from './config.js';
+import { HULL_XS, HULL_TIP, TIER } from './config.js';
+// 分支塗裝（階段③）：基礎船維持原本的深藍 / 紅 / 金
+const LIVERY = { war: { white: 0x9eabb6, navy: 0x2b3640, red: 0x59626b, gold: 0x9aa4ad }, mer: { white: 0xf0d9b8, navy: 0x5a2c14, red: 0xb84a1c, gold: 0xe8a23a }, sci: { white: 0xd2eef5, navy: 0x0b3a56, red: 0x1f8ea6, gold: 0x8fe0f0 } }[TIER.branch] || null;
+const L = (k, d) => (LIVERY ? LIVERY[k] : d);
 
 /** 甲板外形：船尾略圓、兩側平行、船頭尖 */
 export function halfWidth(x, p) {
@@ -50,7 +53,7 @@ export function distToEdges(x, z, poly) {
 export function buildHull(hp, topY, keelY, M) {
   const stations = 90, sections = 14;
   const pos = [], col = [], idx = [];
-  const white = new THREE.Color(0xeef1f3), navy = new THREE.Color(0x13233d), red = new THREE.Color(0x8c2a24), stripe = new THREE.Color(0xc9a24a);
+  const white = new THREE.Color(L('white', 0xeef1f3)), navy = new THREE.Color(L('navy', 0x13233d)), red = new THREE.Color(L('red', 0x8c2a24)), stripe = new THREE.Color(L('gold', 0xc9a24a));
   const xs = [];
   for (let i = 0; i <= stations; i++) {
     const t = i / stations; // 較密於船頭尾
@@ -161,7 +164,7 @@ function portholes(shape, y, mats, { x0 = HULL_XS + 4, x1 = HULL_TIP - 4, step =
 
 export function buildHullParts(hp, F, keelY, M, env) {
   const shape = hullShape(hp, F[2], keelY);
-  const C = (h) => new THREE.Color(h); const white = C(0xffffff), navy = C(0x15284a), red = C(0xb02a26), gold = C(0xd8b04a);
+  const C = (h) => new THREE.Color(h); const white = C(L('white', 0xffffff)), navy = C(L('navy', 0x15284a)), red = C(L('red', 0xb02a26)), gold = C(L('gold', 0xd8b04a));
   const S = shape.sheer; const k = (v) => () => v; const rel = (d) => (x) => S(x) - d;
   const base = loftBand(shape, [
     { y: k(F[0]), c: red }, { y: k(F[0] - 0.22), c: red }, { y: k(F[0] - 0.22), c: navy },

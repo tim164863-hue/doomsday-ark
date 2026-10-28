@@ -1,4 +1,4 @@
-import { SHIP, ex, HULL_XS, HULL_XB } from './config.js';
+import { SHIP, ex, HULL_XS, HULL_XB, TIER, NDECK, TOP } from './config.js';
 import * as THREE from 'three';
 import { applyDetail, KIND } from './detail.js';
 import { Builder, makeMaterials, xform } from './builder.js';
@@ -9,13 +9,19 @@ import { waveHeight } from '../world/waves.js';
 
 export const DH = SHIP.deckH;            // 層高
 export const BASE_Y = SHIP.baseY;        // 1F 地板高度（船殼內，水線之上）
-export const NAMES = ['1F', '2F', '3F', '4F', '5F'];
-export const TITLES = ['船艙 · 員工生活層', '船艙 · 運動健康層', '主甲板 · 會議工作層', '娛樂休閒層', '董事長辦公層（直升機坪）'];
+const BRANCH_LOOK = { war: { trim: 0x2b3640, funnel: 0x59626b }, mer: { trim: 0x5a2c14, funnel: 0xb84a1c }, sci: { trim: 0x0b3a56, funnel: 0x1f8ea6 } };
+export const UPPER = {   // 6F–8F：依分支命名（階段③）
+  war: [['6F', '作戰指揮中心'], ['7F', '砲術與艦橋層'], ['8F', '防空雷達台']],
+  mer: [['6F', '貿易交易大廳'], ['7F', '貨運調度中心'], ['8F', '貴賓瞭望台']],
+  sci: [['6F', '實驗研究室'], ['7F', '天文觀測站'], ['8F', '氣象雷達台']],
+};
+export const NAMES = ['1F', '2F', '3F', '4F', '5F', ...(UPPER[TIER.branch] || []).slice(0, NDECK - 5).map((u) => u[0])];
+export const TITLES = ['船艙 · 員工生活層', '船艙 · 運動健康層', '主甲板 · 會議工作層', '娛樂休閒層', '董事長辦公層（直升機坪）', ...(UPPER[TIER.branch] || []).slice(0, NDECK - 5).map((u) => u[1])];
 export const HULL = { xs: HULL_XS, xb: HULL_XB, hz: SHIP.hz, bl: SHIP.bowLen };
 export const KEEL_Y = SHIP.keelY;
 export const HULL_DECKS = SHIP.hullDecks;      // 1F、2F 在船殼內；3F 為主甲板（船殼頂）
 // 各層外形由 SHIP 設定導出（1F / 2F 實際外形由船殼斷面推導，見 outlineHull）
-export const PARAMS = SHIP.decks.map((d, i) => ({ xs: ex(d.xs), xb: ex(d.xb), hz: d.hz, bl: d.bl ?? SHIP.bowLen - 0.1 }));
+export const PARAMS = SHIP.decks.slice(0, NDECK).map((d, i) => ({ xs: ex(d.xs), xb: ex(d.xb), hz: d.hz, bl: d.bl ?? SHIP.bowLen - 0.1 }));
 export const ELEV = { x0: 10.7, x1: 13.3, z0: -6.8, z1: -4.2, cx: 12, cz: -5.5, portalZ: -3.6 };
 export const STAIR = { x0: 16, x1: 23.2, holeX0: 18.4, w: 2.4, laneOff: 3, arrive: 25.0, bottom: 14.4, upTrig: 15.4, downTrig: 24.0 };
 export const pairLane = (k) => (k % 2 === 0 ? 1 : -1);
@@ -103,7 +109,7 @@ export class Deck {
     this.buildFloor();
     this.buildRails();
     // 支柱（連到上一層）
-    if (this.index >= HULL_DECKS && this.index < 4) {
+    if (this.index >= HULL_DECKS && this.index < TOP) {
       const up = PARAMS[this.index + 1];
       for (let x = up.xs + 2; x < up.xb; x += 8) for (const s of [-1, 1]) { const z = s * (up.hz - 0.15); this.b.cyl('white', x, z, 0.16, DH - 0.5, 0, 8); }
     }
@@ -136,6 +142,7 @@ export class Deck {
 export class Ship {
   constructor(env, quality, tvTex) {
     this.env = env; this.quality = quality; this.tvTex = tvTex; this.M = makeMaterials(env, quality);
+    { const br = BRANCH_LOOK[TIER.branch]; if (br) { this.M.hullBlue.color.setHex(br.trim); this.M.funnel.color.setHex(br.funnel); } }
     this.root = new THREE.Group();      // 搖晃用
     this.decks = [];
     this.explode = 0; this.explodeTarget = 0;
@@ -144,13 +151,13 @@ export class Ship {
     this.root.add(hp.base); hp.bands.forEach((g) => this.root.add(g));
     this.hullLights = []; this.hullMats = [hp.base.material, hp.bands[0].children[0].material, hp.bands[1].children[0].material];
     if (quality.name !== 'low') this.hullMats.forEach((m) => applyDetail(m, KIND.hull));
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < NDECK; i++) {
       const d = new Deck(i, this); this.decks.push(d);
       // 孔洞：電梯（>=2F）與樓梯（上來的那一側）
       if (i >= 1) d.holes.push([ELEV.x0 + 0.1, ELEV.z0 + 0.1, ELEV.x1 - 0.1, ELEV.z1 - 0.1]);
       if (i >= 1) { const z = laneCenterZ(i - 1); d.holes.push([STAIR.holeX0, z - STAIR.w / 2, STAIR.x1, z + STAIR.w / 2]); }
       this.addElevatorShaft(d);
-      if (i < 4) this.addStairFlight(d);
+      if (i < TOP) this.addStairFlight(d);
       if (i >= 1) { const z = laneCenterZ(i - 1); d.holeRail(STAIR.holeX0, z - STAIR.w / 2, STAIR.x1, z + STAIR.w / 2, 'nsw'); }
       layouts[i](d, this);
       d.finalize();
@@ -181,7 +188,7 @@ export class Ship {
     b.box('steelDark', x0 + 0.1, z1, 0.14, 0.14, h); b.box('steelDark', x1 - 0.1, z1, 0.14, 0.14, h); b.box('steelDark', ELEV.cx, z1, x1 - x0, 0.14, 0.25, 2.3);
     b.box('lamp', ELEV.cx, z1 + 0.08, 0.5, 0.05, 0.12, 2.15); // 樓層指示
     b.block(x0, z0 - 0.1, x1, z1 + 0.05);
-    if (d.index === 4) b.box('steelDark', ELEV.cx, ELEV.cz, x1 - x0 + 0.3, z1 - z0 + 0.3, 0.2, h);
+    if (d.index === TOP) b.box('steelDark', ELEV.cx, ELEV.cz, x1 - x0 + 0.3, z1 - z0 + 0.3, 0.2, h);
   }
   addStairFlight(d) {
     const k = d.index; const sgn = pairLane(k); const zc = laneCenterZ(k); const b = d.b;
@@ -209,8 +216,8 @@ export class Ship {
     this.car.position.y = this.yAt(this.carPos) + 0.0;
     { const nf = this.env.windowMat.emissiveIntensity / 1.6; for (const m of this.hullMats) m.emissiveIntensity = 1 - nf * 0.85; for (const h of this.hullLights) h.l.intensity = this.decks[h.deck].group.visible ? nf * 45 : 0; }
     // 搖晃（取四點波高估計橫搖縱搖）
-    const hs = [waveHeight(-34, 0, time), waveHeight(34, 0, time), waveHeight(0, -10, time), waveHeight(0, 10, time)];
-    const pitch = Math.atan2(hs[1] - hs[0], 68) * 0.55, roll = Math.atan2(hs[2] - hs[3], 20) * 0.45;
+    const LK = TIER.lenK, SX = 34 * LK; const hs = [waveHeight(-SX, 0, time), waveHeight(SX, 0, time), waveHeight(0, -10, time), waveHeight(0, 10, time)];
+    const pitch = Math.atan2(hs[1] - hs[0], SX * 2) * 0.55, roll = Math.atan2(hs[2] - hs[3], 20) * 0.45;
     const heave = (hs[0] + hs[1] + hs[2] + hs[3]) / 4 * 0.5;
     const r = this.rockState; r.roll += (roll - r.roll) * (1 - Math.exp(-2 * dt)); r.pitch += (pitch - r.pitch) * (1 - Math.exp(-2 * dt)); r.heave += (heave - r.heave) * (1 - Math.exp(-2 * dt));
     this.root.rotation.order = 'YXZ'; this.root.rotation.set(r.roll + (this.lean || 0), this.yawOff || 0, r.pitch);  // 駕駛母船時 yawOff / lean 由 play/helm.js 給

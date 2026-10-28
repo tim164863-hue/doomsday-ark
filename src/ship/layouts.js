@@ -1,9 +1,10 @@
-import { ex } from './config.js';
+import { ex, NDECK } from './config.js';
 import * as THREE from 'three';
 import { xform } from './builder.js';
 import * as FN from './furniture.js';
 import { STAIR, ELEV, laneCenterZ, pairLane } from './ship.js';
 import { enrich } from './extras.js';
+import { towerDeck, annexProps } from './tower.js';
 
 const faceTo = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
 const PI = Math.PI;
@@ -283,11 +284,13 @@ function deck5(d, ship) {
   signBoard(d, 'T 董 辦 公 室', 9.12, 2.55, 0, PI / 2, 4.0, 0.5);
   poi(d, 'chat', { x: 7.6, z: 0 });
   // 露台：按摩池、躺椅、傘
-  FN.hotTub(d, 15.8, 4.6, 2.0); poi(d, 'tub', { x: 15.8, z: 4.6 });
+  const TW = NDECK > 5;   // 有 6F 塔樓：5F→6F 的樓梯佔了 +z 側 (x16–23, z3–5.4)，按摩池 / 躺椅 / 餐桌挪位
+  if (TW) { FN.hotTub(d, 16.0, -1.6, 2.0); poi(d, 'tub', { x: 16.0, z: -1.6 }); } else { FN.hotTub(d, 15.8, 4.6, 2.0); poi(d, 'tub', { x: 15.8, z: 4.6 }); }
   floorRect(d, 'woodLight', 9.1, -7.2, 24, 7.2, 0.015);
-  FN.loungeChair(b, 20.2, 2.2, -PI / 2, 'fabricW'); FN.loungeChair(b, 20.2, 5.0, -PI / 2, 'fabricW'); FN.umbrella(b, 21.6, 3.6, 1.7);
-  poi(d, 'lounger', { x: 20.2, z: 2.2, face: -PI / 2, head: [1, 0] }); poi(d, 'lounger', { x: 20.2, z: 5.0, face: -PI / 2, head: [1, 0] });
-  FN.roundTable(b, 15.8, -1.2, 0.5); FN.diningChair(b, 15.0, -1.2, PI / 2); FN.diningChair(b, 16.6, -1.2, -PI / 2);
+  { const lx = TW ? 10.9 : 20.2, ux = TW ? 12.3 : 21.6, tx = TW ? 11.9 : 15.8, tz = TW ? -2.4 : -1.2, lz = TW ? [2.6, 5.2] : [2.2, 5.0];
+    FN.loungeChair(b, lx, lz[0], -PI / 2, 'fabricW'); FN.loungeChair(b, lx, lz[1], -PI / 2, 'fabricW'); FN.umbrella(b, ux, (lz[0] + lz[1]) / 2 - (TW ? 0 : 0.2), 1.7);
+    poi(d, 'lounger', { x: lx, z: lz[0], face: -PI / 2, head: [1, 0] }); poi(d, 'lounger', { x: lx, z: lz[1], face: -PI / 2, head: [1, 0] });
+    FN.roundTable(b, tx, tz, 0.5); FN.diningChair(b, tx - 0.8, tz, PI / 2); FN.diningChair(b, tx + 0.8, tz, -PI / 2); }
   poi(d, 'rail', { x: 18, z: 6.9, face: 0 }); poi(d, 'rail', { x: 25.6, z: 0, face: PI / 2 });
   FN.plant(b, 10.0, 6.4, 1.1); FN.plant(b, 10.4, -3.3, 1.0);
   // 天線桅桿與旗
@@ -298,4 +301,4 @@ function deck5(d, ship) {
   b.blockC(-19.4, -4.6, 3.0, 3.0);
 }
 
-export const layouts = [deck1, deck2, deck3, deck4, deck5].map((fn, i) => (d, ship) => { fn(d, ship); enrich(i, d, ship); });
+export const layouts = [deck1, deck2, deck3, deck4, deck5, ...[5, 6, 7].map((lv) => (d, ship) => towerDeck(d, ship, lv))].map((fn, i) => (d, ship) => { fn(d, ship); enrich(i, d, ship); if (i === 2) annexProps(d); });

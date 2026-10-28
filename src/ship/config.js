@@ -17,6 +17,8 @@ const _T = readTier();
 export const CUR_TIER = _T.id, TIER_PREVIEW = _T.preview;
 export const TIER = (() => { const r = FLAG_ROWS[CUR_TIER], T0 = FLAG_ROWS.ark_t0; const ext = (r.len - T0.len) / 2; const t = r.tier; return { id: r.id, branch: r.branch, tier: t, decks: r.decks, len: r.len, ext, gap: Math.max(0, ext - 2 * t), endK: 0.4 + 0.2 * t, lenK: r.len / T0.len }; })();
 
+export const NDECK = TIER.decks, TOP = TIER.decks - 1;   // 甲板數 / 最頂層編號（5 / 6 / 7 / 8 層）
+
 export const SHIP = {
   name: '方舟號',
   hz: 13.6,               // 半寬（m）
@@ -33,6 +35,10 @@ export const SHIP = {
     { name: '3F 會議工作層', xs: -45.7, xb: 45.7, hz: 13.5 },
     { name: '4F 娛樂休閒層', xs: -28, xb: 28, hz: 9, bl: 8 },
     { name: '5F 辦公天台層', xs: -22, xb: 27, hz: 7.5, bl: 6 },
+    // 6F–8F：晉升後的塔樓（樓梯 / 電梯沿用同一組座標，所以都得蓋住 x 10.7–25.5、z ±6.8）
+    { name: '6F', xs: 8, xb: 29, hz: 7.3, bl: 2.2 },
+    { name: '7F', xs: 9.5, xb: 29, hz: 7.1, bl: 2.2 },
+    { name: '8F', xs: 10, xb: 29, hz: 6.9, bl: 2.2 },
   ],
 };
 

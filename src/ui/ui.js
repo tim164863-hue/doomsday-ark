@@ -5,6 +5,7 @@ import { fmtClock } from '../util.js';
 import { KINDS } from '../sim/weather.js';
 import { MODE_NAMES } from '../controls.js';
 import { NAMES, TITLES } from '../ship/ship.js';
+import { NDECK } from '../ship/config.js';
 
 const ACT = { match: '打球對戰', arcade: '玩街機', bar: '吧台小酌', lounge: '躺椅曬/看星', swim: '泳池游泳', tub: '泡按摩池', treadmill: '跑步機', bench: '重訓', jog: '操場慢跑', hoop: '投籃', eat: '吃飯', chat: '聊天', rail: '看海', tv: '看比賽直播', coffee: '喝咖啡' };
 const STATUS = { work: ['工作中', '#5fd08a'], rest: ['休息中', '#ffd36b'], off: ['下班', '#8aa0b8'] };
@@ -58,10 +59,10 @@ export class UI {
     this.slider.addEventListener('pointerdown', () => (this.sliding = true)); addEventListener('pointerup', () => (this.sliding = false));
     this.slider.addEventListener('input', () => g.setTime(this.slider.value / 1000));
     const dk = this.right.querySelector('#decks'); this.deckBtns = [];
-    for (let i = 4; i >= 0; i--) { const b = $(`<button class="deck${i < 2 ? ' hullDeck' : ''}${i === 1 ? ' hullStart' : ''}" title="${TITLES[i]}"><i></i>${NAMES[i]}${i < 2 ? '<small>船艙</small>' : ''}</button>`); b.onclick = () => g.showDeck(i); dk.appendChild(b); this.deckBtns[i] = b; }
+    for (let i = NDECK - 1; i >= 0; i--) { const b = $(`<button class="deck${i < 2 ? ' hullDeck' : ''}${i === 1 ? ' hullStart' : ''}" title="${TITLES[i]}"><i></i>${NAMES[i]}${i < 2 ? '<small>船艙</small>' : ''}</button>`); b.onclick = () => g.showDeck(i); dk.appendChild(b); this.deckBtns[i] = b; }
     if (g.small) { dk.style.display = 'none'; this.right.querySelector('#exBtn').style.display = 'none'; this.right.querySelector('#panBtn').textContent = '🚢 全船'; this.right.querySelector('#panBtn').title = '全船：顯示整艘船'; }
     this.syncTime();
-    const eb = this.elev.querySelector('.b'); for (let i = 4; i >= 0; i--) { const b = $(`<button data-d="${i}">${NAMES[i]}<small>${TITLES[i]}</small></button>`); b.onclick = () => { g.player.useElevator(i); this.showElevator(null); }; eb.appendChild(b); }
+    const eb = this.elev.querySelector('.b'); for (let i = NDECK - 1; i >= 0; i--) { const b = $(`<button data-d="${i}">${NAMES[i]}<small>${TITLES[i]}</small></button>`); b.onclick = () => { g.player.useElevator(i); this.showElevator(null); }; eb.appendChild(b); }
     if (!localStorage.getItem('ark.helped')) setTimeout(() => this.toggleHelp(true), 1200);
   }
   /** 提示條放在頂部列（品牌/資源/工具）正下方，並避開右側按鈕欄；高度用實測。 */

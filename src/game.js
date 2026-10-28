@@ -18,6 +18,7 @@ import { DataSource } from './data.js';
 import { isChar, randomChar, crewSpec, charById } from './crew/characters.js';
 import { stairEntry, ELEV_PORTAL } from './crew/actor.js';
 import { BASE_Y, DH } from './ship/ship.js';
+import { NDECK, TOP } from './ship/config.js';
 import { waveHeight, waveState } from './world/waves.js';
 import { WeatherFX } from './world/weather.js';
 import { Polar } from './world/polar.js';
@@ -50,7 +51,7 @@ export class Game {
     this.scene.add(this.ship.root); this.ocean.uniforms.uHullOn.value = this.small ? 0 : 1;
     this.dayT = 0.7; this.dayRate = 1 / 1800; this.speed = 1; this.paused = false;
     this.focus = new THREE.Vector3(0, 8, 0);
-    this.ctx = this; this.fps = 60; this.fpsAcc = 0; this.fpsN = 0; this.lowCount = 0; this.soloDeck = null; this.viewDeck = 4; this.viewOverride = null;
+    this.ctx = this; this.fps = 60; this.fpsAcc = 0; this.fpsN = 0; this.lowCount = 0; this.soloDeck = null; this.viewDeck = TOP; this.viewOverride = null;
     this.envState = this.env.update(this.dayT, 0, this.camera, this.focus); this.updatePhase();
     this.sealife = new SeaLife(this.scene, this.env, this.quality);
     this.audio = new AudioFX(); const _av = new THREE.Vector3(); this.sealife.onSound = (k, x, z) => this.audio.event(k, this.camera.position.distanceTo(_av.set(x, 0, z)));
@@ -83,14 +84,14 @@ export class Game {
   togglePause() { this.paused = !this.paused; emit('time', null); }
   setTime(t) { this.dayT = ((t % 1) + 1) % 1; }
   setViewDeck(d) { this.viewOverride = d; }
-  deckAtY(y) { if (this.small) return 0; return Math.max(0, Math.min(4, Math.floor((y - BASE_Y + 0.9) / (DH + this.ship.explode)))); }
+  deckAtY(y) { if (this.small) return 0; return Math.max(0, Math.min(TOP, Math.floor((y - BASE_Y + 0.9) / (DH + this.ship.explode)))); }
   updateDecks() {
     const c = this.controls; let vd;
     if (this.small) { this.viewDeck = 0; this.deckVis = [true]; this.ship.setVisibleDecks([true]); return; }
     if (this.soloDeck != null && c.mode === 'free') vd = this.soloDeck;
-    else if (c.mode === 'follow') vd = this.pilot || (this.helm && this.helm.on) ? 4 : this.player.deck; else if (c.mode === 'free') vd = this.viewOverride != null && c.focusBot ? c.focusBot.actor.deck : this.deckAtY(c.target.y); else vd = 4;
+    else if (c.mode === 'follow') vd = this.pilot || (this.helm && this.helm.on) ? TOP : this.player.deck; else if (c.mode === 'free') vd = this.viewOverride != null && c.focusBot ? c.focusBot.actor.deck : this.deckAtY(c.target.y); else vd = TOP;
     this.viewDeck = vd; const solo = this.soloDeck != null && c.mode === 'free';
-    const vis = [0, 1, 2, 3, 4].map((i) => (c.mode === 'overview' && !solo) || i <= vd); const bandVis = [0, 1].map((k) => (c.mode === 'overview' && !solo) || k < vd); this.ship.setVisibleDecks(vis, bandVis); this.deckVis = vis;
+    const vis = Array.from({ length: NDECK }, (_, i) => i).map((i) => (c.mode === 'overview' && !solo) || i <= vd); const bandVis = [0, 1].map((k) => (c.mode === 'overview' && !solo) || k < vd); this.ship.setVisibleDecks(vis, bandVis); this.deckVis = vis;
   }
   /** 只顯示某一層並把鏡頭對準它（點右側樓層按鈕） */
   showDeck(i) {
@@ -196,7 +197,7 @@ export class Game {
   /** 導航自測：每層所有 POI 是否可由樓梯口 / 電梯到達 */
   selfTest() {
     const out = []; this.ship.decks.forEach((d) => {
-      const nav = d.nav; const starts = []; if (this.small) starts.push(['start', { x: this.ship.start[0], z: this.ship.start[1] }]); else { if (d.index < 4) starts.push(['up', stairEntry(d.index, 1)]); if (d.index > 0) starts.push(['dn', stairEntry(d.index - 1, -1)]); starts.push(['elev', ELEV_PORTAL]); }
+      const nav = d.nav; const starts = []; if (this.small) starts.push(['start', { x: this.ship.start[0], z: this.ship.start[1] }]); else { if (d.index < TOP) starts.push(['up', stairEntry(d.index, 1)]); if (d.index > 0) starts.push(['dn', stairEntry(d.index - 1, -1)]); starts.push(['elev', ELEV_PORTAL]); }
       const pts = []; const add = (n, o) => { if (o && typeof o.x === 'number' && typeof o.z === 'number') pts.push([n, this.small && o.head ? { x: o.x, z: o.z - o.head[1] * 1.3 } : o]); };
       for (const k in d.pois.misc) { const v = d.pois.misc[k]; if (Array.isArray(v)) v.forEach((o, i) => add(k + i, o)); else add(k, v); }
       (d.pois.desks || []).forEach((o) => add('desk' + o.key, o)); for (const t in (d.pois.cabins || {})) { const c = d.pois.cabins[t]; add('cabin.' + t + '.corridor', c.corridor); add('cabin.' + t + '.bathIn', c.bathIn); add('cabin.' + t + '.bathOut', c.bathOut); }
@@ -204,7 +205,7 @@ export class Game {
       for (const [n, o] of starts) { const f = nav.free(nav.ix(o.x), nav.iz(o.z)); if (!f) out.push(`${d.name}:${n} 入口不可走 (${o.x},${o.z})`); }
     });
     out.push(...runSelfTest());
-    if (this.play) for (const f in this.play.fac) { const v = this.play.fac[f]; const nav = this.ship.decks[v.deck].nav; const st = this.play.standPos(f); const s0 = this.small ? { x: this.ship.start[0], z: this.ship.start[1] } : v.deck < 4 ? stairEntry(v.deck, 1) : ELEV_PORTAL; const p = nav.findPath(s0.x, s0.z, st[0], st[1]); const last = p && p[p.length - 1]; if (!p || Math.hypot(last[0] - st[0], last[1] - st[1]) > 1.3) out.push(`設施 ${f} 的站位走不到`); }
+    if (this.play) for (const f in this.play.fac) { const v = this.play.fac[f]; const nav = this.ship.decks[v.deck].nav; const st = this.play.standPos(f); const s0 = this.small ? { x: this.ship.start[0], z: this.ship.start[1] } : v.deck < TOP ? stairEntry(v.deck, 1) : ELEV_PORTAL; const p = nav.findPath(s0.x, s0.z, st[0], st[1]); const last = p && p[p.length - 1]; if (!p || Math.hypot(last[0] - st[0], last[1] - st[1]) > 1.3) out.push(`設施 ${f} 的站位走不到`); }
     return out;
   }
   render() { this.renderer.render(this.scene, this.camera); }

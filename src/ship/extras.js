@@ -126,7 +126,7 @@ function mainDeckFill(d) {
   for (const x of [ex(-39), -30]) { b.box('yellow', x, 0, 0.18, 14, 0.02, 0.025); }
 }
 
-export function enrich(i, d, ship) { [e1, e2, e3, e4, e5][i](d, ship); if (d.hullDeck) hullFill(i, d); if (i === 2) mainDeckFill(d); }
+export function enrich(i, d, ship) { ([e1, e2, e3, e4, e5][i] || (() => {}))(d, ship); if (d.hullDeck) hullFill(i, d); if (i === 2) mainDeckFill(d); }
 
 // ================= 1F 員工生活層
 function e1(d) {

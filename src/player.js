@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Avatar } from './crew/avatar.js';
 import { Actor, ELEV_PORTAL } from './crew/actor.js';
 import { STAIR, laneCenterZ } from './ship/ship.js';
+import { TOP } from './ship/config.js';
 import { emit } from './events.js';
 import { dampAngle } from './util.js';
 import { D } from './crew/decks.js';
@@ -59,7 +60,7 @@ export class Player {
     // 樓梯 / 電梯觸發
     this.stairCd -= dt; const d = a.deck;
     if (!ship.small && (!a.cur || (a.cur.t === 'walk'))) {
-      const zUp = d < 4 ? { x: STAIR.upTrig, z: laneCenterZ(d) } : null, zDn = d > 0 ? { x: STAIR.downTrig, z: laneCenterZ(d - 1) } : null;
+      const zUp = d < TOP ? { x: STAIR.upTrig, z: laneCenterZ(d) } : null, zDn = d > 0 ? { x: STAIR.downTrig, z: laneCenterZ(d - 1) } : null;
       if (mag > 0.08 && this.stairCd <= 0 && !a.busy) {
         if (zUp && Math.hypot(a.x - zUp.x, a.z - zUp.z) < 0.55) this.takeStairs(1);
         else if (zDn && Math.hypot(a.x - zDn.x, a.z - zDn.z) < 0.55) this.takeStairs(-1);
