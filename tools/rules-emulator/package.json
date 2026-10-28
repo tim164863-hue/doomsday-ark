@@ -1,0 +1,14 @@
+{
+  "name": "ark-rules-emulator-test",
+  "private": true,
+  "type": "module",
+  "description": "Firestore 規則的模擬器測試（不部署任何東西）。見 README 段落 DESIGN-fleet.md §4.1",
+  "scripts": {
+    "test": "cp ../../firestore.pvp.rules pvp.rules.tmp && firebase emulators:exec --only firestore --project demo-ark-rules 'node rules.test.mjs'"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "firebase": "^12.19.0",
+    "firebase-tools": "^15.34.1"
+  }
+}

@@ -1,0 +1,4 @@
+node_modules
+pvp.rules.tmp
+firebase-debug.log
+firestore-debug.log

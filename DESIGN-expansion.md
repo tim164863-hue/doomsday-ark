@@ -211,3 +211,10 @@
 5. **攻擊者不會被「回沖」**：防守者實際被擋下 / 作廢的部分不會回頭扣攻擊者（那需要防守者寫別人的文件）。所以宣稱值本身就被 8% / `lootCap` 限制，最壞情況是小幅通膨（見 DESIGN-fleet.md §4.1）。
 6. **收件匣時序**：若文件是在 `simT` 已經超過 `raid.t` 之後才抄進存檔（例如在線時才被突襲），會在下一個 tick 結算（`raid.t` 仍用原本的時間算護盾 / 日期）。離線結算本身與時序無關、完全決定性。
 7. 免費方案**沒有伺服端驗證，不可能防作弊**：規則只能限制形狀 / 大小 / 頻率 / 與對方 presence 快照比較後的數值上限，不能證明戰鬥發生或位置真實。
+
+### 5.3 審查第 13 輪的修正（規則 + 客戶端）
+- 規則改成 repo 內的 `firestore.pvp.rules`（提案檔，**沒有部署**；現行 `firestore.rules` / `firebase.json` / 任何 Firebase 專案設定都沒動），並用本機 Firebase 模擬器 + `@firebase/rules-unit-testing` 測過（`tools/rules-emulator`，`npm test`）。細節與規則表見 DESIGN-fleet.md §4.1。
+- 修掉的規則錯誤：presence create 讀 `resource`（create 時是 null）→ 每次第一次寫入都被拒絕；raid 的 `lootCap` 只檢查 food；欄位沒有大小 / 型別界線；presence 讀取沒有分 get / list（沒有 limit 上限）；沒有比對攻擊者自己的 presence；護盾可以設成永久。
+- 客戶端：`pvIngest` 丟掉 `t > now + 300` 的文件；raid 的桶 `b` 改在 `raidSubmit` 算；`flush(s, own)` 送 raid 前先強制發佈攻擊者自己的 presence；`firestorePvp` 的查詢 limit 夾在 24 / 60 以內；`pubOf` 把送出的欄位夾進規則界線（資源 ≤ 2000、`fp` ≤ 200、`hl` ≤ 5000、`sh` ≤ 現在 + 12 小時），避免合法玩家被自己的規則擋下。
+- **未動（等 Tim 決定）**：presence 的隱私與位置取整、48 小時結算窗、經濟數字、戰利品太少是否觸發護盾、TTL。
+- **已知取捨**：raid 文件 `t` 必須在伺服器時間 ±120 秒內，所以離線贏了、超過 2 分鐘才連上網的文件會被規則擋掉（戰利品本機已拿）；`attacker presence` 要求攻擊者在突襲前 15 分鐘內發佈過 presence，客戶端用強制發佈處理，但 presence 有「≥ 10 秒才能再寫」的下限，剛好剛發佈過就沿用舊的。
