@@ -40,7 +40,7 @@ export class HUD {
     const rcs = this.bar.querySelector('.rcs');
     for (const k of RES_KEYS) rcs.append($(`<div class="rc" data-k="${k}" title="${RES[k].name}"><i>${RES[k].icon}</i><b>0</b><small></small></div>`));
     rcs.append($(`<div class="rc cond" data-k="cond" title="船體狀況"><i>🛠</i><b>0%</b><span class="bar"><u></u></span></div>`));
-    rcs.append($(`<div class="rc wx" data-k="wx" title="目前天氣" style="display:none"><i>🌤</i><b></b></div><div class="rc sz" data-k="sz" title="特殊海域" style="display:none"><i>🌀</i><b></b></div>`));
+    rcs.append($(`<div class="rc wx" data-k="wx" title="目前天氣" style="display:none"><i>🌤</i><b></b></div>`)); rcs.append($(`<div class="rc sz" data-k="sz" title="特殊海域" style="display:none"><i>🌀</i><b></b></div>`));
     this.bar.querySelector('#btnTasks').onclick = () => this.openModal('tasks'); this.bar.querySelector('#btnTrips').onclick = () => this.openModal('trips'); this.bar.querySelector('#btnFleet').onclick = () => this.openModal('fleet'); this.bar.querySelector('#btnChart').onclick = () => this.chart.toggle(); this.chart = new SeaChart(this);
     this.bar.querySelector('#btnRel').onclick = () => this.openModal('rel');
     { const cb = this.bar.querySelector('#btnChar'); if (cb) cb.onclick = () => this.openModal('char'); }

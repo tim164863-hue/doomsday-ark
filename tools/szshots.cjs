@@ -18,6 +18,11 @@ const w = (ms) => new Promise((r) => setTimeout(r, ms));
     console.log(z, JSON.stringify(await pg.evaluate(() => ({ fx: ark.szFx && { id: ark.szFx.id, d: +ark.szFx.depth.toFixed(2) }, zfx: ark.zonefx && { id: ark.zonefx.id, entries: ark.zonefx.entries, solid: ark.zonefx.solid, on: ark.helm.on, v: ark.helm.v }, chip: document.querySelector('#szChip').textContent, fps: ark.fps }))));
     await shot(`${pre}-${z}-${dev}`);
   }
+  // 膠囊展開（手機）：資源列最下面一列是海域
+  await pg.evaluate(() => { ark.helm.stop(); ark.hud.pill.click(); }); await w(1200); await shot(`${pre}-pill-${dev}`); await pg.evaluate(() => ark.hud.pill.click());
+  // 海圖：全部海域（縮小到整張世界圖）+ 側欄打開
+  await pg.evaluate(() => { for (const z of ['fog', 'whirlpool', 'fire', 'hell', 'stonehenge']) { ark.szTeleport(z, 0.3); } ark.szTeleport('hell', 0.9); });
+  await pg.evaluate(() => { const c = ark.hud.chart; c.open(); c.view.x = 1000; c.view.y = 1000; c.view.k = c.minK; c.setPanel(false); }); await w(1500); await shot(`${pre}-chart-all-${dev}`); await pg.evaluate(() => { ark.hud.chart.setPanel(true); ark.hud.chart.refresh(true); }); await w(1000); await shot(`${pre}-chart-panel-${dev}`);
   // 海圖
   await pg.evaluate(() => { ark.hud.chart.open(); }); await w(1500); await shot(`${pre}-chart-${dev}`);
   console.log('console:', errs.join('\n') || 'none'); await b.close();
