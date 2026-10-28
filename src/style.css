@@ -222,3 +222,14 @@ body.mging #prompt { display: none !important; } body.mging #crewmini { display:
 #prompt .pb button small { opacity: .7; margin-left: 2px; }
 body.gaming #prompt, body.gaming #crewmini { display: none !important; }
 .ft.far.empty .lv { display: none; }
+
+/* 駕駛母船 */
+#helmbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 30; display: flex; align-items: center; gap: 12px; padding: 8px 14px; border-radius: 99px; background: rgba(10,22,34,.82); border: 1px solid var(--line); color: #fff; backdrop-filter: blur(8px); font-size: 13px; }
+#helmbar.hide { display: none; }
+#helmbar .hk { display: flex; align-items: baseline; gap: 4px; } #helmbar .hk b { font-size: 17px; font-variant-numeric: tabular-nums; min-width: 2.4em; text-align: right; } #helmbar .hk .hd { margin-left: 8px; color: #ffd36b; } #helmbar .hk small { opacity: .7; } #helmbar .hk .hp { margin-left: 8px; }
+#helmbar .ps { width: 110px; height: 8px; border-radius: 99px; background: #ffffff20; overflow: hidden; } #helmbar .ps u { display: block; height: 100%; width: 0; background: linear-gradient(90deg,#4fd3ff,#ffd36b); } #helmbar .ps.rev u { background: #ff8a5c; }
+#helmbar button { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--line); background: #ffffff14; color: #fff; cursor: pointer; font-size: 13px; } #helmbar button.pri { background: #2f7fd1; border-color: #4fa3ff; }
+#btnHelm.on { background: #2f7fd1; box-shadow: 0 0 0 2px #7fc4ff88; }
+body.helming #prompt { display: none !important; }
+@media (max-width: 700px) { #helmbar { left: auto; right: 8px; transform: none; bottom: calc(138px + env(safe-area-inset-bottom)); gap: 6px; padding: 6px 8px; max-width: calc(100vw - 168px); } #helmbar small.pt, #helmbar .ps, #helmbar .hk .hp, #helmbar .hn, #helmbar .hk small { display: none; } #helmbar .hk b { font-size: 15px; min-width: 2em; } #helmbar .hk .hd { margin-left: 4px; } #helmbar button { padding: 7px 9px; font-size: 12px; } }
+#helmbar .hn { white-space: nowrap; font-weight: 600; }

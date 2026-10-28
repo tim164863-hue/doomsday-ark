@@ -25,12 +25,13 @@ const REASON = { focus: '專心工作中', happy: '心情不錯', tired: '有點
 export class HUD {
   constructor(game) {
     this.game = game; this.ui = game.ui; this.play = null; this.root = game.ui.root; this.tags = new Map(); this.log = []; this.modalKind = null; this.crewOpen = innerWidth > 700; this.rows = new Map(); this.moreOpen = false;
-    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">📋<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">🚣<span class="bdg hide"></span></button><button class="rb" id="btnFleet" title="艦隊 (F)">⚓<span class="bdg hide"></span></button><button class="rb" id="btnChart" title="海圖 (M)">🧭<span class="bdg hide"></span></button><button class="rb" id="btnRel" title="船員關係 (R)">💞</button><button class="rb" id="btnCrewL" title="船員列表">👥</button></div></div>`);
+    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">📋<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">🚣<span class="bdg hide"></span></button><button class="rb" id="btnFleet" title="艦隊 (F)">⚓<span class="bdg hide"></span></button><button class="rb" id="btnChart" title="海圖 (M)">🧭<span class="bdg hide"></span></button><button class="rb" id="btnHelm" title="駕駛母船 (G)">🛳️</button><button class="rb" id="btnRel" title="船員關係 (R)">💞</button><button class="rb" id="btnCrewL" title="船員列表">👥</button></div></div>`);
     this.crewList = $(`<div id="crewmini"></div>`);
     this.prompt = $(`<div id="prompt" class="hide"></div>`);
     this.modal = $(`<div id="modal" class="hide"><div class="mcard"></div></div>`);
     this.tagLayer = $(`<div id="tags"></div>`); this.pilotBar = $(`<div id="pilotbar" class="hide"><div class="pn"></div><div class="ps"><u></u></div><small class="pt">WASD / 搖桿　Shift 加速</small><button data-a="home" class="pri">🏠 返港</button></div>`);
-    this.root.append(this.tagLayer, this.bar, this.crewList, this.prompt, this.modal, this.pilotBar); this.pilotBar.querySelector('[data-a=home]').onclick = () => this.play.stopPilot(true);
+    this.helmBar = $(`<div id="helmbar" class="hide"><div class="hn">🚢</div><div class="hk"><b class="kt">0.0</b><small>節</small><b class="hd">000°</b><small class="hp"></small></div><div class="ps" title="油門"><u></u></div><small class="pt">W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車</small><button data-a="stop">⏹ 停車</button><button data-a="exit" class="pri">⚓ 下錨</button></div>`);
+    this.root.append(this.tagLayer, this.bar, this.crewList, this.prompt, this.modal, this.pilotBar, this.helmBar); this.helmBar.querySelector('[data-a=stop]').onclick = () => { this.play.helm.thr = 0; }; this.helmBar.querySelector('[data-a=exit]').onclick = () => this.play.helm.stop(); this.bar.querySelector('#btnHelm').onclick = () => this.play.helm.toggle(); this.pilotBar.querySelector('[data-a=home]').onclick = () => this.play.stopPilot(true);
     const rcs = this.bar.querySelector('.rcs');
     for (const k of RES_KEYS) rcs.append($(`<div class="rc" data-k="${k}" title="${RES[k].name}"><i>${RES[k].icon}</i><b>0</b><small></small></div>`));
     rcs.append($(`<div class="rc cond" data-k="cond" title="船體狀況"><i>🛠</i><b>0%</b><span class="bar"><u></u></span></div>`));
@@ -44,10 +45,18 @@ export class HUD {
       if (k === 'm' && this.play && !this.modalKind && this.ui.help.classList.contains('hide')) { this.chart.toggle(); return; } if (this.chart.isOpen()) return;
       if (!this.play || this.modalKind || !this.ui.help.classList.contains('hide')) return;
       if (k === 'e') { const a = this.play.primary(); if (a) this.doPrimary(a); else if (this.play.target && this.play.target.type === 'bot') this.play.act('chat'); }
-      else if (k === 'j') this.openModal('tasks'); else if (k === 'b') this.openModal('trips'); else if (k === 'f') this.openModal('fleet'); else if (k === 'r') this.openModal('rel');
+      else if (k === 'g') this.play.helm.toggle(); else if (k === 'j') this.openModal('tasks'); else if (k === 'b') this.openModal('trips'); else if (k === 'f') this.openModal('fleet'); else if (k === 'r') this.openModal('rel');
     });
     this.lastPromptKey = '';
   }
+  showHelmBar(on) { this.helmBar.classList.toggle('hide', !on); this.bar.querySelector('#btnHelm').classList.toggle('on', !!on); if (on) this.updateHelmBar(this.play.helm); }
+  updateHelmBar(H) {
+    const b = this.helmBar, sh = this.play.game.small ? FL.homeShip(this.s.fleet) : null; b.querySelector('.hn').textContent = sh ? `${SHIPS[sh.type].icon} ${sh.name}` : '🚢 母船';
+    b.querySelector('.kt').textContent = (Math.abs(H.v) * 1.944).toFixed(1); const bear = ((Math.PI / 2 - H.yaw) * 180 / Math.PI % 360 + 360) % 360; b.querySelector('.hd').textContent = String(Math.round(bear) % 360).padStart(3, '0') + '°';
+    const w = this.s.fleet && this.s.fleet.world; b.querySelector('.hp').textContent = w && w.pos ? `📍${Math.round(w.pos.x)},${Math.round(w.pos.y)}` : '';
+    b.querySelector('.ps u').style.width = Math.max(0, Math.min(100, H.thr / 1.35 * 100)) + '%'; b.querySelector('.ps').classList.toggle('rev', H.thr < 0);
+  }
+  noteHelm() { this._chartDirty = true; }
   showPilotBar(on) { this.pilotBar.classList.toggle('hide', !on); document.body.classList.toggle('piloting', !!on); }
   updatePilotBar(P) { const nm = FL.findShip(this.s, P.id); this.pilotBar.querySelector('.pn').textContent = `${SHIPS[P.type].icon} ${nm ? nm.name : ''}`; this.pilotBar.querySelector('.ps u').style.width = Math.min(100, Math.abs(P.v) / (P.max * 1.7) * 100) + '%'; this.pilotBar.querySelector('button').textContent = P.homing ? '⏳ 返港中…' : '🏠 返港'; }
   attach(play) { this.play = play; this.buildTags(); this.refresh(true); }

@@ -32,7 +32,7 @@ export class UI {
     this.tbSize = localStorage.getItem('ark.tbsize') || 'm'; this.timebar.dataset.size = this.tbSize;
     this.elev = $(`<div id="elevPop" class="hide"><div class="t">🛗 電梯・選擇樓層</div><div class="b"></div></div>`);
     this.help = $(`<div id="help" class="hide"><div class="card"><h2>末日方舟 · 操作說明</h2>
-      <div class="cols"><div><h3>🖥 電腦</h3><p><b>W A S D / 方向鍵</b> 移動（Shift 跑步）</p><p><b>點擊地板</b> 自動尋路（可跨樓層）</p><p><b>左鍵拖曳</b> 轉動鏡頭　<b>滾輪</b> 縮放</p><p><b>右鍵拖曳</b> 平移（自由視角）</p><p><b>V</b> 切換 追隨/自由/俯瞰　<b>T</b> 暫停時間</p><p><b>1–5</b> 只看某一層　<b>0</b> 全景　<b>L</b> 成員　<b>H</b> 說明</p></div>
+      <div class="cols"><div><h3>🖥 電腦</h3><p><b>W A S D / 方向鍵</b> 移動（Shift 跑步）</p><p><b>點擊地板</b> 自動尋路（可跨樓層）</p><p><b>左鍵拖曳</b> 轉動鏡頭　<b>滾輪</b> 縮放</p><p><b>右鍵拖曳</b> 平移（自由視角）</p><p><b>V</b> 切換 追隨/自由/俯瞰　<b>T</b> 暫停時間</p><p><b>1–5</b> 看某一層（含以下各層）　<b>0</b> 全景　<b>L</b> 成員　<b>H</b> 說明</p><p><b>G</b> 🛳️ 駕駛母船（W/S 油門、A/D 舵、空白鍵停車）</p></div>
       <div><h3>📱 手機</h3><p><b>左下搖桿</b> 移動</p><p><b>點一下地板</b> 走過去</p><p><b>單指拖曳</b> 轉鏡頭　<b>雙指捏合</b> 縮放</p><p>走到樓梯口自動上下樓；走進電梯會跳出樓層選單。</p></div></div>
       <button class="ok">開始航行</button></div></div>`);
     if (g.small) { const cols = this.help.querySelector('.cols'); cols.innerHTML = cols.innerHTML.replace('點擊地板</b> 自動尋路（可跨樓層）','點擊甲板</b> 自動尋路').replace('走到樓梯口自動上下樓；走進電梯會跳出樓層選單。','你的小船就是你的家：船員在甲板上工作、吃飯、聊天，累了就進艙休息。'); }
