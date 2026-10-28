@@ -9,7 +9,7 @@ import * as R from './rel.js';
 import { HOME_TYPES } from '../ship/homespec.js';
 import { sanSz, sanMat } from './seazones.js';
 import { PROMO_BP_IDS } from './szdata.js';
-import { resCap, sanFlag, promoTick } from './promo.js';
+import { resCap, sanFlag, promoTick, tradeMul } from './promo.js';
 import { planEvent, decide as decideEvent, pending as evPending, EVENTS } from './seaevents.js';
 
 const BP_IDS = SHIP_ORDER.filter((k) => !SHIPS[k].free);   // 需要藍圖的船
@@ -84,6 +84,7 @@ export function planMission(s, ship, zone, startSec) {
 
 function resolveMission(s, ship, tEnd, rep) {
   const m = ship.m; const f = s.fleet; const B = SHIPS[ship.type]; const Z = ZONES[m.zone];
+  { const tm = tradeMul(f); if (tm > 1 && !m.fail) for (const k of RES_KEYS) if (m.res[k]) m.res[k] = Math.round(m.res[k] * tm); }   // 商船旗艦：貿易收益加成
   for (const k of RES_KEYS) if (m.res[k]) addRes(s, k, m.res[k], rep);
   ship.hp = Math.max(0, ship.hp - m.dmg); ship.m = null; f.stats.missions++; ship.n++;
   if (m.to && f.world && f.world.pos) { const nn = W.reveal(f.world, m.to.x, m.to.y, WORLD.revealMission); if (nn) f.world.explored = (f.world.explored || 0) + nn; }

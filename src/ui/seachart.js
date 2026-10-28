@@ -8,6 +8,7 @@ import { clock } from '../clock.js';
 import { weatherAt, coldRaw, KINDS, effectsOf, WX } from '../sim/weather.js';
 
 import { SPECIAL_ZONES, SZ_ORDER, zoneAtPoint, routeZones, MATERIALS } from '../sim/szdata.js';
+import { routeGate, gateMsg } from '../sim/promo.js';
 import { unprepared, seaStatus, rescueCan, RESCUE } from '../sim/seazones.js';
 
 const nowSec = () => clock.now();
@@ -53,8 +54,8 @@ export class SeaChart {
     const p = W.arkPos(w, now); const c = W.routeCost(p.x, p.y, x, y); const [gx, gy] = W.cellOf(x, y); const seen = W.fogHas(w, gx, gy);
     this.sel = { x: Math.round(x), y: Math.round(y), c, seen, zone: seen ? W.zoneAt(x, y) : null };
     const zl = seen ? W.zoneLabel(this.sel.zone) : '❓未知海域'; this.buildMini(w); const rz = routeZones(p.x, p.y, x, y).filter((id) => this.szSeen && this.szSeen[id]);
-    const warn = rz.map((id) => { const Z = SPECIAL_ZONES[id]; return `<small class="szw" style="color:${Z.color}">⚠ 航線穿過 ${Z.icon}${Z.name}：${szShort(Z)}${unprepared(this.s.fleet, Z) ? '（旗艦階級未達建議，危害 ×1.5）' : ''}</small>`; }).join(''); const lack = this.s.res.fuel < c.fuel + 15;
-    this.conf.innerHTML = `<div class="cf"><b>航向 (${this.sel.x}, ${this.sel.y})</b> · ${zl}<small>距離 ${Math.round(c.dist)} · ⛽${c.fuel}${lack ? '（燃料不足）' : ''} · 約 ${c.minutes} 分鐘（離線也會抵達）</small>${warn}</div><div class="cb"><button class="pri" data-a="go" ${lack ? 'disabled' : ''}>⚓ 出航</button><button data-a="no">取消</button></div>`;
+    const warn = rz.map((id) => { const Z = SPECIAL_ZONES[id]; return `<small class="szw" style="color:${Z.color}">⚠ 航線穿過 ${Z.icon}${Z.name}：${szShort(Z)}${unprepared(this.s.fleet, Z) ? '（旗艦階級未達建議，危害 ×1.5）' : ''}</small>`; }).join(''); const lack = this.s.res.fuel < c.fuel + 15; const gate = routeGate(this.s.fleet, p.x, p.y, x, y); const gw = gate ? `<small class="szw" style="color:#ff8a7a">🔒 ${gateMsg(gate.z)}</small>` : '';
+    this.conf.innerHTML = `<div class="cf"><b>航向 (${this.sel.x}, ${this.sel.y})</b> · ${zl}<small>距離 ${Math.round(c.dist)} · ⛽${c.fuel}${lack ? '（燃料不足）' : ''} · 約 ${c.minutes} 分鐘（離線也會抵達）</small>${gw}${warn}</div><div class="cb"><button class="pri" data-a="go" ${lack || gate ? 'disabled' : ''}>⚓ 出航</button><button data-a="no">取消</button></div>`;
     this.conf.classList.remove('hide'); this.conf.querySelector('[data-a=no]').onclick = () => { this.sel = null; this.conf.classList.add('hide'); };
     this.conf.querySelector('[data-a=go]').onclick = () => { const r = this.hud.play.worldAct('sail', { x: this.sel.x, y: this.sel.y }); if (r && r.ok) { this.sel = null; this.conf.classList.add('hide'); this.refresh(true); } };
   }
