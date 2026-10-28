@@ -7,10 +7,10 @@
 //   · 規則能做的事：型別 / 範圍 / 大小 / 每個「攻擊者×目標×6 小時」一份 / 與目標 presence 快照比較（get()）的掠奪上限 / 時間戳靠近伺服器時間。
 //   · 規則做不到的事（⇒ 防不了作弊）：驗證打贏了守衛艦、驗證攻擊者真的在附近（只能比對自己宣稱的座標）、驗證 presence 快照是真的、
 //     讓被攻擊者的實際損失回饋給攻擊者。
-import { PV, sanPub, sanRaidDoc, blockOf, nearBlocks, bucketOf, pubOf, pubChanged, canRaid, pvIngest, ingestSince, pvOf, attExpire, outPrune, outDone, handleOf, raidDocId } from '../sim/pvp.js';
+import { PV, sanPub, sanRaidDoc, blockOf, nearBlocks, bucketOf, pubOf, pubChanged, canRaid, pvIngest, ingestSince, pvOf, attExpire, outPrune, outDone, handleOf, raidDocId, ensurePv } from '../sim/pvp.js';
 import { arkPos } from '../sim/world.js';
 
-const PUB_KEYS = ['v', 'h', 'x', 'y', 'fp', 'hl', 'cd', 'res', 'cap', 'sh', 'ls', 't', 'cells', 'rt'];
+const PUB_KEYS = ['v', 'h', 'x', 'y', 'fp', 'res', 'cap', 'sh', 'ls', 't', 'ut', 'cells', 'rt'];   // ut = 伺服器寫入時間（客戶端寫 serverTimestamp()，規則要求 == request.time）；hl / cd 在第 14 輪移除
 const RAID_KEYS = ['v', 'attacker', 'defender', 'b', 't', 'ah', 'loot', 'ap'];
 const only = (o, ks) => Object.keys(o).every((k) => ks.includes(k));
 const intNN = (x) => Number.isInteger(x) && x >= 0;
@@ -22,15 +22,15 @@ const nint = (v, hi) => Number.isInteger(v) && v >= 0 && v <= hi;
 const isMap = (o) => !!o && typeof o === 'object' && !Array.isArray(o);
 const sameKeys = (o, ks) => isMap(o) && Object.keys(o).length === ks.length && ks.every((k) => k in o);
 const cellOk = (c) => typeof c === 'string' && c.length <= 5 && /^[0-9]{1,2}_[0-9]{1,2}$/.test(c);
-export const RULE = { shieldMax: 43200, clock: 120, nearPad: 60, listPresence: 24, listInbox: 60, minWrite: 10, attFresh: 900, lootMax: 400 };
+export const RULE = { shieldMax: 43200, clock: 120, nearPad: 60, listPresence: 24, listInbox: 60, minWrite: 10, attFresh: 900, lootMax: 400, lsAhead: 600, stale: 7 * 86400 };
 /** presence 形狀（create / update 共用）。回傳空字串 = 通過，否則是第一個不合格的理由。 */
-export function presenceShape(d, nowSec) {
+export function presenceShape(d, nowSec) {   // d.ut 是「已解析的伺服器時間」（Firestore 會把 serverTimestamp() 換成 request.time）
   if (!isMap(d)) return 'bad-keys'; const ks = Object.keys(d);
   if (!PUB_KEYS.every((k) => k === 'rt' || k in d) || !ks.every((k) => PUB_KEYS.includes(k))) return 'bad-keys';
   if (d.v !== 1) return 'bad-version'; if (typeof d.h !== 'string' || d.h.length < 1 || d.h.length > 12) return 'bad-handle';
-  if (!(rng(d.x, 0, 2000) && rng(d.y, 0, 2000) && rng(d.fp, 0, 200) && rng(d.hl, 0, 5000) && rng(d.cd, 0, 100) && rng(d.cap, 0, 1000))) return 'bad-range';
+  if (!(rng(d.x, 0, 2000) && rng(d.y, 0, 2000) && rng(d.fp, 0, 200) && rng(d.cap, 0, 1000))) return 'bad-range';
   if (!(isMap(d.res) && Object.keys(d.res).length === 4 && PV.lootKeys.every((k) => rng(d.res[k], 0, 2000)))) return 'bad-res';
-  if (!rng(d.t, nowSec - RULE.clock, nowSec + RULE.clock)) return 'bad-time'; if (!rng(d.ls, d.t - 86400, d.t + 5)) return 'bad-ls';
+  if (!rng(d.t, nowSec - RULE.clock, nowSec + RULE.clock)) return 'bad-time'; if (d.ut !== nowSec) return 'bad-ut'; if (!rng(d.ls, d.t - 86400, d.t + RULE.lsAhead)) return 'bad-ls';
   if (!rng(d.sh, 0, nowSec + RULE.shieldMax + RULE.clock)) return 'bad-shield';
   if (!Array.isArray(d.cells) || d.cells.length < 1 || d.cells.length > 16 || !d.cells.every(cellOk)) return 'bad-cells';
   if ('rt' in d) { const r = d.rt; if (!(sameKeys(r, ['x0', 'y0', 'x1', 'y1', 't0', 't1']) && rng(r.x0, 0, 2000) && rng(r.y0, 0, 2000) && rng(r.x1, 0, 2000) && rng(r.y1, 0, 2000) && rng(r.t0, 0, nowSec + 2592000) && rng(r.t1, r.t0, nowSec + 2592000))) return 'bad-route'; }
@@ -40,7 +40,7 @@ export function presenceShape(d, nowSec) {
 export function ruleCheckPresence({ auth, uid, doc, nowSec, isOwnerUid, prev }) {
   if (!auth || auth !== uid) return 'not-owner-of-doc'; if (isOwnerUid) return 'owner-no-presence';
   const e = presenceShape(doc, nowSec); if (e) return e;
-  if (prev && !(nowSec - prev.t >= RULE.minWrite)) return 'too-frequent'; return '';
+  if (prev && !(nowSec - prev.ut >= RULE.minWrite)) return 'too-frequent'; return '';   // 比的是上一次的 ut（伺服器時間），不是客戶端自己填的 t
 }
 /** att = 攻擊者自己的 presence；pres = 防守者的 presence。攻擊者的 presence 必須存在、最近發佈過、與宣稱座標一致。 */
 export function ruleCheckRaid({ auth, def, id, doc, pres, att, nowSec, isOwnerUid }) {
@@ -51,7 +51,7 @@ export function ruleCheckRaid({ auth, def, id, doc, pres, att, nowSec, isOwnerUi
   if (!isNum(doc.t) || !Number.isInteger(doc.b) || doc.b !== bucketOf(doc.t)) return 'bad-bucket'; if (id !== `${auth}_${doc.b}`) return 'bad-id';
   if (!rng(doc.t, nowSec - RULE.clock, nowSec + RULE.clock)) return 'bad-time';
   if (!(sameKeys(doc.ap, ['x', 'y']) && rng(doc.ap.x, 0, 2000) && rng(doc.ap.y, 0, 2000))) return 'bad-ap';
-  if (!pres) return 'no-presence'; if (!(pres.ls <= doc.t - PV.offlineAfter)) return 'target-online'; if (!(pres.sh <= doc.t)) return 'target-shielded';
+  if (!pres) return 'no-presence'; if (!(pres.ls <= doc.t - PV.offlineAfter)) return 'target-online'; if (!(pres.ls >= doc.t - RULE.stale)) return 'target-stale'; if (!(pres.sh <= doc.t)) return 'target-shielded';
   const l = doc.loot; if (!isMap(l) || !Object.keys(l).every((k) => PV.lootKeys.includes(k))) return 'bad-loot';
   for (const k of PV.lootKeys) { const v = k in l ? l[k] : 0; if (!nint(v, RULE.lootMax)) return 'bad-loot'; if (v > pres.res[k] * PV.take || v > pres.cap) return 'loot-too-big'; }
   const pad = PV.range + RULE.nearPad, near = (x, y, p) => Math.abs(x - p.x) <= pad && Math.abs(y - p.y) <= pad;
@@ -67,7 +67,8 @@ export function createMemoryPvp(store, as, now, owners = []) {
   const chk = () => { if (cfg.fail) throw new Error('network'); };
   return {
     store: S, calls, cfg, as,
-    async putPresence(uid, doc) { chk(); calls.put++; const e = ruleCheckPresence({ auth: as, uid, doc, nowSec: now(), isOwnerUid: owners.includes(as), prev: S.presence.get(uid) || null }); if (e) throw new Error('rules-denied:' + e); S.presence.set(uid, JSON.parse(JSON.stringify(doc))); },
+    async putPresence(uid, doc) { chk(); calls.put++; const full = { ...doc, ut: now() }; /* = serverTimestamp() */ const e = ruleCheckPresence({ auth: as, uid, doc: full, nowSec: now(), isOwnerUid: owners.includes(as), prev: S.presence.get(uid) || null }); if (e) throw new Error('rules-denied:' + e); S.presence.set(uid, JSON.parse(JSON.stringify(full))); },
+    async delPresence(uid) { chk(); calls.del = (calls.del || 0) + 1; if (uid !== as) throw new Error('rules-denied:not-owner-of-doc'); S.presence.delete(uid); },
     async near(blocks, limit = PV.scanMax) { chk(); calls.near++; if (!(limit <= RULE.listPresence)) throw new Error('rules-denied:list-limit'); const out = []; for (const [uid, d] of S.presence) { if (d.cells.some((c) => blocks.includes(c))) out.push({ uid, ...JSON.parse(JSON.stringify(d)) }); if (out.length >= limit) break; } return out; },
     async putRaid(def, id, doc) {
       chk(); calls.raid++; const key = `${def}/${id}`; if (S.raids.has(key)) throw new Error('rules-denied:exists');
@@ -80,7 +81,8 @@ export function createMemoryPvp(store, as, now, owners = []) {
 /** Firestore lite 版。規則見 DESIGN-fleet.md（本檔不部署規則）。 */
 export function firestorePvp(fs, db) {
   return {
-    async putPresence(uid, doc) { await fs.setDoc(fs.doc(db, 'presence', uid), doc); },
+    async putPresence(uid, doc) { await fs.setDoc(fs.doc(db, 'presence', uid), { ...doc, ut: fs.serverTimestamp() }); },   // ut 一定是伺服器時間（規則：ut == request.time）
+    async delPresence(uid) { await fs.deleteDoc(fs.doc(db, 'presence', uid)); },
     async near(blocks, limit = PV.scanMax) { const q = fs.query(fs.collection(db, 'presence'), fs.where('cells', 'array-contains-any', blocks.slice(0, 9)), fs.limit(Math.min(limit, RULE.listPresence))); const snap = await fs.getDocs(q); return snap.docs.map((d) => ({ uid: d.id, ...d.data() })); },
     async putRaid(def, id, doc) { await fs.setDoc(fs.doc(db, 'raids', def, 'in', id), doc); },
     async raidsFor(uid, since, limit = 60) { const q = fs.query(fs.collection(db, 'raids', uid, 'in'), fs.where('t', '>=', since), fs.limit(Math.min(limit, RULE.listInbox))); const snap = await fs.getDocs(q); return snap.docs.map((d) => d.data()); },
@@ -93,16 +95,30 @@ export class PvpClient {
   get enabled() { return !!(this.be && this.uid && !this.owner); }
   get why() { return !this.uid ? 'guest' : this.owner ? 'owner' : !this.be ? 'offline' : ''; }
   async publish(s, own, force) {
-    if (!this.enabled) return false; const now = this.now(); const pub = pubOf(s, this.uid, now, own, this.owner); if (!pub) return false;
+    if (!this.enabled) return false; const pv0 = pvOf(s); if (!pv0 || !pv0.nt || pv0.hid) return false;   // 還沒看過隱私說明（nt）或正在隱身（hid）→ 什麼都不公開
+    const now = this.now(); const pub = pubOf(s, this.uid, now, own, this.owner); if (!pub) return false;
     const gap = now - this.pubAt; if (!force && !(gap >= PV.pubGap || (pubChanged(this.last, pub) && gap >= 30))) return false;
     try { await this.be.putPresence(this.uid, pub); this.last = pub; this.pubAt = now; this.counts.pub++; this.err = ''; return true; } catch (e) { this.err = String(e && e.message || e); return false; }
+  }
+  /** 隱身開關：開 = 立刻刪掉自己的 presence 並停止公開；關 = 重新公開。有突襲正在進行 / 結果還沒送出時不能開（否則規則會因為沒有 presence 擋掉那份文件）。 */
+  async setHidden(s, on) {
+    const pv = ensurePv(s); if (!pv) return { ok: false, msg: '還沒有世界地圖' }; if (!this.enabled) return { ok: false, msg: '登入後才有玩家對戰' };
+    if (on && (pv.att || pv.out.length)) return { ok: false, msg: '還有突襲正在進行或結果還沒送出，稍後再開隱身' };
+    pv.hid = on ? 1 : 0; pv.nt = 1;
+    if (on) { const ok = await this.wipe(); return { ok: true, msg: ok ? '🕶 已隱身：你的公開資料已刪除，別人看不到你（你也暫時不能出手）' : '🕶 已隱身（雲端暫時連不上，之後會再刪除你的公開資料）', pending: !ok }; }
+    this.last = null; this.pubAt = 0; return { ok: true, msg: '已取消隱身，會重新出現在附近玩家的海圖上' };
+  }
+  /** 刪掉自己的 presence（隱身 / 登出 / 刪除帳號時）。失敗回傳 false（不丟例外）。 */
+  async wipe() {
+    if (!this.enabled) return false; this.last = null; this.pubAt = 0;
+    try { await this.be.delPresence(this.uid); this.err = ''; return true; } catch (e) { this.err = String(e && e.message || e); return false; }
   }
   /** 掃描附近（≤24 次讀取）。回傳整理過的清單（含是否能出手與原因），不能出手的也列出來讓玩家看懂原因。 */
   async scan(s, force) {
     if (!this.enabled) return this.list; const now = this.now(); if (!force && now - this.scanAt < PV.scanGap) return this.list; this.scanAt = now; this.scanning = true;
     try {
       const w = s.fleet && s.fleet.world; if (!w || !w.pos) { this.list = []; return this.list; } const me = arkPos(w, now); const raw = await this.be.near(nearBlocks(me.x, me.y), PV.scanMax); this.counts.scan++;
-      const out = []; for (const d of raw) { const pub = sanPub(d); if (!pub || d.uid === this.uid) continue; const c = canRaid(s, pub, d.uid, this.uid, now, false); if (c.why === 'fog' || c.why === 'bad' || (c.dist != null && c.dist > PV.range * 2.5)) continue; out.push({ uid: d.uid, pub, c }); }
+      const out = []; for (const d of raw) { const pub = sanPub(d); if (!pub || d.uid === this.uid || now - pub.ls > PV.staleAfter) continue; /* 超過 7 天沒上線的幽靈船不列出 */ const c = canRaid(s, pub, d.uid, this.uid, now, false); if (c.why === 'fog' || c.why === 'bad' || (c.dist != null && c.dist > PV.range * 2.5)) continue; out.push({ uid: d.uid, pub, c }); }
       out.sort((a, b) => (a.c.dist || 0) - (b.c.dist || 0)); this.list = out.slice(0, 12); this.err = ''; this.scanned = true;
     } catch (e) { this.err = String(e && e.message || e); } finally { this.scanning = false; }
     return this.list;
@@ -110,7 +126,7 @@ export class PvpClient {
   /** 把收件匣抄進存檔。必須在 simulateTo 之前呼叫（登入時 / 輪詢時）。 */
   async pull(s, force) {
     if (!this.enabled) return 0; const now = this.now(); if (!force && now - this.pullAt < 120) return 0; this.pullAt = now;
-    try { const docs = await this.be.raidsFor(this.uid, ingestSince(s)); this.counts.pull++; this.err = ''; return pvIngest(s, docs, this.uid, this.owner, now); } catch (e) { this.err = String(e && e.message || e); return 0; }
+    try { const docs = await this.be.raidsFor(this.uid, Math.max(ingestSince(s), Math.floor(now - PV.window))); this.counts.pull++; this.err = ''; return pvIngest(s, docs, this.uid, this.owner, now); } catch (e) { this.err = String(e && e.message || e); return 0; }
   }
   /** 送出 outbox 裡的 raid 文件（失敗保留，下次再送；被規則擋掉的 = 永久失敗，丟掉） */
   async flush(s, own) {
