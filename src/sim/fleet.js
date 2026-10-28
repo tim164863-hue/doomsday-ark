@@ -4,6 +4,7 @@ import { TICK, RES, RES_KEYS, FAC, LV_MULT } from './defs.js';
 import { hash, mulberry32 } from './rng.js';
 import { SHIPS, SHIP_ORDER, STARTERS, ZONES, ZONE_ORDER, FLEET_MAX, LV_MAX, LV_STAT, LV_SPEED, RESERVE_FUEL, FLAGSHIP, TRIP_BP, WORLD } from './fleetdefs.js';
 import * as W from './world.js';
+import * as R from './rel.js';
 import { planEvent, decide as decideEvent, pending as evPending, EVENTS } from './seaevents.js';
 
 const BP_IDS = SHIP_ORDER.filter((k) => !SHIPS[k].free);   // 需要藍圖的船
@@ -83,6 +84,7 @@ function resolveMission(s, ship, tEnd, rep) {
   if (m.ev && m.ev.c >= 0 && m.ev.txt) text += `（${m.ev.txt}）`;
   if (m.bp && !f.bp[m.bp]) { f.bp[m.bp] = 1; text += `。🗺️ 在海上發現「${SHIPS[m.bp].name}」藍圖！`; ev(s, rep, { t: tEnd, type: 'blueprint', bp: m.bp, text: `發現藍圖：${SHIPS[m.bp].name}` }); }
   ev(s, rep, { t: tEnd, type: 'fleet', ship: ship.id, text, fail: m.fail });
+  const hauled = RES_KEYS.reduce((a, k) => a + (m.res[k] || 0), 0); if (!m.fail && hauled >= 90 && ship.hp > 0) R.celebrate(s, tEnd, (e) => ev(s, rep, e), `${ship.name} 載滿而歸（${hauled} 單位），船員們一起慶祝！`);
 }
 
 /** 每個 tick（由 sim.stepTick 呼叫）：建造完成、任務返航、閒置自動出航、工坊修船 */

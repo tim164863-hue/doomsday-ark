@@ -6,6 +6,7 @@ import { hash, mulberry32 } from './rng.js';
 import { fleetTick, tripBlueprint, grantBlueprint } from './fleet.js';
 import { worldTick } from './world.js';
 import { SHIPS } from './fleetdefs.js';
+import * as R from './rel.js';
 
 const r2 = (x) => Math.round(x * 100) / 100;
 export const dayKey = (ts, tz) => Math.floor((ts + tz * 60) / 86400);
@@ -40,6 +41,7 @@ export function syncCrew(s, list, nowSec = 0) {
     if (keys.includes(k)) continue; const c = s.crew[k];
     if (c.away || (c.inj || 0) > nowSec) continue;
     delete s.crew[k]; delete s.statusSnap[k]; if (s.cdCheer) delete s.cdCheer[k]; if (s.cdChat) delete s.cdChat[k];
+    if (s.rel) for (const m of ['aff', 'feud', 'cool']) for (const pk of Object.keys(s.rel[m])) if (pk.split('|').includes(k)) delete s.rel[m][pk];
   }
   return s;
 }
@@ -52,7 +54,7 @@ export function staffOf(s) {
 }
 export function staffBonus(s, f, nowSec) {
   const k = staffOf(s)[f]; if (!k) return 0; const c = s.crew[k]; if (!c || c.away || c.inj > nowSec) return 0;
-  return STATUS_BONUS[s.statusSnap[k]] || 0;
+  return (STATUS_BONUS[s.statusSnap[k]] || 0) + R.teamBonus(s, k, nowSec);   // 真實狀態加成 + 船員關係加成（交情好 +、吵架 −）
 }
 export function rates(s, nowSec = s.simT) {
   const out = { food: 0, water: 0, fuel: 0, parts: 0, cons: { food: 0, water: 0, fuel: 0 } };
@@ -104,11 +106,12 @@ export function stepTick(s, t, rep) {
   else if (!safe && roll < 0.0062) {
     const loss = 5 + Math.floor(amt * 4); s.cond = Math.max(0, s.cond - loss); const built = FAC_ORDER.filter((f) => s.fac[f].lv && !s.fac[f].dmg); let txt = `風暴來襲，船體受損 −${loss}%`;
     if (built.length) { const f = built[Math.floor(pick * built.length)]; s.fac[f].dmg = true; txt += `，${FAC[f].name}故障。`; } else txt += '。';
-    pushEvent(s, rep, { t: tEnd, type: 'storm', text: txt });
+    pushEvent(s, rep, { t: tEnd, type: 'storm', text: txt }); R.rally(s, tEnd, (e) => pushEvent(s, rep, e), 'storm');
   } else if (!safe && roll < 0.0070) {
     const ks = crewKeys(s).filter((k) => !s.crew[k].away && !s.crew[k].inj);
-    if (ks.length) { const k = ks[Math.floor(pick * ks.length)]; const dur = injDur(s, 30 * 60); s.crew[k].inj = tEnd + dur; s.crew[k].sick = true; if (rep) rep.injuries.push(k); pushEvent(s, rep, { t: tEnd, type: 'sick', who: k, text: `${k} 突然發燒，需要休養。` }); }
+    if (ks.length) { const k = ks[Math.floor(pick * ks.length)]; const dur = injDur(s, 30 * 60); s.crew[k].inj = tEnd + dur; s.crew[k].sick = true; if (rep) rep.injuries.push(k); pushEvent(s, rep, { t: tEnd, type: 'sick', who: k, text: `${k} 突然發燒，需要休養。` }); R.rally(s, tEnd, (e) => pushEvent(s, rep, e), 'sick', k, amt); }
   }
+  R.relTick(s, t, tEnd, (e) => pushEvent(s, rep, e));   // 船員關係：相處 / 摩擦 / 吵架 / 和好 / 派對（決定性）
   s.simT = tEnd;
 }
 function trackProd(s, k, d) { if (!s.daily) return; for (const t of s.daily.tasks) if (t.type === 'produce' && t.res === k) t.progress += d; }
@@ -149,6 +152,7 @@ function resolveTrip(s, tr, tEnd, rep) {
   const text = (tr.fail ? `出海失利：${site.name}幾乎空手而歸（${gains}）` : `${site.name}探索完成：${gains}`) + (tr.bonus ? `，${tr.bonus}` : '') + (gotBp ? `，還發現「${SHIPS[tr.bpFind].name}」藍圖！` : '') + (tr.injured.length ? `。${tr.injured.join('、')} 受傷了。` : '。');
   const ev = { t: tEnd, type: 'trip', trip: tr.id, who: tr.crew[0], text, fail: tr.fail, injured: tr.injured.slice() };
   pushEvent(s, rep, ev); if (rep) rep.trips.push({ ...tr, text });
+  const hauled = RES_KEYS.reduce((a, k) => a + (tr.res[k] || 0), 0); if (!tr.fail && hauled >= 60) R.celebrate(s, tEnd, (e) => pushEvent(s, rep, e), `大豐收！${site.name}帶回 ${hauled} 單位物資，全船一起慶祝。`);
 }
 
 // ----------------------------------------------------------------- 玩家行動（以 T董 為主體；皆為純遊戲內效果）
