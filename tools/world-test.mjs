@@ -25,13 +25,13 @@ const strip = (s) => { const c = JSON.parse(JSON.stringify(s)); delete c.lastSee
 { const s = newState(5, T0, 480); syncCrew(s, crew); F.ensureFleet(s, true); const j = JSON.parse(serialize(s)); delete j.fleet.world; delete j.fleet.pilot; const r = validateState(j); ok(r && r.fleet && r.fleet.world && r.fleet.world.pos === null, '舊存檔（無 world）可讀入'); F.ensureWorld(r, 'x'); ok(r.fleet.world.pos && W.fogCount(r.fleet.world) > 0, '舊存檔補上世界狀態'); }
 // 航行：離線一次補算 = 線上分段 = 存檔讀檔後繼續
 { const a = mk(), b = mk(), c = mk(); for (const s of [a, b, c]) { F.buildShip(s, 'skiff'); }
-  const go = (s) => { simulateTo(s, T0 + 20 * 60); return F.sailArk(s, 1000, 520, s.simT); }; const ra = go(a); go(b); go(c);
+  const go = (s) => { simulateTo(s, T0 + 20 * 60); return F.sailArk(s, 1000, 1000, s.simT); }; const ra = go(a); go(b); go(c);
   ok(ra.ok && ra.cost.fuel > 0 && a.fleet.world.route, `方舟起錨（${ra.msg}）`);
   simulateTo(a, T0 + 30 * 3600); for (let t = T0 + 20 * 60; t <= T0 + 30 * 3600; t += 887) simulateTo(b, t); simulateTo(b, T0 + 30 * 3600);
   simulateTo(c, T0 + 5 * 3600); const c2 = validateState(JSON.parse(serialize(c))); simulateTo(c2, T0 + 30 * 3600);
   ok(strip(a) === strip(b), '航行 + 閒置：離線一次補算與線上分段推進一致'); ok(strip(a) === strip(c2), '航行 + 閒置：存檔讀檔後繼續一致');
-  const w = a.fleet.world; ok(!w.route && Math.abs(w.pos.x - 1000) < 1 && Math.abs(w.pos.y - 520) < 1, '離線期間方舟抵達目的地並停下');
-  ok(W.fogHas(w, 40, 20) && w.explored > 20, `沿途迷霧被揭開（已探索 ${w.explored} 格）`); }
+  const w = a.fleet.world; ok(!w.route && Math.abs(w.pos.x - 1000) < 1 && Math.abs(w.pos.y - 1000) < 1, '離線期間方舟抵達目的地並停下');
+  ok(W.fogHas(w, 20, 40) && w.explored > 20, `沿途迷霧被揭開（已探索 ${w.explored} 格）`); }
 // 航行規則
 { const s = mk(); s.res.fuel = 10; ok(!F.sailArk(s, 1000, 700, s.simT).ok, '燃料不足不能出航'); s.res.fuel = 400; ok(!F.sailArk(s, 5000, 5000, s.simT).ok, '不能開出世界邊界'); ok(!F.sailArk(s, s.fleet.world.pos.x, s.fleet.world.pos.y, s.simT).ok, '原地不用出航');
   const f0 = s.res.fuel; const r = F.sailArk(s, 1000, 400, s.simT); ok(r.ok && f0 - s.res.fuel === r.cost.fuel, '出航時一次扣燃料'); simulateTo(s, s.simT + 60 * 60); const mid = W.arkPos(s.fleet.world, s.simT); const r2 = F.sailArk(s, 1100, 300, s.simT); ok(r2.ok && Math.abs(s.fleet.world.route.x0 - mid.x) < 3, '航行中可以從當下位置改航'); }

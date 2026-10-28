@@ -80,15 +80,16 @@ export function arkWeather(s, t) { const w = s.fleet && s.fleet.world; if (!w ||
 
 const NOTE = { storm: '⛈ 暴風雨來襲，船體會受損，雷擊危險！', blizzard: '❄️ 暴風雪來襲：航速下降、船體受損。', snow: '🌨 下雪了，航速變慢。', aurora: '🌌 極光出現！運氣提升（藍圖機率 ×1.5、收穫 ×1.15）。' };
 /** 每個 tick（sim.stepTick，在 worldTick 之前）：暴風 / 雷擊 / 雪的減速 / 暖氣耗油 / 雨水 / 極光恩賜。s.fleet.world 不存在 → 什麼都不做。 */
-export function weatherTick(s, t, tEnd, ev) {
+export function weatherTick(s, t, tEnd, ev, xslow = 0) { // xslow = 特殊海域的額外減速（seazones.seaPre），跟天氣減速相乘合併
   const f = s.fleet, w = f && f.world; if (!w || !w.pos) return;
   const p = arkPos(w, t), wx = weatherAt(tEnd, p.x, p.y), E = effectsOf(wx), ti = Math.round(t / 60);
   const st = w.wx && typeof w.wx === 'object' ? w.wx : (w.wx = { k: 'clear', hits: 0, storm: 0, snow: 0, aur: 0, polar: 0 });
   const dt = tEnd - t;
   // 雪 / 暴風減速：在 tEnd 重設航線起點（位置只前進 (1−slow) 的距離），終點時間順延；之後速度不變
   const r = w.route;
-  if (r && p.moving && E.slow > 0.001 && r.t1 - t > dt * 1.5) {
-    const rem = r.t1 - t, v = 1 / rem, adv = (1 - E.slow) * dt * v; r.x0 = p.x + (r.x1 - p.x) * adv; r.y0 = p.y + (r.y1 - p.y) * adv; r.t0 = tEnd; r.t1 = r.t1 + E.slow * dt;
+  const slow = 1 - (1 - E.slow) * (1 - xslow);
+  if (r && p.moving && slow > 0.001 && r.t1 - t > dt * 1.5) {
+    const rem = r.t1 - t, v = 1 / rem, adv = (1 - slow) * dt * v; r.x0 = p.x + (r.x1 - p.x) * adv; r.y0 = p.y + (r.y1 - p.y) * adv; r.t0 = tEnd; r.t1 = r.t1 + slow * dt;
   }
   if (E.hull) s.cond = Math.max(0, s.cond - E.hull);
   if (E.strike && hash(s.seed, 'wxl', ti) / U32 < E.strike) { s.cond = Math.max(0, s.cond - WX.strikeDmg); st.hits = (st.hits | 0) + 1; ev && ev({ t: tEnd, type: 'weather', sub: 'lightning', text: `雷擊！船體 −${WX.strikeDmg}%` }); }

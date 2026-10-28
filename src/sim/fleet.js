@@ -7,6 +7,8 @@ import { SHIPS, SHIP_ORDER, STARTERS, ZONES, ZONE_ORDER, FLEET_MAX, LV_MAX, LV_S
 import * as W from './world.js';
 import * as R from './rel.js';
 import { HOME_TYPES } from '../ship/homespec.js';
+import { sanSz, sanMat } from './seazones.js';
+import { PROMO_BP_IDS } from './szdata.js';
 import { planEvent, decide as decideEvent, pending as evPending, EVENTS } from './seaevents.js';
 
 const BP_IDS = SHIP_ORDER.filter((k) => !SHIPS[k].free);   // 需要藍圖的船
@@ -33,10 +35,10 @@ export function sanitizeFleet(f) {
     ships.push(o);
   }
   const ids = new Set(); for (const sh of ships) { if (ids.has(sh.id) || sh.id <= 0) sh.id = 1 + Math.max(0, ...ships.map((x) => x.id)); ids.add(sh.id); }
-  const bp = {}; for (const k of BP_IDS) if (f.bp && f.bp[k]) bp[k] = 1;
+  const bp = {}; for (const k of [...BP_IDS, ...PROMO_BP_IDS]) if (f.bp && f.bp[k]) bp[k] = 1; const mat = sanMat(f.mat);
   const world = sanWorld(f.world);
   const home = Number.isInteger(f.home) && ships.some((x) => x.id === f.home) ? { home: f.home } : {};
-  return { ...home, v: 1, nextId: Math.max(n(f.nextId, 1), 1 + Math.max(0, ...ships.map((x) => x.id))), ships, bp, flagship: f.flagship === 'cruise' ? 'cruise' : null, pick: typeof f.pick === 'string' ? f.pick.slice(0, 16) : null,
+  return { ...home, ...(mat ? { mat } : {}), v: 1, nextId: Math.max(n(f.nextId, 1), 1 + Math.max(0, ...ships.map((x) => x.id))), ships, bp, flagship: f.flagship === 'cruise' ? 'cruise' : null, pick: typeof f.pick === 'string' ? f.pick.slice(0, 16) : null,
     stats: { missions: n(f.stats && f.stats.missions) | 0, sunk: n(f.stats && f.stats.sunk) | 0 }, world, pilot: { day: n(f.pilot && f.pilot.day, -1) | 0, got: Math.max(0, n(f.pilot && f.pilot.got) | 0) } };
 }
 
@@ -171,6 +173,7 @@ function sanWorld(w) {
   if (w.spawn && n(w.spawn.x) && n(w.spawn.y)) o.spawn = { slot: Math.max(0, Math.min(WORLD.slots - 1, w.spawn.slot | 0)), ...pt(w.spawn) };
   o.fog = typeof w.fog === 'string' && w.fog.length <= 1400 && /^[A-Za-z0-9+/=]*$/.test(w.fog) ? w.fog : ''; o.seen = {}; for (const z of ZONE_ORDER) if (w.seen && w.seen[z]) o.seen[z] = 1; o.pos = pt(w.pos); o.explored = n(w.explored) ? Math.max(0, w.explored | 0) : 0;
   if (w.wx && typeof w.wx === 'object') { const c = (v) => (n(v) ? Math.max(0, Math.min(1e7, v | 0)) : 0); o.wx = { k: ['clear', 'storm', 'blizzard', 'snow', 'aurora'].includes(w.wx.k) ? w.wx.k : 'clear', hits: c(w.wx.hits), storm: c(w.wx.storm), snow: c(w.wx.snow), aur: c(w.wx.aur), polar: c(w.wx.polar) & 3 }; }
+  { const sz = sanSz(w.sz); if (sz) o.sz = sz; }
   const r = w.route; if (r && n(r.x0) && n(r.y0) && n(r.x1) && n(r.y1) && n(r.t0) && n(r.t1)) o.route = { x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, t0: r.t0, t1: r.t1, fuel: n(r.fuel) ? r.fuel : 0 };
   return o;
 }

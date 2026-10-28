@@ -6,6 +6,7 @@ import { hash, mulberry32 } from './rng.js';
 import { fleetTick, tripBlueprint, grantBlueprint } from './fleet.js';
 import { worldTick } from './world.js';
 import { weatherTick } from './weather.js';
+import { seaPre, seaTick, moraleMul } from './seazones.js';
 import { SHIPS } from './fleetdefs.js';
 import * as R from './rel.js';
 
@@ -87,11 +88,14 @@ export function stepTick(s, t, rep) {
   // 1. 出海返航
   for (const tr of s.trips.filter((x) => x.end <= tEnd).sort((a, b) => a.end - b.end || a.id - b.id)) resolveTrip(s, tr, tEnd, rep);
   s.trips = s.trips.filter((x) => x.end > tEnd);
-  weatherTick(s, t, tEnd, (e) => pushEvent(s, rep, e));   // 天氣：暴風 / 雷擊 / 雪減速 / 低溫耗油 / 極光（決定性；s.fleet.world 不存在就略過）
+  const sea = seaPre(s, t);   // 特殊海域：先算減速（跟天氣減速合併），再做危害 / 掉落
+  weatherTick(s, t, tEnd, (e) => pushEvent(s, rep, e), sea.slow);   // 天氣：暴風 / 雷擊 / 雪減速 / 低溫耗油 / 極光（決定性；s.fleet.world 不存在就略過）
+  seaTick(s, t, tEnd, (e) => pushEvent(s, rep, e), sea);   // 迷霧 / 漩渦 / 火焰 / 地獄 / 巨石陣（決定性；沒有世界地圖就略過）
   worldTick(s, tEnd, (e) => pushEvent(s, rep, e));   // 世界：方舟航行 / 揭開迷霧 / 抵達
   fleetTick(s, t, tEnd, rep);   // 艦隊：建造 / 返航 / 閒置自動出航（s.fleet 不存在時什麼都不做）
   // 2. 生產 / 消耗
   const r = rates(s, tEnd); const n = Object.keys(s.crew).length + 1;
+  { const mm = moraleMul(s); if (mm < 1) for (const k of RES_KEYS) if (r[k] > 0) r[k] *= mm; }   // 地獄 / 迷霧累積的士氣流失：產量最多 −20%
   for (const k of RES_KEYS) if (r[k] > 0) { const d = addRes(s, k, r[k], rep); trackProd(s, k, d); }
   let short = false;
   for (const k of ['food', 'water', 'fuel']) { const need = r.cons[k]; const have = s.res[k]; const used = Math.min(need, have); s.res[k] -= used; if (rep) rep.consumed[k] += used; if (used < need - 1e-9 && k !== 'fuel') short = true; }

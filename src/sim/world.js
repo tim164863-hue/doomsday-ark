@@ -2,6 +2,9 @@
 // 地圖本身是「所有玩家共用的常數」（不依存檔種子）；每位玩家只存自己的迷霧、位置、航線（fleet.world）。
 import { hash } from './rng.js';
 import { WORLD, ZONE_ORDER } from './fleetdefs.js';
+import { zoneAtPoint } from './szdata.js';
+/** 迷霧海域裡看不見東西：海圖迷霧不會被方舟揭開（任務船不受影響） */
+const hazed = (x, y) => { const h = zoneAtPoint(x, y); return !!(h && h.z.haz.noReveal && h.depth > 0); };
 
 const G = WORLD.grid, CELL = WORLD.cell, C = WORLD.c;
 const MAP_SEED = 20261028;
@@ -48,6 +51,7 @@ export function reveal(w, x, y, r) {
   const a = fogArr(w); let n = 0; const [cx0, cy0] = cellOf(x, y); const rc = Math.ceil(r / CELL) + 1; const zg = zoneGrid();
   for (let cy = cy0 - rc; cy <= cy0 + rc; cy++) for (let cx = cx0 - rc; cx <= cx0 + rc; cx++) {
     if (!inb(cx, cy)) continue; const [px, py] = cellCenter(cx, cy); if (Math.hypot(px - x, py - y) > r) continue;
+    { const hz = zoneAtPoint(px, py); if (hz && hz.z.haz.noReveal && hz.u < 0.72) continue; }   // 迷霧海域：只有外緣一圈看得到，內部永遠是霧
     const i = idx(cx, cy); if (a[i >> 3] & (1 << (i & 7))) continue; a[i >> 3] |= 1 << (i & 7); n++; w.seen[ZONE_ORDER[zg[i]]] = 1;
   }
   if (n) { w.fog = b64enc(a); cache.set(w, { str: w.fog, arr: a }); }
@@ -87,10 +91,11 @@ export function sailTo(s, x, y, nowSec, reserve = 15) {
 export function worldTick(s, tEnd, ev) {
   const f = s.fleet; const w = f && f.world; if (!w || !w.pos) return;
   const r = w.route; if (!r) return;
-  const p = arkPos(w, tEnd); w.pos = { x: p.x, y: p.y }; const n = reveal(w, p.x, p.y, WORLD.revealArk); if (n) w.explored = (w.explored || 0) + n;
-  if (!p.moving) { w.route = null; w.pos = { x: r.x1, y: r.y1 }; reveal(w, r.x1, r.y1, WORLD.revealArk); const z = zoneAt(r.x1, r.y1); ev && ev({ t: tEnd, type: 'arrive', text: `方舟抵達 ${zoneLabel(z)}。`, zone: z }); }
+  const p = arkPos(w, tEnd); w.pos = { x: p.x, y: p.y }; const n = hazed(p.x, p.y) ? 0 : reveal(w, p.x, p.y, WORLD.revealArk); if (n) w.explored = (w.explored || 0) + n;
+  if (!p.moving) { w.route = null; w.pos = { x: r.x1, y: r.y1 }; if (!hazed(r.x1, r.y1)) reveal(w, r.x1, r.y1, WORLD.revealArk); const z = zoneAt(r.x1, r.y1); ev && ev({ t: tEnd, type: 'arrive', text: `方舟抵達 ${zoneLabel(z)}。`, zone: z }); }
 }
 const NAMES = { near: '🌊近海', reef: '🪸珊瑚礁', ruins: '🏙️廢墟城市', ice: '🧊冰海', abyss: '🕳️深淵' };
+export const isHazed = hazed;
 export const zoneLabel = (z) => NAMES[z] || z;
 
 /** 從 (x,y) 出發，離某海域最近的格（回傳 {x,y,d}）；用於任務目的地與「附近」判斷 */
