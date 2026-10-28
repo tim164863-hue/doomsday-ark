@@ -152,7 +152,7 @@ export class SeaLife {
         const cyc = ((time + d.ph) % d.per) / d.per; const dur = 0.5 / d.per * 1.0 + 0.0; // 躍出時間比例
         const lt = d.alt / d.per; // 弧長比例
         let y, pitch = 0, vis = true;
-        if (cyc < lt) { const u = cyc / lt; y = Math.sin(u * PI) * (2.2 + d.side * 0.05 + 0.6) - 0.5; pitch = Math.cos(u * PI) * 0.9; const prev = d.last; if (prev !== 1 && cyc > 0.02) { /* skip */ } if (d.last !== 1 && u > 0.04) { d.last = 1; this.splash.burst(px, waveHeight(px, pz, time), pz, 5, 0.8, 2.5); } }
+        if (cyc < lt) { const u = cyc / lt; y = Math.sin(u * PI) * (2.2 + d.side * 0.05 + 0.6) - 0.5; pitch = Math.cos(u * PI) * 0.9; const prev = d.last; if (prev !== 1 && cyc > 0.02) { /* skip */ } if (d.last !== 1 && u > 0.04) { d.last = 1; this.splash.burst(px, waveHeight(px, pz, time), pz, 5, 0.8, 2.5); this.onSound && this.onSound('dolphin', px, pz); } }
         else { y = -2.5; vis = false; if (d.last === 1) { d.last = 0; this.splash.burst(px + dirx * 3, waveHeight(px, pz, time), pz + dirz * 3, 6, 1.0, 3.2); } }
         const wy = waveHeight(px, pz, time);
         d.m.visible = vis; d.m.position.set(px, wy + y, pz);
@@ -163,7 +163,7 @@ export class SeaLife {
   updateWhales(dt, time) {
     for (const w of this.whales) {
       w.t -= dt;
-      if (w.state === 'under') { w.m.visible = false; if (w.t <= 0) { w.state = 'rise'; w.t = 3; w.a += (Math.random() - 0.5) * 0.9; const r = w.r + (Math.random() - 0.5) * 40; w.x = Math.cos(w.a) * r; w.z = Math.sin(w.a) * r; w.hd = w.a + PI / 2 * (Math.random() < 0.5 ? 1 : -1) + (Math.random() - 0.5) * 0.6; w.blown = 0; w.m.visible = true; } }
+      if (w.state === 'under') { w.m.visible = false; if (w.t <= 0) { w.state = 'rise'; w.t = 3; w.a += (Math.random() - 0.5) * 0.9; const r = w.r + (Math.random() - 0.5) * 40; w.x = Math.cos(w.a) * r; w.z = Math.sin(w.a) * r; w.hd = w.a + PI / 2 * (Math.random() < 0.5 ? 1 : -1) + (Math.random() - 0.5) * 0.6; w.blown = 0; w.m.visible = true; this.onSound && this.onSound('whale', w.x, w.z); } }
       else if (w.state === 'rise' || w.state === 'surf' || w.state === 'dive') {
         const sp = w.state === 'surf' ? 1.6 : 2.4; w.x += Math.sin(w.hd) * sp * dt; w.z += Math.cos(w.hd) * sp * dt;
         let y = 0, pitch = 0;

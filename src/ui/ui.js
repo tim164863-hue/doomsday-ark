@@ -21,7 +21,7 @@ export class UI {
     const g = this.game, r = this.root;
     r.innerHTML = '';
     this.top = $(`<div id="top"><div class="brand"><b>末日方舟</b><span>DOOMSDAY ARK</span></div><div class="chips"><span id="dataChip" class="chip">連線中…</span><span id="phaseChip" class="chip"></span><span id="fpsChip" class="chip dim"></span></div>
-      <div class="tools"><select id="qsel" title="畫質"><option value="auto">畫質：自動</option><option value="high">畫質：高</option><option value="mid">畫質：中</option><option value="low">畫質：低</option></select><button id="helpBtn" title="操作說明 (H)">❓</button></div></div>`);
+      <div class="tools"><select id="qsel" title="畫質"><option value="auto">畫質：自動</option><option value="high">畫質：高</option><option value="mid">畫質：中</option><option value="low">畫質：低</option></select><button id="sndBtn" title="音效：開／關">🔊</button><button id="helpBtn" title="操作說明 (H)">❓</button></div></div>`);
     this.right = $(`<div id="right"><button id="camBtn" title="切換視角 (V)">🎥 追隨</button><button id="panBtn" title="全景：顯示整艘船 (0)">🚢 全景</button><div id="decks"></div><button id="exBtn" title="展開甲板">🗂 展開</button><button id="listBtn" title="成員 (L)">👥 成員</button></div>`);
     this.crewPanel = $(`<div id="crew" class="hide"><div class="hd">👥 船員 <small>點選即可聚焦</small><button class="x">✕</button></div><div class="bd"></div></div>`);
     this.timebar = $(`<div id="timebar" class="collapsed"><div class="row1"><button id="tbBtn" title="攝影模式：只調整畫面光線與時段，不影響遊戲時間／進度"><span class="pm">📷</span><span id="clock"></span><span class="car">▴</span></button>
@@ -40,6 +40,8 @@ export class UI {
     r.append(this.top, this.right, this.crewPanel, this.timebar, this.elev, this.help, this.toastEl);
     this.qsel = this.top.querySelector('#qsel'); this.camBtn = this.right.querySelector('#camBtn'); this.dataChip = this.top.querySelector('#dataChip'); this.phaseChip = this.top.querySelector('#phaseChip'); this.fpsChip = this.top.querySelector('#fpsChip');
     this.qsel.value = g.qLocked && new URLSearchParams(location.search).get('q') == null ? g.qLevel : 'auto'; if (!g.qLocked) this.qsel.value = 'auto';
+    if (innerWidth <= 700) for (const op of this.qsel.options) op.textContent = op.textContent.replace('畫質：', '🎞 ');
+    if (g.audio) g.audio.bind(this.top.querySelector('#sndBtn'));
     this.qsel.onchange = () => { const v = this.qsel.value; if (v === 'auto') { localStorage.removeItem('ark.quality'); g.qLocked = false; this.toast('畫質：自動（依 FPS 調整）'); } else { localStorage.setItem('ark.quality', v); g.qLocked = true; g.setQuality(v); this.toast('畫質：' + v); } };
     this.top.querySelector('#helpBtn').onclick = () => this.toggleHelp(); this.help.querySelector('.ok').onclick = () => { this.toggleHelp(false); localStorage.setItem('ark.helped', '1'); };
     this.camBtn.onclick = () => g.controls.cycleMode(); this.right.querySelector('#panBtn').onclick = () => g.showPanorama();

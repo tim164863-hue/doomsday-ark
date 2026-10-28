@@ -9,6 +9,7 @@ import { mapDecksTo } from './crew/decks.js';
 import { ContestTV } from './ship/tv.js';
 import { systems, emit } from './events.js';
 import { SeaLife } from './world/sealife.js';
+import { AudioFX } from './audio.js';
 import { Player } from './player.js';
 import { Controls } from './controls.js';
 import { Crew } from './crew/crew.js';
@@ -40,6 +41,7 @@ export class Game {
     this.ctx = this; this.fps = 60; this.fpsAcc = 0; this.fpsN = 0; this.lowCount = 0; this.soloDeck = null; this.viewDeck = 4; this.viewOverride = null;
     this.envState = this.env.update(this.dayT, 0, this.camera, this.focus); this.updatePhase();
     this.sealife = new SeaLife(this.scene, this.env, this.quality);
+    this.audio = new AudioFX(); const _av = new THREE.Vector3(); this.sealife.onSound = (k, x, z) => this.audio.event(k, this.camera.position.distanceTo(_av.set(x, 0, z)));
     this.player = new Player(this); this.crew = new Crew(this);
     this.controls = new Controls(this, canvas); this.controls.tapCb = (x, y) => this.onTap(x, y); if (this.small) { this.controls.setMode('overview'); this.controls.target.copy(this.controls.tgtOver); }
     const P = new URLSearchParams(location.search);
@@ -104,6 +106,7 @@ export class Game {
     this.focus.copy(this.controls.mode === 'overview' ? this.controls.tgtOver : this.controls.target);
     const e = this.envState = this.env.update(this.dayT, this.time, this.camera, this.focus); this.updatePhase();
     this.sealife.update(sdt, this.time, e);
+    this.audio.update(dt, 1 - Math.max(e.nightF, e.duskF * 0.6), this.helm && this.helm.on ? this.helm.v : 0);
     this.tv.update(sdt);
     for (const s of systems) s.update(dt, this);
     // FPS 與自動降級（用牆上時鐘計算；掉到很低的幀率也要能偵測）

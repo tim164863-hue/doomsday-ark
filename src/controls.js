@@ -60,11 +60,11 @@ export class Controls {
     // 虛擬搖桿
     const joy = document.getElementById('joy'); this.joyEl = joy;
     if (joy) {
-      joy.style.display = this.touch ? 'block' : 'none'; const knob = joy.querySelector('.knob'); let id = null; const R = 52;
-      const set = (e) => { const r = joy.getBoundingClientRect(); let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const l = Math.hypot(dx, dy); if (l > R) { dx = dx / l * R; dy = dy / l * R; } knob.style.transform = `translate(${dx}px,${dy}px)`; this.joy.x = dx / R; this.joy.y = -dy / R; };
-      joy.addEventListener('pointerdown', (e) => { id = e.pointerId; joy.setPointerCapture(id); set(e); e.stopPropagation(); });
+      joy.style.display = this.touch ? 'block' : 'none'; const knob = joy.querySelector('.knob'); const tri = { u: joy.querySelector('.tri.u'), d: joy.querySelector('.tri.d'), l: joy.querySelector('.tri.l'), r: joy.querySelector('.tri.r') }; let id = null; const R = 52;
+      const set = (e) => { const r = joy.getBoundingClientRect(); let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const l = Math.hypot(dx, dy); if (l > R) { dx = dx / l * R; dy = dy / l * R; } knob.style.transform = `translate(${dx}px,${dy}px)`; this.joy.x = dx / R; this.joy.y = -dy / R; for (const [k, v] of [['u', -dy / R], ['d', dy / R], ['l', -dx / R], ['r', dx / R]]) tri[k].classList.toggle('hot', v > 0.45); };
+      joy.addEventListener('pointerdown', (e) => { id = e.pointerId; joy.setPointerCapture(id); joy.classList.add('act'); set(e); e.stopPropagation(); });
       joy.addEventListener('pointermove', (e) => { if (e.pointerId === id) set(e); });
-      const end = (e) => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; this.joy.x = 0; this.joy.y = 0; };
+      const end = (e) => { if (e.pointerId !== id) return; id = null; knob.style.transform = ''; this.joy.x = 0; this.joy.y = 0; joy.classList.remove('act'); for (const k in tri) tri[k].classList.remove('hot'); };
       joy.addEventListener('pointerup', end); joy.addEventListener('pointercancel', end);
     }
   }

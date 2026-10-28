@@ -48,8 +48,13 @@ button.deck.sel, #panBtn.sel { border-color: var(--acc); color: var(--acc); back
 #slider::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid var(--acc); }
 
 #joy { position: absolute; left: calc(18px + env(safe-area-inset-left)); bottom: calc(max(112px, var(--tbx, 0px)) + env(safe-area-inset-bottom)); width: 128px; height: 128px; touch-action: none; display: none; z-index: 5; }
-#joy .ring { position: absolute; inset: 0; border-radius: 50%; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.35); backdrop-filter: blur(2px); }
-#joy .knob { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: rgba(255,211,107,.75); border: 2px solid #fff8; box-shadow: 0 2px 8px #0008; }
+#joy { opacity: .13; transition: opacity .18s; } #joy.act { opacity: .23; }
+#joy .ring { position: absolute; inset: 0; border-radius: 50%; background: rgba(255,255,255,.18); border: 2px solid #fff; }
+#joy .tri { position: absolute; width: 14px; height: 11px; background: #fff; opacity: .75; transition: opacity .12s, transform .12s; }
+#joy .tri.u { left: 50%; top: 9px; margin-left: -7px; clip-path: polygon(50% 0, 100% 100%, 0 100%); } #joy .tri.d { left: 50%; bottom: 9px; margin-left: -7px; clip-path: polygon(0 0, 100% 0, 50% 100%); }
+#joy .tri.l { top: 50%; left: 9px; margin-top: -7px; width: 11px; height: 14px; clip-path: polygon(0 50%, 100% 0, 100% 100%); } #joy .tri.r { top: 50%; right: 9px; margin-top: -7px; width: 11px; height: 14px; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+#joy .tri.hot { opacity: 1; transform: scale(1.35); }
+#joy .knob { position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px 0 0 -26px; border-radius: 50%; background: rgba(255,255,255,.55); border: 2px solid #fff; box-shadow: none; }
 
 #elevPop { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); background: rgba(10,22,38,.88); border: 1px solid var(--line); border-radius: 16px; padding: 12px; min-width: 220px; backdrop-filter: blur(12px); }
 #elevPop .t { text-align: center; margin-bottom: 8px; font-weight: 600; } #elevPop .b { display: flex; flex-direction: column; gap: 5px; } #elevPop button { display: flex; justify-content: space-between; gap: 18px; padding: 8px 12px; } #elevPop small { opacity: .6; }
@@ -253,3 +258,25 @@ body.touch kbd { display: none; } body.touch .nt { display: none; } body:not(.to
 @media (max-width: 700px) { body.mging #timebar { display: none; } }
 
 @media (max-width: 700px) { #toast { left: 8px; max-width: calc(100% - 8px - var(--ttr, 12px)); transform: translateY(-10px); text-align: left; } #toast.show { transform: none; } }
+
+/* ---- 手機：左上資訊收折成小膠囊，點開才顯示資源與功能鍵 ---- */
+#tlpill { display: none; } #sndBtn { min-width: 34px; }
+@media (max-width: 700px) {
+  #top { flex-wrap: nowrap; justify-content: space-between; gap: 6px; } #top .brand, #top .chips { display: none; } #top .tools { margin-left: auto; gap: 4px; flex-wrap: nowrap; } #top .tools button { padding: 5px 6px; min-width: 30px; } #qsel { max-width: 62px; font-size: 11px; padding: 4px 2px; }
+  #tlpill { display: flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 99px; background: var(--glass); border: 1px solid var(--line); color: #fff; font-size: 11px; white-space: nowrap; backdrop-filter: blur(8px); }
+  #tlpill i { font-style: normal; font-size: 13px; } #tlpill .pv { display: flex; gap: 5px; font-variant-numeric: tabular-nums; } #tlpill .pv .low { color: #ff8a7e; } #tlpill .car { opacity: .6; font-size: 10px; }
+  #resbar { display: none; top: calc(50px + env(safe-area-inset-top)); left: 8px; width: 140px; max-width: none; flex-direction: column; align-items: stretch; gap: 5px; padding: 6px; border-radius: 12px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(8px); pointer-events: auto; }
+  body.tlopen #resbar { display: flex; } body.homeless #tlpill { display: none; }
+  #resbar .rcs { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; } #resbar .rc { padding: 2px 5px; font-size: 11px; gap: 2px; white-space: nowrap; min-width: 0; border: 0; background: #ffffff10; } #resbar .rc.cond { grid-column: 1 / -1; } #resbar .rc .bar { width: 40px; } #resbar .rc i { font-size: 12px; } #resbar .rc small { display: none; }
+  #resbar .racts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3px; max-width: none; } #resbar .racts .rb { padding: 4px 0; font-size: 15px; }
+  #right { top: calc(50px + env(safe-area-inset-top)); } #crew { top: calc(50px + env(safe-area-inset-top)); } #crewmini { top: calc(50px + env(safe-area-inset-top)); width: 140px; } body.tlopen #crewmini { top: 224px; }
+}
+
+/* ---- 手機右下角按鈕：文字一律單行 ---- */
+@media (max-width: 700px) {
+  #helmbar button, #pilotbar button, #right button, #timebar button, #resbar button, #prompt .pb button, #mg .mgbtn, .scConfirm button { white-space: nowrap; }
+  #prompt .pb button { overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  #helmbar { gap: 5px; padding: 6px 7px; max-width: calc(100vw - 154px); } #helmbar button { padding: 7px 8px; font-size: 12px; } #helmbar .hk b { font-size: 14px; min-width: 1.8em; } #helmbar .hk small:not(.hp) { display: none; }
+}
+@media (max-width: 700px) { #pilotbar { left: auto; right: 8px; transform: none; } }
+#helmbar button, #pilotbar button { white-space: nowrap; }
