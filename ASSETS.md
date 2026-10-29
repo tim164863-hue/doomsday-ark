@@ -10,7 +10,13 @@
 | 來源 | 授權 | 用途 | 取得方式 |
 |---|---|---|---|
 | [Phosphor Icons](https://phosphoricons.com) `-fill` / `-bold`（npm `@iconify-json/ph`） | **MIT** © Phosphor Icons | 絕大多數圖示（資源、按鈕、天氣、表情、狀態…） | `tools/build-icon-font.mjs` |
-| [game-icons.net](https://game-icons.net)（npm `@iconify-json/game-icons`）：pirate-flag、penguin、polar-bear、cruiser、ship-bow、fishing-boat、speed-boat、submarine、ancient-ruins、explosion-rays、ice-cube、snake、squid、sperm-whale、dragon-head、coral、volcano、rock、wood-pile、bubbles、diving-helmet | **CC BY 3.0**（必須署名）— 作者：Lorc、Delapouite 及 game-icons.net 貢獻者，<https://game-icons.net> | 同上 |
+| [game-icons.net](https://game-icons.net)（npm `@iconify-json/game-icons`）：24 個，含各船型 fishing-boat（小漁船）、speed-boat（洋流號）、cargo-ship（打撈拖船）、submarine（潛水艇）、iron-hulled-warship（武裝巡邏艇）、iceberg（破冰船）、cruiser（郵輪旗艦），以及 pirate-flag、penguin、polar-bear、ship-bow、ancient-ruins、explosion-rays、ice-cube、snake、squid、sperm-whale、dragon-head、coral、volcano、rock、wood-pile、bubbles、diving-helmet | **CC BY 3.0**（必須署名）— **每個圖示的作者**：[`public/licenses/game-icons-credits.txt`](public/licenses/game-icons-credits.txt)（Lorc、Delapouite、Cathelineau、Faithtoken；由 `node tools/icons/credits.mjs` 依官方封存檔產生）；授權原文 [`game-icons-license.txt`](public/licenses/game-icons-license.txt) | 同上 |
+
+**授權文件（隨網站發佈在 `licenses/`，即 `public/licenses/`）**
+- [`public/licenses/phosphor-MIT.txt`](public/licenses/phosphor-MIT.txt)：Phosphor Icons 的 **MIT 授權全文**（© 2023 Phosphor Icons，自上游 `phosphor-icons/core` 的 LICENSE 原樣複製）。MIT 要求在所有副本中保留版權聲明與許可聲明，已隨網站一併散佈。
+- [`public/licenses/game-icons-credits.txt`](public/licenses/game-icons-credits.txt) + [`game-icons-license.txt`](public/licenses/game-icons-license.txt)：game-icons.net 逐圖示署名與授權說明。
+- **修改聲明（CC BY 3.0 §3(b)）**：game-icons.net 的 SVG 被**轉成字型字形**——取出路徑、縮放並置中到共同的字框，再與 Phosphor 字形合併進同一個 woff2（`tools/build-icon-font.mjs`），這屬於對原作的**修改（改作）**；改作後仍以 CC BY 3.0 授權、保留署名，不代表原作者背書。以 CSS 上色也只是呈現方式。
+- 遊戲內「說明」卡片的素材致謝行指向這些檔案。
 
 - 圖示是**字型字元**（私用區 U+E000…），顏色跟著文字，所以能用 CSS 上「生鏽金屬／模板噴漆」的色調，手機上是向量、永遠清晰；Canvas（海圖、戰鬥、電視）也用同一個字型畫。
 - 對照表：`tools/icons/icon-map.mjs`（emoji → 圖示）、`tools/icons/pua.json`（圖示 → 碼位，穩定不重排）、`src/ui/icons.js`（`IC.anchor` 這類名稱，新程式碼用它）。

@@ -1,0 +1,32 @@
+ArkIcons 使用的 game-icons.net 圖示（共 24 個）
+授權：Creative Commons Attribution 3.0（CC BY 3.0）https://creativecommons.org/licenses/by/3.0/
+（個別作者若標示 CC0 則為 CC0；此處列出的作者皆適用 CC BY 3.0 之署名要求。）
+
+Icons made by the authors listed below, from https://game-icons.net — converted by this project into a single icon font (src/assets/ark-icons.woff2): glyph outlines were taken from the SVG paths, scaled/centred to a common em box and merged. That conversion is a MODIFICATION of the original artwork; the result remains under CC BY 3.0 (attribution kept here and in-game credits). No endorsement by the authors is implied.
+
+圖示名稱             作者                                           來源頁面
+------------------------------------------------------------------------------------------------------------------------
+ancient-ruins        Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/ancient-ruins.html
+bubbles              Lorc (http://lorcblog.blogspot.com)            https://game-icons.net/1x1/lorc/bubbles.html
+cargo-ship           Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/cargo-ship.html
+coral                Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/coral.html
+cruiser              Cathelineau                                    https://game-icons.net/1x1/cathelineau/cruiser.html
+diving-helmet        Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/diving-helmet.html
+dragon-head          Faithtoken (http://fungustoken.deviantart.com) https://game-icons.net/1x1/faithtoken/dragon-head.html
+explosion-rays       Lorc (http://lorcblog.blogspot.com)            https://game-icons.net/1x1/lorc/explosion-rays.html
+fishing-boat         Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/fishing-boat.html
+ice-cube             Lorc (http://lorcblog.blogspot.com)            https://game-icons.net/1x1/lorc/ice-cube.html
+iceberg              Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/iceberg.html
+iron-hulled-warship  Cathelineau                                    https://game-icons.net/1x1/cathelineau/iron-hulled-warship.html
+penguin              Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/penguin.html
+pirate-flag          Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/pirate-flag.html
+polar-bear           Cathelineau                                    https://game-icons.net/1x1/cathelineau/polar-bear.html
+rock                 Lorc (http://lorcblog.blogspot.com)            https://game-icons.net/1x1/lorc/rock.html
+ship-bow             Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/ship-bow.html
+snake                Lorc (http://lorcblog.blogspot.com)            https://game-icons.net/1x1/lorc/snake.html
+speed-boat           Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/speed-boat.html
+sperm-whale          Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/sperm-whale.html
+squid                Lorc (http://lorcblog.blogspot.com)            https://game-icons.net/1x1/lorc/squid.html
+submarine            Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/submarine.html
+volcano              Lorc (http://lorcblog.blogspot.com)            https://game-icons.net/1x1/lorc/volcano.html
+wood-pile            Delapouite (http://delapouite.com)             https://game-icons.net/1x1/delapouite/wood-pile.html

@@ -181,5 +181,5 @@ src/
 
 
 ## 美術素材與授權（里程碑 1）
-全部 CC0 / MIT（唯一例外 game-icons.net 為 CC BY 3.0，已署名）；來源、授權、大小、重現方式見 [ASSETS.md](ASSETS.md)，素材由 `node tools/fetch-assets.mjs` 重現、`node tools/build-icon-font.mjs` 重建圖示字型；`node tools/check-emoji.mjs` 確保介面不再出現 emoji。
+全部 CC0 / MIT（唯一例外 game-icons.net 為 CC BY 3.0，已署名）；來源、授權、大小、重現方式見 [ASSETS.md](ASSETS.md)，素材由 `node tools/fetch-assets.mjs` 重現、`node tools/build-icon-font.mjs` 重建圖示字型；`node tools/check-emoji.mjs` 確保介面不再出現 emoji。 圖示授權全文與逐圖示作者在 `public/licenses/`（含 Phosphor MIT 全文、game-icons 作者清單與「已轉成字型＝改作」聲明）。
 貼圖（ambientCG）、天空 HDRI 與道具模型（Poly Haven）皆延遲載入並有程序式後備；`?wl=0` 可完整關閉（對照用）。
