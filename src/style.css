@@ -398,3 +398,5 @@ body:not(.touch) #bjoy { display: none; }
 .qmod { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; } .qml { display: flex; flex-direction: column; gap: 3px; } .qms { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; padding: 3px 8px; border-radius: 8px; background: #ffffff0d; } .qms.ok { opacity: .6; } .qms small { color: #ffd36b; white-space: nowrap; } .qmb { display: flex; flex-direction: column; gap: 5px; align-items: flex-start; }
 @media (max-width: 700px) { #quest { right: 8px; top: calc(166px + env(safe-area-inset-top)); width: min(176px, calc(100vw - 168px)); font-size: 11px; max-height: calc(100vh - 360px); } #quest .qt { font-size: 11px; } #quest .qtabs button { font-size: 10px; padding: 3px 1px; } #quest .qh b { font-size: 11.5px; } #quest .qd i { width: 20px; height: 20px; font-size: 11px; } #qring .ql { font-size: 11px; } }
 @media (min-width: 701px) { #quest { top: 238px; } }
+
+#quest .qstop { display: block; margin-top: 5px; padding: 4px 8px; font-size: 11px; border-radius: 8px; border: 1px solid var(--acc); color: var(--acc); background: rgba(255,255,255,.06); cursor: pointer; }

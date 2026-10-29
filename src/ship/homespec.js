@@ -16,16 +16,16 @@ export const SPECS = {
   skiff: { facSc: 0.55, L: 7, W: 2.4, hull: { bow: 0.42, sternW: 0.7 }, k: 3.2, xr: [-3.1, 1.9], margin: 0.4, cap: 3, desks: 0, beds: 0, loungers: 0,
     door: [-1.9, 0], blocks: [[-1.72, -0.67, -0.1, 0.67], [0.9, -0.1, 1.1, 0.1]], hide: [{ r: [-2.95, -1.0, -1.8, 0.95], y: 1.6 }],
     t: { desk: [[0.8, 2.2], [0.8, -2.2], [2.4, -2.2]], galley: [4.2, 0], bed: [-7.6, 0], lounger: [0, 0], land: [-1.0, 3.0], party: [3.4, 0], chat: [[1.4, 0.2], [-7.0, 2.2], [-7.0, -2.2]] },
-    fac: [[-8.2, 2.1], [-6.0, 2.1], [-8.2, -2.1], [-6.0, -2.1], [1.4, 3.0]] },
+    fac: [[-8.2, 2.1], [-6.0, 2.1], [-8.2, -2.1], [-6.0, -2.1], [-4.6, 0.0]] },
   speedboat: { facSc: 0.6, L: 9.5, W: 3.3, hull: { bow: 0.4, sternW: 0.9 }, k: 2.5, xr: [-4.4, 3.0], margin: 0.35, cap: 4, desks: 0, beds: 0, loungers: 0,
     door: [-3.0, 0], blocks: [[-2.85, -1.05, 0.35, 1.05], [-0.35, -0.2, 0.05, 0.2], [-3.75, -0.2, -3.35, 0.2], [-3.35, -0.45, -2.75, 0.45]],
     hide: [{ r: [-4.4, -1.5, -3.5, -0.55], y: 2.4 }, { r: [-4.1, 0.6, -2.3, 1.6], y: 2.4 }],
     t: { desk: [[1.6, 2.6], [1.6, -2.6], [3.6, 2.2], [3.6, -2.2]], galley: [5.0, 0], bed: [-9.0, 0], lounger: [0, 0], land: [1.0, 3.0], party: [4.0, 0], chat: [[2.4, 0], [-8.0, 2.4], [-8.0, -2.4]] },
-    fac: [[-9.6, 2.5], [-9.6, -2.5], [-7.4, 2.9], [-7.4, -2.9], [0.4, 3.0]] },
+    fac: [[-9.6, 2.5], [-9.6, -2.5], [-7.4, 2.9], [-7.4, -2.9], [-5.6, 0.0]] },
   tug: { facSc: 0.75, L: 14, W: 5, hull: { bow: 0.3, sternW: 0.9 }, k: 1.6, xr: [-6.4, 5.8], margin: 0.4, cap: 6, desks: 0, beds: 0, loungers: 1,
     door: [-0.3, 0], blocks: [[-0.1, -1.3, 3.3, 1.3], [-3.5, -0.85, -2.5, 0.85], [-5.3, -1.7, -3.9, -1.1], [-5.3, 1.1, -3.9, 1.7]], hide: [],
     t: { desk: [[-2.6, 3.0], [-2.6, -3.0], [-0.6, 3.2], [-0.6, -3.2]], galley: [-2.0, 0], bed: [7.2, 0], lounger: [8.0, 0], land: [-4.0, 3.4], party: [-1.8, 0], chat: [[-1.0, 0], [6.0, 2.0], [6.0, -2.0]] },
-    fac: [[-9.6, 2.6], [-9.6, -2.6], [-7.4, 3.0], [-7.4, -3.0], [-4.4, 3.4]] },
+    fac: [[-9.6, 2.6], [-9.6, -2.6], [-7.4, 3.0], [-7.4, -3.0], [-6.8, 0.0]] },
   patrol: { facSc: 0.75, L: 18, W: 4.6, hull: { bow: 0.42, sternW: 0.88 }, k: 1.6, xr: [-8.2, -3.3], margin: 0.4, cap: 6, desks: 0, beds: 0, loungers: 1,
     door: [-3.2, 0], blocks: [[-3.0, -1.7, 3.4, 1.7]], hide: [],
     t: { desk: [[-6.0, 2.4], [-6.0, -2.4], [-4.8, 0], [-8.2, 0]], galley: [-9.5, 0], bed: [0, 0], lounger: [-5.0, 0], land: [-4.8, 2.6], party: [-8.5, 0], chat: [[-5.0, 0], [-8.0, 1.5]] },
@@ -131,8 +131,8 @@ export function buildHome(type, lv = 1) {
   for (let i = DECK_FACS; i < FRAW.length; i++) { const t = S.fac[i]; let best = null;
     for (const [rr, sp] of [[0.6, 1], [0.45, 0.75], [0.3, 0.55]]) { const c0 = comp(startPt[0], startPt[1]);
       for (let dz = -6; dz <= 6; dz += 0.5) for (let dx = -6; dx <= 6; dx += 0.5) { const x = t[0] + dx, z = t[1] + dz; if (!nav.walkable(x, z, rr)) continue; const q = nav.nearestFree(x, z, 1, WR); if (!q || !c0[nav.ix(q[0]) + nav.iz(q[1]) * GW]) continue;
-        if (facs.some((f) => Math.hypot(f.x - x, f.z - z) < (f.hatch ? 2.2 : 2.0) * sp) || pois.seats.some((p) => Math.hypot(p.x - x, p.z - z) < 1.3 * sp)) continue; const d = Math.hypot(dx, dz); if (!best || d < best.d) best = { x, z, d }; }
-      if (best) break; }
+        if (facs.some((f) => Math.hypot(f.x - x, f.z - z) < (f.hatch ? 2.2 : 2.0) * sp) || pois.seats.some((p) => Math.hypot(p.x - x, p.z - z) < 1.3 * sp)) continue; const d = Math.hypot(dx, dz); if (!best || d < best.d - 1e-6) best = { x, z, d }; }
+      if (best && best.d <= 3.2) break; }   // 離目標太遠（如被艙房擋住）就再用較緊的間距找一次，工坊艙口要靠近其他設施
     const px = best ? best.x : t[0], pz = best ? best.z : t[1];
     facs[i] = { x: px, z: pz, ry: 0, sc: S.facSc, ok: !!best, hatch: true }; }
   // 閒聊點：目標附近最近的可走格（且四周留空）

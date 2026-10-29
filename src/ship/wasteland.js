@@ -17,7 +17,7 @@ float wlN(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f); return mix(mi
 float wlF(vec2 p){ return 0.55*wlN(p) + 0.3*wlN(p*2.3+7.1) + 0.15*wlN(p*5.1+3.3); }
 `;
 
-function injectWear(sh, str, sc = 1, cov = 0) {
+function injectWear(sh, str, sc = 1, cov = 0, chipK = 1) {
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWlP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWlP = position;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWlP;\n' + GLSL_NOISE)
       .replace('#include <color_fragment>', `#include <color_fragment>
@@ -32,20 +32,20 @@ function injectWear(sh, str, sc = 1, cov = 0) {
         vec3 rust = mix(vec3(0.33,0.15,0.07), vec3(0.58,0.3,0.11), wlN(P.xz*5.0 + P.y*3.0));
         vec3 bare = vec3(0.30,0.28,0.26) * (0.8 + 0.4*wlN(P.xz*20.0));
         vec3 c = mix(base, rust, clamp(streak*0.75 + low, 0.0, 1.0) * S);
-        c = mix(c, bare, chip * 0.75 * S);
+        c = mix(c, bare, chip * 0.75 * S * ${chipK.toFixed(2)});
         wlR = clamp(c / max(diffuseColor.rgb, vec3(0.08)), 0.0, 1.3);
-        diffuseColor.rgb = c; wlM = clamp(streak*0.75 + low + chip, 0.0, 1.0) * S; }`)
+        diffuseColor.rgb = c; wlM = clamp(streak*0.75 + low + chip*${chipK.toFixed(2)}, 0.0, 1.0) * S; }`)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\n roughnessFactor = mix(roughnessFactor, 0.96, wlM*0.85);')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\n metalnessFactor *= (1.0 - wlM*0.6);')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance *= wlR * 0.92;');
   
 }
 /** 不複製材質、直接在原材質上掛舊化 shader（給會被程式即時改 emissive 等參數的船殼用；applyDetail 會呼叫 userData.wlHook） */
-export function wearInPlace(m, str = 1, sc = 1, cov = 0) {
+export function wearInPlace(m, str = 1, sc = 1, cov = 0, chipK = 1) {
   if (!WL_ON || !m || m.userData.worn) return m;
-  m.userData.worn = true; m.userData.wlHook = (sh) => injectWear(sh, str, sc, cov);
+  m.userData.worn = true; m.userData.wlHook = (sh) => injectWear(sh, str, sc, cov, chipK);
   const prev = m.onBeforeCompile; m.onBeforeCompile = (sh) => { if (prev) prev.call(m, sh); m.userData.wlHook(sh); };
-  m.customProgramCacheKey = () => 'wlip:' + str.toFixed(2) + ':' + sc + ':' + cov; m.needsUpdate = true; return m;
+  m.customProgramCacheKey = () => 'wlip:' + str.toFixed(2) + ':' + sc + ':' + cov + ':' + chipK; m.needsUpdate = true; return m;
 }
 const WORN = new Map();
 /** 舊化材質（同一個原材質只複製一次；透明 / 自發光的不處理）。 */

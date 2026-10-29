@@ -202,7 +202,9 @@ export class Play {
     const g = this.game, pl = g.player; const a = pl.actor; let best = null, bd = 1e9;
     if (!this.pilot && !this.gaming && (g.small || g.controls.mode !== 'overview') && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
       for (const f of FAC_ORDER) { const v = this.fac[f]; if (v.deck !== a.deck) continue; const d = Math.hypot(v.x - a.x, v.z - a.z) - Math.max(v.hw, v.hd) + 1.0; if (d < 2.4 && d < bd) { bd = d; best = { type: 'fac', id: f }; } }
-      for (const b of g.crew.bots.values()) { if (b.away || b.actor.deck !== a.deck || !b.avatar.group.visible) continue; const d = Math.hypot(b.actor.x - a.x, b.actor.z - a.z); if (d < 2.4 && d < bd + 0.3 && (!best || d < bd)) { bd = d; best = { type: 'bot', bot: b }; } }
+      // 教學「補給：蓋設施」進行中且站在可建造的設施旁：優先顯示設施（不被旁邊的船員搶走互動卡）
+      const qPref = !!(best && best.type === 'fac' && this.state && this.state.quest && !this.state.quest.x && !this.state.quest.ev.supply && this.hud.quest && this.hud.quest.step && this.hud.quest.step.id === 'supply' && this.state.fac[best.id] && this.state.fac[best.id].lv < 3);
+      if (!qPref) for (const b of g.crew.bots.values()) { if (b.away || b.actor.deck !== a.deck || !b.avatar.group.visible) continue; const d = Math.hypot(b.actor.x - a.x, b.actor.z - a.z); if (d < 2.4 && d < bd + 0.3 && (!best || d < bd)) { bd = d; best = { type: 'bot', bot: b }; } }
     }
     if (!this.pilot && !this.gaming && (g.small || g.controls.mode !== 'overview') && !(a.cur && (a.cur.t === 'stair' || a.cur.t === 'elev'))) {
       let cand = null; for (const sp of this.games.spots) { if (sp.deck !== a.deck) continue; const d = Math.hypot(sp.x - a.x, sp.z - a.z); if (d < 1.55 && !(best && best.type === 'bot' && bd < 1.2 && bd <= d) && (!cand || d < cand.d)) cand = { type: 'spot', spot: sp, id: sp.id, d }; } if (cand) best = cand;

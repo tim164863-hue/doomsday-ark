@@ -80,14 +80,14 @@ void main(){
   if (uWl > 0.5) {
     float gr = dot(body, vec3(0.33));
     body = mix(body, vec3(gr*0.95, gr*1.04, gr*0.88) + vec3(0.012,0.02,0.0), 0.36) * 0.88;
-    wlOil = smoothstep(0.6, 0.82, noise(wp*0.05 + vec2(t*0.012, -t*0.008))*0.65 + noise(wp*0.14 - vec2(t*0.01, t*0.006))*0.35) * (1.0 - smoothstep(160.0, 650.0, vDist));
+    wlOil = smoothstep(0.64, 0.86, noise(wp*0.05 + vec2(t*0.012, -t*0.008))*0.65 + noise(wp*0.14 - vec2(t*0.01, t*0.006))*0.35) * (1.0 - smoothstep(160.0, 650.0, vDist));
     float ph = noise(wp*0.32 + t*0.03)*6.2832 + ndv*4.0 + vH*2.0;
     wlFilm = 0.5 + 0.5*cos(ph + vec3(0.0, 2.1, 4.2));
-    body = mix(body, body*0.5 + wlFilm*0.1, wlOil*0.55);
+    body = mix(body, body*0.6 + wlFilm*0.06, wlOil*0.3);
   }
   vec3 col = mix(body, refl, F) + spec;
-  col += wlFilm * wlOil * (0.03 + 0.2*pow(1.0-ndv, 2.5)) * (0.15 + 0.85*uDay);
-  if (uWl > 0.5) col = mix(col, col*0.7, wlOil*0.3);
+  col += wlFilm * wlOil * (0.012 + 0.1*pow(1.0-ndv, 2.5)) * (0.15 + 0.85*uDay);
+  if (uWl > 0.5) col = mix(col, col*0.82, wlOil*0.2);
   // 泡沫：浪尖 + 船身周圍
   float fn = noise(wp*1.3 + vec2(t*0.1, -t*0.07)) * 0.6 + noise(wp*4.1 - t*0.2)*0.4;
   float foam = smoothstep(0.94, 1.05, crest + (fn-0.5)*0.3) * 0.16;

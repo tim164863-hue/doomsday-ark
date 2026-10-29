@@ -140,7 +140,7 @@ function loftBand(shape, rows, { bottom = false, stations = 110 } = {}) {
   if (bottom) { for (let i = 0; i < stations; i++) { const a = at(0, i, R - 1), b = at(0, i + 1, R - 1), c = at(1, i, R - 1), d = at(1, i + 1, R - 1); idx.push(a, c, b, b, c, d); } }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
-  const mesh = new THREE.Mesh(g, wearInPlace(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.0, emissive: 0xd0ccc6, side: THREE.DoubleSide }), 1.3, 0.3, 0.2));   // 廢土：船殼鏽痕 / 掉漆
+  const mesh = new THREE.Mesh(g, wearInPlace(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.0, emissive: 0xd0ccc6, side: THREE.DoubleSide }), 0.9, 0.3, 0.12, 0.3));   // 廢土：船殼鏽痕 / 掉漆
   mesh.castShadow = true; mesh.receiveShadow = true; return mesh;
 }
 

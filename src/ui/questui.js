@@ -19,6 +19,7 @@ export class QuestUI {
       const b = e.target.closest('button'); if (!b) return; const q = this.q(); if (!q) return;
       if (b.dataset.a === 'fold') { q.c = q.c ? 0 : 1; this.sig = ''; this.render(); this.play.save(); }
       else if (b.dataset.a === 'close') { q.x = 1; this.sig = ''; this.render(); this.g.ui.toast('已略過教學　想再看：📋 任務 → 新手教學'); this.play.save(); }
+      else if (b.dataset.a === 'noauto') { this.play.fleetAct('auto', { id: +b.dataset.id, on: false }); this.acc = 9; this.sig = ''; }
       else if (b.dataset.l) { this.line = b.dataset.l; this.sig = ''; this.render(); }
     });
   }
@@ -80,7 +81,7 @@ export class QuestUI {
       return { text: '在甲板上找設施標籤（例如 🥬 溫室），走過去按「建造」；零件不夠就先去打撈 🚣' };
     }
     if (id === 'upgrade') {
-      { const f = s.fleet; if (f && f.ships.length && !f.ships.some((x) => x.state === 'dock')) { const sh = f.ships.find((x) => x.state === 'sail' && x.m); const eta = sh ? Math.max(1, Math.ceil((sh.m.end - clock.now()) / 60)) : 0; return { blocked: true, text: `小船正在出海，返港後才能升級${eta ? '（約 ' + eta + ' 分後）' : ''}。先做別的步驟；想讓它回來後留在港裡，可到 ⚓ 艦隊把「自動」關掉。` }; } }
+      { const f = s.fleet; if (f && f.ships.length && !f.ships.some((x) => x.state === 'dock')) { const sh = f.ships.find((x) => x.state === 'sail' && x.m); const eta = sh ? Math.max(1, Math.ceil((sh.m.end - clock.now()) / 60)) : 0; return { blocked: true, text: `小船正在出海，返港後才能升級${eta ? '（約 ' + eta + ' 分後）' : ''}。先做別的步驟；想讓它回來後留在港裡，按下面的「停止自動出航」（也可到 ⚓ 艦隊關掉「自動」）。`, stop: (f.ships.find((x) => x.state === 'sail' && x.auto) || { id: -1 }).id }; } }
       if (mk === 'fleet') { const e = [...document.querySelectorAll('.shipc[data-id] [data-a=up]')].find((x) => !x.disabled && this.vis(x)); return e ? { el: e, label: '按「升級」', text: '按小船卡片上的「升級」（需要零件）' } : { text: '小船的「升級」需要零件；先去打撈 🚣 再回來' }; }
       return this.menu('#btnFleet', '點 ⚓ 艦隊', '點 ⚓ 艦隊，再按小船卡片上的「升級」');
     }
@@ -94,7 +95,7 @@ export class QuestUI {
   curLine() { const q = this.q(); const done = (l) => !Q.nextStep(this.s, l); if (!this.line || (this.line && done(this.line) && !done(this.line === 'basic' ? 'biz' : 'basic'))) this.line = Q.LINES.find((l) => !done(l.id)) ? Q.LINES.find((l) => !done(l.id)).id : this.line || 'basic'; return this.line; }
   render() {
     const q = this.q(); if (!q) return; const s = this.s; const pr = Q.questProgress(s); const line = this.curLine();
-    const sig = JSON.stringify([q.c, q.x, line, q.done, q.fin, q.bp, Q.poolText(q), this.cur && this.cur.text, this.note, this.step && this.step.id]); if (sig === this.sig) return; this.sig = sig;
+    const sig = JSON.stringify([q.c, q.x, line, q.done, q.fin, q.bp, Q.poolText(q), this.cur && this.cur.text, this.stopId, this.note, this.step && this.step.id]); if (sig === this.sig) return; this.sig = sig;
     this.el.classList.toggle('fold', !!q.c); this.el.querySelector('.qn').textContent = pr.n + '/' + pr.total; this.el.querySelector('.qc').textContent = q.c ? '＋' : '－';
     const tabs = this.el.querySelector('.qtabs'); tabs.innerHTML = Q.LINES.map((l) => { const n = Q.STEPS.filter((x) => x.line === l.id && q.done[x.id]).length; const t = Q.STEPS.filter((x) => x.line === l.id).length; return `<button data-l="${l.id}" class="${l.id === line ? 'on' : ''} ${n === t ? 'ok' : ''}">${l.icon} ${l.name} <small>${n}/${t}</small></button>`; }).join('');
     const st = this.step && !q.done[this.step.id] && this.step.line === line ? this.step : Q.nextStep(s, line); const sE = this.el.querySelector('.qs'), tE = this.el.querySelector('.qt'), rE = this.el.querySelector('.qr'), pE = this.el.querySelector('.qp');
@@ -102,7 +103,7 @@ export class QuestUI {
     if (st) { sE.innerHTML = `<div class="qd">${dots}</div><b>${st.icon} ${st.name}</b>`; tE.textContent = (this.cur && this.cur.text) || ''; rE.innerHTML = '獎勵 ' + rewardText(st.r); }
     else if (q.fin) { sE.innerHTML = `<div class="qd">${dots}</div><b>🎉 教學全部完成！</b>`; tE.textContent = q.bp === 'parts' ? '已領到所有獎勵。' : `稀有藍圖「${SHIPS[q.bp].icon}${SHIPS[q.bp].name}」已放進船塢。`; rE.textContent = ''; }
     else { sE.innerHTML = `<div class="qd">${dots}</div><b>✔ 這條線完成了</b>`; tE.textContent = '切到另一條任務線繼續。'; rE.textContent = ''; }
-    const pt = Q.poolText(q); pE.textContent = (this.note ? this.note + '\n' : '') + (pt ? '📦 補給庫（倉庫有空位就補進來）：' + pt : ''); pE.style.display = pE.textContent ? '' : 'none'; pE.style.whiteSpace = 'pre-line';
+    const pt = Q.poolText(q); pE.textContent = (this.note ? this.note + '\n' : '') + (pt ? '📦 補給庫（倉庫有空位就補進來）：' + pt : ''); pE.style.display = pE.textContent ? '' : 'none'; pE.style.whiteSpace = 'pre-line'; if (this.stopId >= 0) { const bt = document.createElement('button'); bt.className = 'qstop'; bt.dataset.a = 'noauto'; bt.dataset.id = this.stopId; bt.textContent = '⏹ 停止自動出航'; pE.style.display = ''; pE.appendChild(bt); }
   }
   shouldShow() {
     const q = this.q(); const g = this.g; if (!q || q.x || g.homeless) return false; const cl = document.body.classList; const hud = this.hud;
@@ -114,7 +115,7 @@ export class QuestUI {
     const q = this.q(); if (!q || !this.hud.play) return; this.acc += dt;
     if (this.acc >= 0.25) {
       this.acc = 0; const line = this.curLine(); const open = Q.STEPS.filter((x) => x.line === line && !q.done[x.id]); this.note = ''; let st = open[0] || null, cur = null;
-      let bl = null; for (const x of open) { const r = this.resolve(x); if (r && r.blocked) { this.note = '⏳ ' + x.name + '：' + r.text; bl = r; continue; } st = x; cur = r; break; }
+      this.stopId = -1; let bl = null; for (const x of open) { const r = this.resolve(x); if (r && r.blocked) { this.note = '⏳ ' + x.name + '：' + r.text; bl = r; if (r.stop >= 0 && this.stopId < 0) this.stopId = r.stop; continue; } st = x; cur = r; break; }
       if (!cur && bl) { cur = { text: bl.text }; this.note = ''; }
       this.step = st; const prev = (this.cur && this.cur.text) + '|' + this.note + '|' + (st && st.id); this.cur = q.fin ? null : cur; const now = (this.cur && this.cur.text) + '|' + this.note + '|' + (st && st.id);
       if (now !== prev) this.sig = ''; this.render(); const show = this.shouldShow(); this.el.classList.toggle('hide', !show); if (show) { this.avoidRight(); this.autoFold(); }
