@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { WAVES } from './waves.js';
 import { SHIP, HULL_XS, HULL_XB, HULL_TIP, SHIP_CX } from '../ship/config.js';
 import { WL_ON } from '../ship/wasteland.js';
+import { ART, onEnv } from './art.js';
 
 const N = WAVES.length;
 const vert = /* glsl */`
@@ -34,7 +35,7 @@ precision highp float;
 uniform float uTime, uAmp, uDetail;
 uniform vec3 uDeep, uShallow, uZenith, uHorizon, uGlow, uSunDir, uSunCol, uMoonDir, uFog;
 uniform float uFogD, uDay, uMoonVis, uSunVis, uShipHL, uShipHW, uHullOn, uSmallOn;
-uniform vec4 uSmall; uniform vec4 uArk; uniform float uWl;
+uniform vec4 uSmall; uniform vec4 uArk; uniform float uWl; uniform sampler2D uEnv; uniform float uEnvK, uEnvM;
 varying vec3 vWorld; varying float vH; varying float vDist; varying vec2 vGrad;
 float hash2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
@@ -69,6 +70,8 @@ void main(){
   F = clamp(F*1.0, 0.0, 1.0);
   vec3 R = reflect(-V, N); R.y = abs(R.y);
   vec3 refl = skyCol(R);
+  // 真實天空 HDRI（Poly Haven CC0）的明暗結構調製倒影：雲層 / 地平線亮帶會映在水面上（色調仍由程序式天空依日夜 / 天氣決定）
+  if (uEnvK > 0.0) { vec3 ev = texture2D(uEnv, vec2(atan(R.z, R.x)*0.159155 + 0.5, asin(clamp(R.y, -1.0, 1.0))*0.31831 + 0.5)).rgb; refl *= mix(1.0, clamp(dot(ev, vec3(0.333))/uEnvM, 0.4, 1.9), uEnvK); }
   float sunSpec = pow(max(dot(R, uSunDir), 0.0), 220.0) * 3.2 + pow(max(dot(R, uSunDir), 0.0), 24.0)*0.18;
   float moonSpec = pow(max(dot(R, uMoonDir), 0.0), 400.0) * 1.6 + pow(max(dot(R, uMoonDir), 0.0), 40.0)*0.05;
   vec3 spec = uSunCol*sunSpec*uSunVis + vec3(0.7,0.8,1.0)*moonSpec*uMoonVis;
@@ -144,7 +147,7 @@ export class Ocean {
       uZenith: U.uZenith, uHorizon: U.uHorizon, uGlow: U.uGlow, uSunDir: U.uSunDir, uSunCol: U.uSunCol, uMoonDir: U.uMoonDir,
       uFog: { value: scene.fog.color }, uFogD: { value: 0.0005 }, uDay: U.uDay, uMoonVis: U.uMoonVis, uSunVis: U.uSunVis,
       uShipHL: { value: (HULL_XB - HULL_XS) / 2 }, uShipHW: { value: 12.3 },
-      uWl: { value: WL_ON ? 1 : 0 }, uHullOn: { value: 1 }, uOrg: { value: new THREE.Vector2(0, 0) }, uArk: { value: new THREE.Vector4(SHIP_CX, 0, 0, SHIP_CX) }, uSmallOn: { value: 0 }, uSmall: { value: new THREE.Vector4(0, 0, 0, 12) },
+      uWl: { value: WL_ON ? 1 : 0 }, uEnv: { value: null }, uEnvK: { value: 0 }, uEnvM: { value: 0.5 }, uHullOn: { value: 1 }, uOrg: { value: new THREE.Vector2(0, 0) }, uArk: { value: new THREE.Vector4(SHIP_CX, 0, 0, SHIP_CX) }, uSmallOn: { value: 0 }, uSmall: { value: new THREE.Vector4(0, 0, 0, 12) },
     };
     this.mat = new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: vert, fragmentShader: frag, fog: false });
     this.scene = scene; this.build(quality);
@@ -154,11 +157,13 @@ export class Ocean {
     const g = buildPolarGrid(q.oceanRings, q.oceanSegs, 5200, 170);
     this.mesh = new THREE.Mesh(g, this.mat); this.mesh.position.set(this.uniforms.uOrg.value.x, 0, this.uniforms.uOrg.value.y); this.mesh.frustumCulled = false; this.mesh.renderOrder = -1;
     this.scene.add(this.mesh); this.uniforms.uDetail.value = q.waterDetail;
+    onEnv((t) => { this.uniforms.uEnv.value = t; this.uniforms.uEnvM.value = ART.envMean; this.envOn = true; });
   }
   /** 海面網格跟著鏡頭走（波浪以世界座標計算，所以看不出來）；母船駕駛時才會離開原點。 */
   follow(x, z) { this.mesh.position.set(x, 0, z); this.uniforms.uOrg.value.set(x, z); }
   update(time, waveAmp) {
     this.uniforms.uTime.value = time; this.uniforms.uAmp.value = waveAmp;
     this.uniforms.uFogD.value = this.env.scene.fog.density;
+    if (this.envOn) { const st = this.env.state; this.uniforms.uEnvK.value = 0.75 * (st.dayF || 0) * (1 - 0.6 * (this.env.wx ? this.env.wx.storm : 0)); }
   }
 }

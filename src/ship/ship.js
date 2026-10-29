@@ -150,7 +150,7 @@ export class Ship {
     const F = [0, 1, 2].map((i) => BASE_Y + i * DH);
     const hp = buildHullParts(HULL, F, KEEL_Y, this.M, this.env); this.hullShape = hp.shape; this.hullBase = hp.base; this.hullBands = hp.bands;
     this.root.add(hp.base); hp.bands.forEach((g) => this.root.add(g));
-    patchShip(this.root, { type: 'flagship', lv: 3, meshes: [hp.base, hp.bands[0].children[0], hp.bands[1].children[0]], yRange: [F[0] + 0.9, F[1] + DH * 0.55], n: 34, sc: 1.7 });   // 廢土：船殼補丁鋼板
+    patchShip(this.root, { type: 'flagship', lv: 3, meshes: [hp.base, hp.bands[0].children[0], hp.bands[1].children[0]], yRange: [F[0] + 0.9, F[1] + DH * 0.55], n: 34, sc: 1.7, fenders: 10, buoys: 8 });   // 廢土：船殼補丁鋼板
     this.hullLights = []; this.hullMats = [hp.base.material, hp.bands[0].children[0].material, hp.bands[1].children[0].material];
     if (quality.name !== 'low') this.hullMats.forEach((m) => applyDetail(m, KIND.hull));
     for (let i = 0; i < NDECK; i++) {

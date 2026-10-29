@@ -23,4 +23,50 @@
 |---|---|---|
 | Kenney Mini Characters（`public/models/character-*.glb`，12 個） | **CC0** | <https://kenney.nl/assets/mini-characters>，授權文字 `public/models/LICENSE-kenney-mini-characters.txt` |
 
-（本檔之後會隨美術升級持續補上：PBR 貼圖、HDRI、模型等，每項都附來源、授權與下載腳本。）
+
+## 3. PBR 貼圖（ambientCG，CC0）
+
+來源 <https://ambientcg.com>，授權 **CC0 1.0**（可商用、免署名；我們仍列出來源）。`tools/fetch-assets.mjs tex` 下載 1K-JPG 包 → 取 Color + Displacement → 合成「RGB=底色、A=高度」一張 WebP（1024 與 512 各一）。
+shader 以**物件空間三向投影**取樣（沒有 UV 也不會拉伸），高度圖用螢幕空間導數做凹凸，所以一組材質只佔 2 個貼圖單元（手機友善）。
+
+| 檔案 | 用途 | ambientCG 素材 | 大小 |
+|---|---|---|---|
+| `public/tex/paint-1k.webp` | 旗艦船殼：白漆＋鏽痕 1024（桌機） | Metal041B | 326 KB |
+| `public/tex/paint-512.webp` | 同上 512（手機 / low 畫質） | Metal041B | 95 KB |
+| `public/tex/steel-1k.webp` | 小船船殼：灰鋼＋鏽 1024 | Metal063 | 314 KB |
+| `public/tex/steel-512.webp` | 同上 512 | Metal063 | 61 KB |
+| `public/tex/rust-1k.webp` | 重鏽斑塊 1024 | Rust009 | 296 KB |
+| `public/tex/rust-512.webp` | 同上 512 | Rust009 | 84 KB |
+
+素材頁：[Metal041B](https://ambientcg.com/a/Metal041B)（白漆鏽痕）、[Metal063](https://ambientcg.com/a/Metal063)（灰鋼鏽痕）、[Rust009](https://ambientcg.com/a/Rust009)（重鏽）。
+
+## 4. 天空 HDRI（Poly Haven，CC0）
+
+| 檔案 | 用途 | 素材 | 大小 |
+|---|---|---|---|
+| `public/env/sky.hdr` | 環境反射光 IBL（PMREM）＋ 水面倒影的雲層明暗；由 1k 版降採樣成 256×128 | [wasteland_clouds_puresky](https://polyhaven.com/a/wasteland_clouds_puresky)（Poly Haven，**CC0**） | 86 KB |
+
+## 5. 道具模型（Poly Haven，CC0）
+
+來源 <https://polyhaven.com>，全部 **CC0**。`tools/fetch-assets.mjs models`：下載 1k glTF → weld → meshopt 簡化到 600–4800 三角形 → 貼圖縮 512 WebP → quantize + meshopt 壓縮。
+遊戲裡每種道具每艘船 1 個 `InstancedMesh`，載入完才出現；載入失敗用簡單幾何代替（`src/ship/props.js`）。道具只放艙頂 / 舷外，純視覺，不影響碰撞與走道。
+
+| 檔案 | 用途 | 素材 | 大小 |
+|---|---|---|---|
+| `public/models/props/barrel_03.glb` | 艙頂油桶 | barrel_03 | 86 KB |
+| `public/models/props/metal_jerrycan.glb` | 汽油罐 | metal_jerrycan | 122 KB |
+| `public/models/props/propane_tank.glb` | 丙烷鋼瓶 | propane_tank | 85 KB |
+| `public/models/props/old_tyre.glb` | 舷側輪胎護舷 | old_tyre | 100 KB |
+| `public/models/props/lifebuoy.glb` | 救生圈（旗艦船殼） | lifebuoy | 118 KB |
+| `public/models/props/wooden_crate_02.glb` | 木箱 | wooden_crate_02 | 97 KB |
+| `public/models/props/portable_generator.glb` | 發電機（Lv2+ 艙頂） | portable_generator | 232 KB |
+
+素材頁：`https://polyhaven.com/a/<素材名>`。每個檔案的 sha256、簡化前後三角形數在 `public/assets-manifest.json`。
+
+## 6. 下載量與效能預算（里程碑 1）
+
+- 新增的美術素材全部**延遲載入**（先出畫面、後補素材，失敗就維持程序式外觀）；桌機約 1.9 MB、手機（512 貼圖）約 1.2 MB，一次性，之後走瀏覽器快取。
+- 預算：桌機 / 手機各自 ≤ 2.5 MB 延遲素材；draw calls 與基準版（舊廢土版）相比 ±5 以內（道具用 InstancedMesh、貼圖用 shader）；三角形每艘船 +≤ 20k。
+- 重新產生全部素材：`cd tools/assets && npm i && cd ../.. && node tools/fetch-assets.mjs`（來源下載會快取在 `tools/assets/.cache/`，已 gitignore）。
+
+（角色、生物、廢墟、冰山等之後的里程碑會繼續補在本檔。）

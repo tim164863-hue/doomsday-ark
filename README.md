@@ -178,3 +178,8 @@ src/
 - **💞 關係面板**（`R`）：你 ↔ 船員、好朋友、對頭 / 冷戰倒數、團隊氣氛、個人紀錄。
 - 存檔：`rel` 為選填欄位（`aff / feud / cool / party / cel / best`），舊存檔相容；離線模擬仍是決定性的。遊戲對 bot 唯讀，不會傳送任何東西。
 - 備註：遊輪上沒有卡拉 OK，因此沒做；訪客的小船沒有大型設施，只有躺椅與社交 / 關係功能。
+
+
+## 美術素材與授權（里程碑 1）
+全部 CC0 / MIT（唯一例外 game-icons.net 為 CC BY 3.0，已署名）；來源、授權、大小、重現方式見 [ASSETS.md](ASSETS.md)，素材由 `node tools/fetch-assets.mjs` 重現、`node tools/build-icon-font.mjs` 重建圖示字型；`node tools/check-emoji.mjs` 確保介面不再出現 emoji。
+貼圖（ambientCG）、天空 HDRI 與道具模型（Poly Haven）皆延遲載入並有程序式後備；`?wl=0` 可完整關閉（對照用）。

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clamp, lerp, smoothstep } from '../util.js';
+import { loadEnv, artTick } from './art.js';
 
 const C = (r, g, b) => new THREE.Color(r, g, b);
 const tmpA = new THREE.Color(), tmpB = new THREE.Color();
@@ -84,6 +85,7 @@ export class Environment {
     this.sky.scale.setScalar(6000); this.sky.renderOrder = -10; this.sky.frustumCulled = false;
     scene.add(this.sky);
     scene.fog = new THREE.FogExp2(0x9ab6d0, 0.0005);
+    loadEnv(renderer, scene);   // CC0 HDRI 環境光（載完才生效；?wl=0 不載）
 
     this.sun = new THREE.DirectionalLight(0xffffff, 2.5);
     this.sun.castShadow = quality.shadows > 0;
@@ -186,6 +188,8 @@ export class Environment {
     if (W.cloud > 0.01) this.waterShallow.lerp(C(0.03, 0.06, 0.08).multiplyScalar(0.5 + 0.5 * dayF), W.cloud * 0.5);
     if (zk > 0.004) { const zl = Z.glow > 0.5 ? 0.6 + 0.4 * dayF : 0.3 + 0.7 * dayF; this.waterDeep.lerp(tmpA.setRGB(Z.wDeep[0] * zl, Z.wDeep[1] * zl, Z.wDeep[2] * zl), Z.wAmt * zk); this.waterShallow.lerp(tmpA.setRGB(Z.wSh[0] * zl, Z.wSh[1] * zl, Z.wSh[2] * zl), Z.wAmt * zk); }
     this.renderer.toneMappingExposure = lerp(1.3, 0.9, dayF) * (1 + 0.1 * W.cloud * (1 - dayF));
+    if (this.scene.environment) this.scene.environmentIntensity = (0.07 + 0.5 * dayF + 0.08 * duskF) * (1 - 0.5 * W.storm);
+    artTick(this._dtArt = Math.min(0.1, Math.abs(this._lastT == null ? 0 : (time - this._lastT)) || 0.016)); this._lastT = time;
     Object.assign(this.state, { es, dayF, duskF, nightF });
     return this.state;
   }

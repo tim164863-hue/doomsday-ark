@@ -3,6 +3,7 @@ import { runSelfTest } from './sim/selftest.js';
 import { QUALITY, ORDER, detectQuality } from './config.js';
 import { Environment } from './world/environment.js';
 import { Ocean } from './world/ocean.js';
+import { ART } from './world/art.js';
 import { Debris } from './world/debris.js';
 import { Ship } from './ship/ship.js';
 import { SmallShip } from './ship/smallship.js';
@@ -34,7 +35,7 @@ import * as BTD from './sim/battle.js';
 export class Game {
   constructor(canvas, opts = {}) {
     const q = detectQuality(); this.qLevel = q.level; this.qLocked = q.locked; this.quality = QUALITY[this.qLevel];
-    this.canvas = canvas;
+    this.canvas = canvas; document.body.classList.toggle('grade', this.qLevel !== 'low' && ART.on);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality.dpr > 1 ? true : false, powerPreference: 'high-performance' });
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -79,6 +80,7 @@ export class Game {
     this.renderer.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
   }
   setQuality(level) {
+    document.body.classList.toggle('grade', level !== 'low' && ART.on);   // 色調分級 + 暈影（CSS，不吃 shader；low 畫質不開）
     this.qLevel = level; this.quality = QUALITY[level]; this.env.setQuality(this.quality); this.ocean.build(this.quality); this.wxfx.setQuality(this.quality); this.polar.setQuality(this.quality); this.zonefx.setQuality(this.quality);
     this.renderer.setPixelRatio(Math.min(devicePixelRatio || 1, this.quality.dpr)); this.renderer.setSize(this.W, this.H, false);
     this.scene.traverse((o) => { if (o.material) { o.material.needsUpdate = true; } });

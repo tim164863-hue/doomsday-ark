@@ -410,3 +410,9 @@ body:not(.touch) #bjoy { display: none; }
 .shipc .sh .ic { color: #c98f58; text-shadow: 0 1px 0 rgba(0,0,0,.6), 0 0 10px rgba(201,106,42,.22); }
 .shipc.flag .sh .ic { color: #ffd36b; }
 #modal h3 { color: #f1d9a6; }
+
+/* 色調分級：廢土偏冷偏灰、中間調壓低、暗部帶一點青；只作用在 3D 畫布（UI 在畫布上方不受影響），low 畫質不開 */
+body.grade canvas#gl { filter: saturate(0.88) contrast(1.07) brightness(0.97) sepia(0.07) hue-rotate(-5deg); }
+#vig { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: 0; transition: opacity .6s; background: radial-gradient(ellipse at 50% 46%, rgba(0,0,0,0) 52%, rgba(8,10,12,.34) 100%); }
+body.grade #vig { opacity: 1; }
+#help .credits { font-size: 11px; line-height: 1.5; opacity: .62; margin: 10px 0 4px; text-align: center; }
