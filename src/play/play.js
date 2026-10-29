@@ -100,7 +100,7 @@ export class Play {
   /** 站位：設施前方 */
   standPos(f) {
     const v = this.fac[f]; const nav = this.game.ship.decks[v.deck].nav;
-    if (this.game.small) { const dd = v.hd + 0.55, ry = v.ry || 0; return nav.nearestFree(v.x + Math.sin(ry) * dd, v.z + Math.cos(ry) * dd, 3) || [v.x, v.z + dd]; }
+    if (this.game.small) { const dd = v.hd + 0.55, ry = v.ry || 0; const sx = v.x + Math.sin(ry) * dd, sz = v.z + Math.cos(ry) * dd; return nav.nearestFree(sx, sz, 3, 0.26) || nav.nearestFree(sx, sz, 3) || [v.x, v.z + dd]; }
     return nav.nearestFree(v.x, v.z + v.hd + 0.9) || [v.x, v.z + v.hd + 1.2];
   }
 
