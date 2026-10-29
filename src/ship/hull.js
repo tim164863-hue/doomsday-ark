@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { HULL_XS, HULL_TIP, TIER } from './config.js';
+import { wearInPlace } from './wasteland.js';
 // 分支塗裝（階段③）：基礎船維持原本的深藍 / 紅 / 金
 const LIVERY = { war: { white: 0x9eabb6, navy: 0x2b3640, red: 0x59626b, gold: 0x9aa4ad }, mer: { white: 0xf0d9b8, navy: 0x5a2c14, red: 0xb84a1c, gold: 0xe8a23a }, sci: { white: 0xd2eef5, navy: 0x0b3a56, red: 0x1f8ea6, gold: 0x8fe0f0 } }[TIER.branch] || null;
 const L = (k, d) => (LIVERY ? LIVERY[k] : d);
@@ -139,7 +140,7 @@ function loftBand(shape, rows, { bottom = false, stations = 110 } = {}) {
   if (bottom) { for (let i = 0; i < stations; i++) { const a = at(0, i, R - 1), b = at(0, i + 1, R - 1), c = at(1, i, R - 1), d = at(1, i + 1, R - 1); idx.push(a, c, b, b, c, d); } }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
-  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.0, emissive: 0xd0ccc6, side: THREE.DoubleSide }));
+  const mesh = new THREE.Mesh(g, wearInPlace(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.0, emissive: 0xd0ccc6, side: THREE.DoubleSide }), 1.3, 0.3, 0.2));   // 廢土：船殼鏽痕 / 掉漆
   mesh.castShadow = true; mesh.receiveShadow = true; return mesh;
 }
 

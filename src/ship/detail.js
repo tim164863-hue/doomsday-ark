@@ -57,8 +57,9 @@ export function applyDetail(mat, kind) {
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvDWP = (modelMatrix * vec4(transformed, 1.0)).xyz; vDWN = normalize(mat3(modelMatrix) * objectNormal);');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vDWP; varying vec3 vDWN; uniform int uKind;\n' + GLSL)
       .replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb *= detailColor(uKind, vDWP, normalize(vDWN));');
+    if (mat.userData.wlHook) mat.userData.wlHook(sh);   // 廢土舊化（wearInPlace）
   };
-  mat.customProgramCacheKey = () => 'detail' + kind;
+  mat.customProgramCacheKey = () => 'detail' + kind + (mat.userData.wlHook ? 'wl' : '');
   mat.needsUpdate = true;
   return mat;
 }
