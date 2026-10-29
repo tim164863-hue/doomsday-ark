@@ -57,7 +57,7 @@ export class SmallShip {
   }
   measureDeckTop(model, home) {
     const rc = new THREE.Raycaster(); const ys = []; const pts = [home.start, home.land, home.party, ...home.pois.chat.map((c) => [c.x, c.z])];
-    for (const p of pts) { rc.set(new THREE.Vector3(p[0], 60, p[1]), new THREE.Vector3(0, -1, 0)); const h = rc.intersectObject(model, true); if (h.length) ys.push(h[0].point.y); }
+    for (const p of pts) { rc.set(new THREE.Vector3(p[0], 60, p[1]), new THREE.Vector3(0, -1, 0)); const h = rc.intersectObject(model, true).filter((x) => !x.object.userData.wlParts); if (h.length) ys.push(h[0].point.y); }
     ys.sort((a, b) => a - b); return ys.length ? ys[Math.floor(ys.length / 2)] : 2;
   }
   /** 甲板上的家具（桌、椅、躺椅）+ POI。 */

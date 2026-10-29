@@ -1,5 +1,6 @@
 // 艦隊 3D 模型：6 種小型船（程序式、低多邊形但有細節）。座標：+x 為船頭，y 向上，水線在 y=0；單位 = 公尺。
 import * as THREE from 'three';
+import { patchShip } from './wasteland.js';
 
 const MAT = {};
 const mat = (hex, r = 0.6, m = 0.05, extra = {}) => { const k = hex + ':' + r + ':' + m + JSON.stringify(extra); return MAT[k] || (MAT[k] = new THREE.MeshStandardMaterial({ color: hex, roughness: r, metalness: m, ...extra })); };
@@ -239,6 +240,7 @@ const BUILD = { skiff, speedboat, tug, sub, patrol, icebreaker };
 /** 取得一艘船的模型（Group）。lv 影響細節（1–3）。回傳 { group, draft } draft = 吃水深度（讓船在水面上位置正確）。 */
 export function buildShipModel(type, lv = 1) {
   const g = new THREE.Group(); (BUILD[type] || skiff)(g, lv);
+  patchShip(g, { type, lv });   // 末日廢土感：鏽蝕 / 補丁 / 土法零件（?wl=0 關閉）
   const d = { skiff: 0.3, speedboat: 0.18, tug: 0.55, sub: 0.0, patrol: 0.5, icebreaker: 1.0 }[type] || 0.3;
   g.userData.draft = d; g.userData.type = type; g.userData.lv = lv; g.position.y = 0; return g;
 }
