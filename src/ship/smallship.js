@@ -29,7 +29,7 @@ export class SmallShip {
   constructor(env, quality, tvTex, type, lv = 1) {
     if (!SPECS[type]) type = 'skiff';
     this.small = true; this.type = type; this.lv = lv; this.env = env; this.quality = quality; this.tvTex = tvTex; this.M = makeMaterials(env, quality);
-    const S = this.spec = SPECS[type], k = this.k = S.k; const home = this.home = buildHome(type);
+    const home = this.home = buildHome(type, lv); const S = this.spec = SPECS[type], k = this.k = home.k; this.hullScale = k / S.k;
     this.root = new THREE.Group(); this.root.name = 'smallship:' + type; this.body = new THREE.Group(); this.root.add(this.body);
     // 模型（放大 k 倍），先隱藏擋路的小道具
     const model = this.model = buildShipModel(type, lv); this.body.add(model); model.scale.setScalar(k);

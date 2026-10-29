@@ -83,7 +83,7 @@ export class Play {
     const ship = this.game.ship; const used = [[], [], [], [], []];
     if (this.game.small) { // 小船家：縮小的設備位（位置在 homespec 裡配好，不擋路）
       const h = ship.home;
-      FAC_ORDER.forEach((f, i) => { const p = h.facs[i]; const v = new FacilityView(f, ship.decks[0].group, p.x, p.z, p.ry, p.sc); v.deck = 0; this.fac[f] = v; });
+      FAC_ORDER.forEach((f, i) => { const p = h.facs[i]; const v = new FacilityView(f, ship.decks[0].group, p.x, p.z, p.ry, p.sc, !!p.hatch); v.deck = 0; this.fac[f] = v; });
       return;
     }
     for (const f of FAC_ORDER) {

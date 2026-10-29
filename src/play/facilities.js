@@ -75,6 +75,16 @@ const MODELS = {
   },
 };
 
+// 艙內設施在甲板上的「艙口」：與地面齊平的鋼板（可走過去），每級加一點細節：Lv1 艙蓋 + 指示燈、Lv2 加壓力表與管線、Lv3 加通風管。不擋路、不進導航阻擋。
+const HATCH_GLOW = { purifier: 'glowB', greenhouse: 'glowP', generator: 'glowO', infirmary: 'glowG', workshop: 'glowO' };
+function hatchLevels(id) {
+  const g = [new THREE.Group(), new THREE.Group(), new THREE.Group()]; const glow = MAT[HATCH_GLOW[id]] || MAT.glowG;
+  add(g[0], box(MAT.dark, 1.0, 0.04, 1.0, 0, 0, 0), box(MAT.steel, 0.86, 0.03, 0.86, 0, 0.04, 0), box(MAT.dark, 0.34, 0.04, 0.05, 0, 0.07, 0.3), box(glow, 0.5, 0.02, 0.06, 0, 0.07, -0.34));
+  add(g[1], cyl(MAT.steel, 0.07, 0.05, 0.34, 0.07, 0.3, 10), box(MAT.orange, 0.05, 0.12, 0.05, -0.38, 0.07, 0.38), box(MAT.steel, 0.5, 0.05, 0.05, -0.38, 0.19, 0.0));
+  add(g[2], cyl(MAT.steel, 0.06, 0.3, 0.44, 0.07, -0.44, 8), cyl(MAT.dark, 0.1, 0.05, 0.44, 0.37, -0.44, 8));
+  return g;
+}
+
 /** 在 nav 上找一塊四周留空的位置（hw×hd 半尺寸 + 1m 邊界全是可走格） */
 export function findSlot(nav, ax, az, hw, hd, avoid = [], margin = 1.0, maxD = 1e9) {
   let best = null, bd = maxD; const rx = hw + margin, rz = hd + margin;
@@ -92,19 +102,19 @@ export function blockRect(nav, x, z, hw, hd) {
 }
 
 export class FacilityView {
-  constructor(id, deckGroup, x, z, ry = 0, sc = SC) {
-    this.id = id; this.x = x; this.z = z; this.ry = ry; this.sc = sc; this.hw = RAW[id][0] * sc; this.hd = RAW[id][1] * sc; const [rw, rd] = RAW[id];
+  constructor(id, deckGroup, x, z, ry = 0, sc = SC, hatch = false) {
+    this.hatch = !!hatch; if (hatch) sc = 1; this.id = id; this.x = x; this.z = z; this.ry = ry; this.sc = sc; const [rw, rd] = hatch ? [0.5, 0.5] : RAW[id]; this.hw = rw * sc; this.hd = rd * sc;
     this.root = new THREE.Group(); this.root.position.set(x, 0, z); this.root.scale.setScalar(sc); this.root.rotation.y = ry; deckGroup.add(this.root);
-    this.levels = MODELS[id](); this.levels.forEach((l) => this.root.add(l));
+    this.levels = hatch ? hatchLevels(id) : MODELS[id](); this.levels.forEach((l) => this.root.add(l));
     // 藍圖（未建造）
-    this.bp = new THREE.Group(); const bg = new THREE.BoxGeometry(rw * 2, 1.4, rd * 2);
-    const bm = new THREE.Mesh(bg, MAT.bpFill); bm.position.y = 0.7; const bl = new THREE.LineSegments(new THREE.EdgesGeometry(bg), MAT.bpLine); bl.position.y = 0.7;
+    this.bp = new THREE.Group(); const bh = hatch ? 0.06 : 1.4; const bg = new THREE.BoxGeometry(rw * 2, bh, rd * 2);
+    const bm = new THREE.Mesh(bg, MAT.bpFill); bm.position.y = bh / 2; const bl = new THREE.LineSegments(new THREE.EdgesGeometry(bg), MAT.bpLine); bl.position.y = bh / 2;
     const ring = new THREE.Mesh(new THREE.RingGeometry(Math.max(rw, rd) * 1.05, Math.max(rw, rd) * 1.18, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x8fdcff, transparent: true, opacity: 0.7, depthWrite: false })); ring.position.y = 0.05; this.ring = ring;
     this.bp.add(bm, bl, ring); this.root.add(this.bp);
     // 故障燈 + 煙
-    this.warn = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), MAT.warn); this.warn.position.set(0, 2.2, 0); this.root.add(this.warn);
+    this.warn = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), MAT.warn); this.warn.position.set(0, hatch ? 0.9 : 2.2, 0); if (hatch) this.warn.scale.setScalar(0.8); this.root.add(this.warn);
     this.puffs = []; for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), MAT.smoke.clone()); p.visible = false; this.root.add(p); this.puffs.push(p); }
-    this.lv = 0; this.dmg = false; this.active = false; this.top = 2.6 * sc;
+    this.lv = 0; this.dmg = false; this.active = false; this.top = hatch ? 1.1 : 2.6 * sc;
     this.setState(0, false, false);
   }
   setState(lv, dmg, active) {
@@ -116,10 +126,10 @@ export class FacilityView {
   worldPos(out = new THREE.Vector3()) { return this.root.getWorldPosition(out).setY(out.y + this.top); }
   update(t) {
     if (this.lv === 0) { this.ring.scale.setScalar(1 + Math.sin(t * 2.4) * 0.05); this.bp.children[1].material.opacity = 0.6 + Math.sin(t * 2.4) * 0.3; }
-    if (this.dmg && this.lv) { this.warn.visible = Math.sin(t * 7) > 0; this.warn.position.y = 2.2 + Math.sin(t * 3) * 0.05; }
+    if (this.dmg && this.lv) { this.warn.visible = Math.sin(t * 7) > 0; this.warn.position.y = (this.hatch ? 0.9 : 2.2) + Math.sin(t * 3) * 0.05; }
     if (this.lv && (this.id === 'generator' || this.dmg)) {
       const on = this.active || this.dmg; const px = this.id === 'generator' ? 0.3 : 0, pz = this.id === 'generator' ? -0.35 : 0;
-      this.puffs.forEach((p, i) => { p.visible = on; if (!on) return; const k = ((t * 0.35 + i / 4) % 1); p.position.set(px + Math.sin(i * 2 + t) * 0.1, 1.7 + k * 1.3, pz); p.scale.setScalar(0.5 + k * 1.2); p.material.opacity = 0.4 * (1 - k); });
+      this.puffs.forEach((p, i) => { p.visible = on; if (!on) return; const k = ((t * 0.35 + i / 4) % 1); if (this.hatch) { p.position.set(0.44 + Math.sin(i * 2 + t) * 0.06, 0.45 + k * 0.9, -0.44); p.scale.setScalar(0.25 + k * 0.6); } else { p.position.set(px + Math.sin(i * 2 + t) * 0.1, 1.7 + k * 1.3, pz); p.scale.setScalar(0.5 + k * 1.2); } p.material.opacity = 0.4 * (1 - k); });
     } else for (const p of this.puffs) p.visible = false;
   }
 }

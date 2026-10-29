@@ -5,6 +5,11 @@ import { NavGrid, CS, GX0, GZ0, GW, GH } from './nav.js';
 
 export const HOME_TYPES = ['skiff', 'speedboat', 'tug', 'patrol', 'icebreaker'];
 export const isHomeType = (t) => HOME_TYPES.includes(t);
+/** 升級 = 船殼變大：Lv1 / Lv2 / Lv3 的船殼倍率（乘在 SPECS.k 上；家具位置、艙門、導航範圍跟著一起放大）。 */
+export const LV_SC = [1, 1.14, 1.28];
+export const lvScale = (lv) => LV_SC[Math.max(0, Math.min(LV_SC.length - 1, (lv | 0) - 1))] || 1;
+/** 甲板上只留這幾個代表性設施（淨水器、溫室）；其餘（發電機、醫務室、工坊）改放在艙內，甲板上只有一個與地面齊平的艙口。 */
+export const DECK_FACS = 2;
 
 // 模型座標（+x 船頭）。xr = 可走的 x 範圍；blocks = 固定結構（艙室、桅、絞車…）；hide = 要隱藏的小道具（騰出甲板）
 export const SPECS = {
@@ -63,8 +68,11 @@ const FP = {
 };
 
 /** 產生某船型的家：導航網格、阻擋矩形、所有 POI。 */
-export function buildHome(type) {
-  const S = SPECS[type]; if (!S) throw new Error('no home spec for ' + type); const k = S.k;
+export function buildHome(type, lv = 1) {
+  const S0 = SPECS[type]; if (!S0) throw new Error('no home spec for ' + type); const sc = lvScale(lv); const k = S0.k * sc;
+  // 世界座標的目標點（桌 / 設施 / 聊天點…）跟著船殼一起放大；其餘規格照舊
+  const sc2 = (a) => a.map((v) => (Array.isArray(v) ? sc2(v) : v * sc));
+  const S = { ...S0, k, lv: lv | 0 || 1, t: Object.fromEntries(Object.entries(S0.t).map(([a, v]) => [a, sc2(v)])), fac: sc2(S0.fac) };
   const hw = (x) => hullHalfW(S.L, S.W, x / k, S.hull) * k;
   const x0 = S.xr[0] * k, x1 = S.xr[1] * k; const nav = new NavGrid(); const poly = [];
   for (let iz = 0; iz < GH; iz++) for (let ix = 0; ix < GW; ix++) {
@@ -110,7 +118,7 @@ export function buildHome(type) {
   placeDesks(0, Math.min(3, S.desks));
   // 設施（淨水 / 溫室 / 發電 / 醫務 / 工坊）：縮小的設備位，沿舷側放，站位在前方 0.9m；順序同 FAC_ORDER
   const FRAW = [[1.3, 0.8], [1.4, 1.0], [1.3, 0.8], [1.3, 1.0], [1.4, 0.8]]; const facs = [];
-  FRAW.forEach(([fw, fd], i) => { let got = null, sc = S.facSc;
+  FRAW.forEach(([fw, fd], i) => { if (i >= DECK_FACS) return; let got = null, sc = S.facSc;
     for (const m of [1, 0.82, 0.68, 0.55, 0.45]) { sc = S.facSc * m; const a = fw * sc, b = fd * sc; const fp = { need: [-a - 0.05, -b - 0.05, a + 0.05, b + 0.8], block: [-a, -b, a, b] };
       got = place(fp, S.fac[i], [0, Math.PI, Math.PI / 2, -Math.PI / 2], (c) => { const q = R4(c.ry); const lz = b + 0.55; return [c.x + q.s * lz, c.z + q.c * lz]; }, 0, 400); if (got) break; }
     facs.push(got ? { x: got.x, z: got.z, ry: got.ry, sc, ok: true } : { x: S.fac[i][0], z: S.fac[i][1], ry: 0, sc: S.facSc * 0.45, ok: false }); });
@@ -119,6 +127,14 @@ export function buildHome(type) {
   for (let i = 0; i < S.beds; i++) { const p = place('bed', S.t.bed, [0, Math.PI], (c) => { const q = R4(c.ry); return [c.x - q.s * 1.45, c.z - q.c * 1.45]; }); if (p) { const { c, s } = R4(p.ry); props.beds.push(p); must.push([p.x - s * 1.45, p.z - c * 1.45]); pois.beds.push({ x: p.x, z: p.z, ry: p.ry, head: [s, c], exit: { x: p.x - s * 1.45, z: p.z - c * 1.45 } }); } }
   for (let i = 0; i < S.loungers; i++) { const p = place('lounger', S.t.lounger, [Math.PI / 2, -Math.PI / 2, 0, Math.PI], (c) => { const q = R4(c.ry); return [c.x + q.s * 1.45, c.z + q.c * 1.45]; }); if (p) { const { c, s } = R4(p.ry); props.loungers.push(p); must.push([p.x + s * 1.45, p.z + c * 1.45]); pois.loungers.push({ x: p.x, z: p.z, face: p.ry, head: [-s, -c] }); } }
   // 工作桌
+  // 艙內設施（發電機 / 醫務室 / 工坊）：甲板上只有一個與地面齊平的艙口（不擋路、不佔導航格），HUD 標籤與提示都錨在艙口上
+  for (let i = DECK_FACS; i < FRAW.length; i++) { const t = S.fac[i]; let best = null;
+    for (const [rr, sp] of [[0.6, 1], [0.45, 0.75], [0.3, 0.55]]) { const c0 = comp(startPt[0], startPt[1]);
+      for (let dz = -6; dz <= 6; dz += 0.5) for (let dx = -6; dx <= 6; dx += 0.5) { const x = t[0] + dx, z = t[1] + dz; if (!nav.walkable(x, z, rr)) continue; const q = nav.nearestFree(x, z, 1, WR); if (!q || !c0[nav.ix(q[0]) + nav.iz(q[1]) * GW]) continue;
+        if (facs.some((f) => Math.hypot(f.x - x, f.z - z) < (f.hatch ? 2.2 : 2.0) * sp) || pois.seats.some((p) => Math.hypot(p.x - x, p.z - z) < 1.3 * sp)) continue; const d = Math.hypot(dx, dz); if (!best || d < best.d) best = { x, z, d }; }
+      if (best) break; }
+    const px = best ? best.x : t[0], pz = best ? best.z : t[1];
+    facs[i] = { x: px, z: pz, ry: 0, sc: S.facSc, ok: !!best, hatch: true }; }
   // 閒聊點：目標附近最近的可走格（且四周留空）
   const cp = comp(startPt[0], startPt[1]); const inC = (x, z) => { const q = nav.nearestFree(x, z, 2, WR); return !!q && !!cp[nav.ix(q[0]) + nav.iz(q[1]) * GW]; };
   for (const t of S.t.chat) { const q = nav.nearestFree(t[0], t[1], 3); if (q && nav.walkable(q[0], q[1], 0.4) && inC(q[0], q[1]) && pois.chat.every((c) => Math.hypot(c.x - q[0], c.z - q[1]) > 2)) pois.chat.push({ x: q[0], z: q[1] }); }
@@ -130,5 +146,5 @@ export function buildHome(type) {
   const door = nav.nearestFree(S.door[0] * k, S.door[1] * k, 6) || [0, 0];
   // 被家具 / 艙室圍死、走不到的小角落：直接封起來，免得出現「看得到走不到」的死格
   { const cs = comp(startPt[0], startPt[1]); for (let j = 0; j < GW * GH; j++) if (nav.cells[j] === 1 && !cs[j]) { nav.cells[j] = 0; nav.base[j] = 0; } }
-  return { type, k, nav, door, poly, blocks, pois, props, facs, facSc: S.facSc, land, party, start, cap: S.cap, spec: S, hw };
+  return { type, k, lv: S.lv, nav, door, poly, blocks, pois, props, facs, facSc: S.facSc, land, party, start, cap: S.cap, spec: S, hw };
 }
