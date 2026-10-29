@@ -1,0 +1,131 @@
+{
+ "note": "\u7531 tools/fetch-assets.mjs \u7522\u751f\uff1b\u6388\u6b0a\u8aaa\u660e\u898b ASSETS.md",
+ "items": {
+  "tex/paint-1k.webp": {
+   "source": "https://ambientcg.com/a/Metal041B",
+   "asset": "Metal041B",
+   "license": "CC0-1.0",
+   "use": "\u65d7\u8266\u8239\u6bbc / \u767d\u6f06\u93fd\u75d5",
+   "bytes": 333912,
+   "sha256": "cfe8b8c5a7ceba55"
+  },
+  "tex/paint-512.webp": {
+   "source": "https://ambientcg.com/a/Metal041B",
+   "asset": "Metal041B",
+   "license": "CC0-1.0",
+   "use": "\u65d7\u8266\u8239\u6bbc / \u767d\u6f06\u93fd\u75d5",
+   "bytes": 97652,
+   "sha256": "d14f9bd64c25fe03"
+  },
+  "tex/steel-1k.webp": {
+   "source": "https://ambientcg.com/a/Metal063",
+   "asset": "Metal063",
+   "license": "CC0-1.0",
+   "use": "\u5c0f\u8239\u8239\u6bbc / \u7070\u92fc\u93fd\u75d5",
+   "bytes": 322028,
+   "sha256": "f585f7f9b53999ee"
+  },
+  "tex/steel-512.webp": {
+   "source": "https://ambientcg.com/a/Metal063",
+   "asset": "Metal063",
+   "license": "CC0-1.0",
+   "use": "\u5c0f\u8239\u8239\u6bbc / \u7070\u92fc\u93fd\u75d5",
+   "bytes": 62818,
+   "sha256": "b02706156ed45daa"
+  },
+  "tex/rust-1k.webp": {
+   "source": "https://ambientcg.com/a/Rust009",
+   "asset": "Rust009",
+   "license": "CC0-1.0",
+   "use": "\u91cd\u93fd\u6591\u584a",
+   "bytes": 302726,
+   "sha256": "9b3585eacb459080"
+  },
+  "tex/rust-512.webp": {
+   "source": "https://ambientcg.com/a/Rust009",
+   "asset": "Rust009",
+   "license": "CC0-1.0",
+   "use": "\u91cd\u93fd\u6591\u584a",
+   "bytes": 86490,
+   "sha256": "4b542aaa86d5aecc"
+  },
+  "env/sky.hdr": {
+   "source": "https://polyhaven.com/a/wasteland_clouds_puresky",
+   "asset": "wasteland_clouds_puresky",
+   "license": "CC0-1.0",
+   "use": "\u74b0\u5883\u53cd\u5c04\u5149 IBL\uff08256\u00d7128\uff0c\u7531 1k \u964d\u63a1\u6a23\uff09",
+   "bytes": 87751,
+   "sha256": "8071b1c714202d4e"
+  },
+  "models/props/metal_jerrycan.glb": {
+   "source": "https://polyhaven.com/a/metal_jerrycan",
+   "asset": "metal_jerrycan",
+   "license": "CC0-1.0",
+   "use": "\u8259\u9802\u6c7d\u6cb9\u7f50",
+   "trisBefore": 20022,
+   "trisAfter": 1400,
+   "bytes": 124852,
+   "sha256": "352a10cbd880641f"
+  },
+  "models/props/barrel_03.glb": {
+   "source": "https://polyhaven.com/a/barrel_03",
+   "asset": "barrel_03",
+   "license": "CC0-1.0",
+   "use": "\u8259\u9802\u6cb9\u6876",
+   "trisBefore": 1473,
+   "trisAfter": 1400,
+   "bytes": 88196,
+   "sha256": "63b2c42312778ba7"
+  },
+  "models/props/propane_tank.glb": {
+   "source": "https://polyhaven.com/a/propane_tank",
+   "asset": "propane_tank",
+   "license": "CC0-1.0",
+   "use": "\u4e19\u70f7\u92fc\u74f6",
+   "trisBefore": 5238,
+   "trisAfter": 1199,
+   "bytes": 86624,
+   "sha256": "3ec7acd261c4a19f"
+  },
+  "models/props/old_tyre.glb": {
+   "source": "https://polyhaven.com/a/old_tyre",
+   "asset": "old_tyre",
+   "license": "CC0-1.0",
+   "use": "\u8237\u5074\u8f2a\u80ce\u8b77\u8237",
+   "trisBefore": 2880,
+   "trisAfter": 1200,
+   "bytes": 102540,
+   "sha256": "d7fa0ee461d0e8e9"
+  },
+  "models/props/lifebuoy.glb": {
+   "source": "https://polyhaven.com/a/lifebuoy",
+   "asset": "lifebuoy",
+   "license": "CC0-1.0",
+   "use": "\u6551\u751f\u5708",
+   "trisBefore": 10728,
+   "trisAfter": 899,
+   "bytes": 121208,
+   "sha256": "3d5d28dd780cf3e7"
+  },
+  "models/props/wooden_crate_02.glb": {
+   "source": "https://polyhaven.com/a/wooden_crate_02",
+   "asset": "wooden_crate_02",
+   "license": "CC0-1.0",
+   "use": "\u6728\u7bb1",
+   "trisBefore": 5176,
+   "trisAfter": 598,
+   "bytes": 98912,
+   "sha256": "31187b836c536a0f"
+  },
+  "models/props/portable_generator.glb": {
+   "source": "https://polyhaven.com/a/portable_generator",
+   "asset": "portable_generator",
+   "license": "CC0-1.0",
+   "use": "\u767c\u96fb\u6a5f",
+   "trisBefore": 26419,
+   "trisAfter": 4817,
+   "bytes": 238040,
+   "sha256": "ea1875f301c0de70"
+  }
+ }
+}
