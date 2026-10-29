@@ -26,6 +26,7 @@ import { Avatar } from '../crew/avatar.js';
 import { Player } from '../player.js';
 import { SHIP_CX, CUR_TIER, TIER_KEY, TIER_PREVIEW } from '../ship/config.js';
 import * as PM from '../sim/promo.js';
+import * as Q from '../sim/quests.js';
 import { dampAngle } from '../util.js';
 import { Games } from './games.js';
 import { Social } from '../crew/social.js';
@@ -60,7 +61,7 @@ export class Play {
       away = Math.max(0, t - (st.lastSeen || st.simT)); rep = S.simulateTo(st, t);
     }
     F.ensureFleet(st, this.game.owner); st.fleet = F.sanitizeFleet(st.fleet) || F.newFleet(this.game.owner);
-    F.ensureWorld(st, (boot.user && boot.user.uid) || 'seed' + st.seed); for (const sh of st.fleet.ships) if (sh.state === 'pilot') sh.state = 'dock';   // 上次駕駛到一半關掉頁面：船回港
+    Q.ensureQuest(st); F.ensureWorld(st, (boot.user && boot.user.uid) || 'seed' + st.seed); for (const sh of st.fleet.ships) if (sh.state === 'pilot') sh.state = 'dock';   // 上次駕駛到一半關掉頁面：船回港
     if (!this.game.owner) st.pl = { c: this.game.charId, s: this.game.crewSeed }; else delete st.pl; // 角色與船員種子寫回存檔（owner 永遠是 T董，不存）
     this.state = st; this.placeFacilities(); this.applyFacilityStates();
     this.pendingReport = { first, away, rep };
@@ -132,7 +133,7 @@ export class Play {
     if (this.mascots) this.mascots.update(Math.min(dt, 0.1));
     const sdt = Math.min(dt, 0.1); this.games.update(sdt); this.social.update(sdt);
     this.updateTarget(); this.updateBoats(g.time); this.updatePilot(dt, g.time); this.updateFleet(g.time);
-    if (this.hudAcc >= 0.25) { this.hudAcc = 0; this.hud.refresh(); }
+    this.qMove(); if (this.hud.quest) this.hud.quest.frame(dt); if (this.hudAcc >= 0.25) { this.hudAcc = 0; this.qTick(); this.hud.refresh(); }
     if (this.saveAcc >= 10) { this.saveAcc = 0; this.save(); }
     this.pvAcc = (this.pvAcc || 0) + dt; if (this.pvAcc >= 20) { this.pvAcc = 0; this.pvpBeat(false); }
     this.syncAcc = (this.syncAcc || 0) + dt; if (this.syncAcc >= 600) { this.syncAcc = 0; this.resync(); }
@@ -143,7 +144,7 @@ export class Play {
     this.afterSim(rep, true); if (away >= 120 && rep.ticks > 0) this.hud.showReport({ first: false, away, rep });
   }
   tickLive() {
-    const rep = S.simulateTo(this.state, nowSec()); if (rep.ticks > 0) this.afterSim(rep, false);
+    const rep = S.simulateTo(this.state, nowSec()); if (rep.ticks > 0) this.afterSim(rep, false); Q.flushPool(this.state);
   }
   afterSim(rep, silent) {
     this.applyCrewFlags(); this.applyFacilityStates();
@@ -231,7 +232,29 @@ export class Play {
     else if (name === 'claim') { r = S.claimTask(s, arg); }
     else if (name === 'trip') { r = S.startTrip(s, arg.site, arg.crew, now); if (r.ok) { this.applyCrewFlags(); this.afterTripStart(r.trip); } }
     if (r && r.msg) ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
+    if (r && r.ok) { const qe = { build: 'supply', claim: 'supply', chat: 'talk', trip: 'salvage' }[name]; if (qe) this.qNote(qe); }   // 新手教學任務：動作成功就記下事件（同步，發獎勵）
     this.save(); this.hud.refresh(true); return r;
+  }
+  // ------------------------------------------------------------ 新手教學任務（邏輯在 sim/quests.js；介面在 ui/questui.js）
+  qNote(ev) { if (!this.state) return; const out = Q.noteQuest(this.state, ev); if (out.length) this.qDone(out); }
+  qDone(out) {
+    const ui = this.game.ui; const ic = { food: '🍖', water: '💧', fuel: '⛽', parts: '🔩' };
+    for (const o of out) {
+      if (o.final) ui.toast(o.bp === 'parts' ? '🎓 教學全部完成！獎勵：🔩+100' : `🎓 教學全部完成！獲得稀有藍圖：${SHIPS[o.bp].icon}${SHIPS[o.bp].name}`);
+      else ui.toast(`🎓 完成「${o.step.name}」　` + Object.keys(o.got).map((k) => ic[k] + '+' + o.got[k]).join(' '));
+    }
+    this.save(true); if (this.hud.quest) this.hud.quest.refresh(true);
+  }
+  /** 每幀：累計走動距離（走滿 ~5 公尺算「會移動了」） */
+  qMove() {
+    const a = this.game.player && this.game.player.actor; if (!a || this.game.homeless || !this.state || (this.state.quest && this.state.quest.ev.move)) return;
+    const l = this._qp; this._qp = { x: a.x, z: a.z, d: a.deck }; if (!l || l.d !== a.deck) return; const d = Math.hypot(a.x - l.x, a.z - l.z); if (d > 3) return;
+    this._qd = (this._qd || 0) + d; if (this._qd >= 3) this.qNote('move');
+  }
+  qTick() {
+    if (!this.state || !this.state.quest) return; const q = this.state.quest;
+    if (!q.ev.chart && this.hud.chart && this.hud.chart.isOpen()) this.qNote('chart');
+    if (!q.ev.sail && (this.helm.on || this.pilot)) this.qNote('sail');
   }
   chatWith(b) {
     const env = this.game.envState, s = this.state; const t = nowSec(); const lines = []; const kids = S.crewKeys(s);
@@ -344,7 +367,7 @@ export class Play {
     if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg)) r.msg += SZM.rescueHint(s, now);
     if (r && r.msg && name !== 'battleEngage') this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
     else if (r && r.ok && r.text && name.startsWith('battle') && name !== 'battleSubmit' && name !== 'battleRetreat') this.game.ui.toast(r.text);
-    if (r && r.ok) { this.updateFleet(this.game.time); }
+    if (r && r.ok) { this.updateFleet(this.game.time); const qe = { build: 'buildShip', upgrade: 'upgrade' }[name]; if (qe) this.qNote(qe); }   // 教學任務事件要在 reloadHome 之前記下並存檔
     // 小船家：選船／換旗艦／升級旗艦 → 存檔後重新載入，場景換成新的船
     if (r && r.ok && this.game.small && !r.same && (name === 'pick' || name === 'home' || (name === 'upgrade' && a.id === this.homeId()))) { this.reloadHome(); return r; }
     this.save(true); this.hud.refresh(true); return r;
@@ -393,7 +416,7 @@ export class Play {
     P.cam.set(P.x, waveHeight(P.x, P.z, time) * 0.7 + 1.8, P.z); P.av.update(sdt, time);
     P.keepT += dt; if (P.keepT > 20) { P.keepT = 0; F.keepPilot(this.state, P.id, nowSec()); }
     g.player.avatar.group.visible = false;
-    for (const k of this.crates) { k.mesh.position.set(k.x, waveHeight(k.x, k.z, time) * 0.7 + 0.6 + Math.sin(time * 2 + k.ph) * 0.12, k.z); k.mesh.rotation.y = time * 0.7 + k.ph; if (Math.hypot(k.x - P.x, k.z - P.z) < 4.5 + SHIPS[P.type].len * 0.2) { k.mesh.removeFromParent(); this.crates.splice(this.crates.indexOf(k), 1); const r = F.pilotCollect(this.state, nowSec(), this.state.tz); this.game.ui.toast((r.ok ? '📦 ' : '') + r.msg); this.save(); this.hud.refresh(true); if (r.ok) setTimeout(() => this.pilot && this.spawnCrates(), 4000); break; } }
+    for (const k of this.crates) { k.mesh.position.set(k.x, waveHeight(k.x, k.z, time) * 0.7 + 0.6 + Math.sin(time * 2 + k.ph) * 0.12, k.z); k.mesh.rotation.y = time * 0.7 + k.ph; if (Math.hypot(k.x - P.x, k.z - P.z) < 4.5 + SHIPS[P.type].len * 0.2) { k.mesh.removeFromParent(); this.crates.splice(this.crates.indexOf(k), 1); const r = F.pilotCollect(this.state, nowSec(), this.state.tz); this.game.ui.toast((r.ok ? '📦 ' : '') + r.msg); if (r.ok) this.qNote('supply'); this.save(); this.hud.refresh(true); if (r.ok) setTimeout(() => this.pilot && this.spawnCrates(), 4000); break; } }
     this.hud.updatePilotBar(P);
   }
   /** 世界 / 海圖動作 */

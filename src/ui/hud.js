@@ -1,4 +1,5 @@
 // 玩法 HUD：資源列、精簡船員列、互動提示、離線報告、每日任務、出海面板
+import { QuestUI } from './questui.js';
 import { tt } from '../touch.js';
 import * as THREE from 'three';
 import { MOODS } from '../crew/mood.js';
@@ -83,7 +84,7 @@ export class HUD {
   noteHelm() { this._chartDirty = true; }
   showPilotBar(on) { this.pilotBar.classList.toggle('hide', !on); document.body.classList.toggle('piloting', !!on); }
   updatePilotBar(P) { const nm = FL.findShip(this.s, P.id); this.pilotBar.querySelector('.pn').textContent = `${SHIPS[P.type].icon} ${nm ? nm.name : ''}`; this.pilotBar.querySelector('.ps u').style.width = Math.min(100, Math.abs(P.v) / (P.max * 1.7) * 100) + '%'; this.pilotBar.querySelector('button').textContent = P.homing ? '⏳ 返港中…' : '🏠 返港'; }
-  attach(play) { this.play = play; this.buildTags(); this.refresh(true); }
+  attach(play) { this.play = play; this.buildTags(); this.quest = new QuestUI(this.game, play, this); this.refresh(true); }
   helpOpen() { return !this.ui.help.classList.contains('hide'); }
   get s() { return this.play.state; }
 
@@ -240,11 +241,12 @@ export class HUD {
 
   // -- 每日任務
   renderTasks() {
-    const c = this.modal.querySelector('.mcard'); c.innerHTML = `<h2>📋 每日任務 <button class="x" data-x="close">✕</button></h2><p class="sub" id="tkSub"></p><div id="tkList"></div><h3>📜 最近消息</h3><ul class="evl" id="tkLog"></ul>`;
+    const c = this.modal.querySelector('.mcard'); c.innerHTML = `<h2>📋 每日任務 <button class="x" data-x="close">✕</button></h2><p class="sub" id="tkSub"></p><div id="tkQuest"></div><div id="tkList"></div><h3>📜 最近消息</h3><ul class="evl" id="tkLog"></ul>`;
     c.querySelector('.x').onclick = () => this.closeModal(); this.renderTasksLive();
   }
   renderTasksLive() {
     const s = this.s, c = this.modal.querySelector('.mcard'); if (!c.querySelector('#tkList')) return; const d = new Date(); const mid = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime() / 1000;
+    { const qh = c.querySelector('#tkQuest'); const qs = this.s.quest ? JSON.stringify([this.s.quest.done, this.s.quest.x, this.s.quest.fin]) : ''; if (qh && this.quest && qh.dataset.sig !== qs) { qh.dataset.sig = qs; this.quest.fillModal(qh); } }
     c.querySelector('#tkSub').textContent = `每天本地時間 00:00 重置，距離重置 ${dur(mid - nowSec())}`;
     const list = c.querySelector('#tkList'); const sig = JSON.stringify(s.daily.tasks.map((t) => [Math.floor(t.progress), t.claimed])); if (list.dataset.sig === sig) return; list.dataset.sig = sig; list.innerHTML = '';
     s.daily.tasks.forEach((t, i) => {
