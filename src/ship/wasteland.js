@@ -4,6 +4,7 @@
 //   · patchShip(group, opts)：沿船殼側面（射線打在實際模型上）貼焊接補丁鋼板（螺栓 + 焊縫 + 鏽水痕）、掛輪胎當護舷、
 //     在艙頂放土法天線 / 汽油桶 / 鐵皮棚。所有零件依「頂點色」合併成 1 個 mesh（每艘船只多 1 個 draw call）。
 //   · 零件只放在船殼外側與艙頂，不放在可走甲板上（走道不受影響）。亂數以船型 + 等級為種子（同一艘船永遠長一樣）。
+//   · 旗艦：wearInPlace(m) 就地改船殼材質（材質每幀被改 emissive，不能複製）；patchShip 的 meshes/yRange/n/sc 選項把補丁板貼在旗艦船殼上。
 //   · 網址加 ?wl=0 可關閉（用來做前後對照 / 效能比較）。
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
