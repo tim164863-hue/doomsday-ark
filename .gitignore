@@ -1,7 +1,4 @@
 node_modules
-shots/tmp
 
 tools/assets/.cache
-shots/*
-!shots/keep/
-!shots/keep/**
+shots/
