@@ -9,7 +9,7 @@
 // 瀏覽器自動播放規則：AudioContext 在第一次使用者手勢（pointerdown / keydown / touchend）後才建立；
 // 分頁切到背景時 suspend，回來 resume；音量與開關存在 localStorage 'ark.sound'。
 const KEY = 'ark.sound';
-const LEVELS = [{ ic: '🔊', v: 0.5 }, { ic: '🔉', v: 0.2 }, { ic: '🔇', v: 0 }];
+const LEVELS = [{ ic: '\ue081', v: 0.5 }, { ic: '\ue082', v: 0.2 }, { ic: '\ue083', v: 0 }];
 const rnd = (a, b) => a + Math.random() * (b - a);
 const ZERO = { storm: 0, rain: 0, snow: 0, aurora: 0, cold: 0 };
 

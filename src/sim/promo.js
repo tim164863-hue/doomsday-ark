@@ -9,9 +9,9 @@ import { PROMO, PROMO_BP, MATERIALS, MAT_ORDER, SPECIAL_ZONES, SZ_ORDER, routeZo
 import { clamp, tbl, OWN } from '../util.js';
 
 export const BRANCHES = tbl({
-  war: { id: 'war', name: '戰艦', icon: '⚔️', color: '#7f9bb5', blurb: '火力與裝甲：為階段④海戰準備；耐火、抗地獄。' },
-  mer: { id: 'mer', name: '商船', icon: '📦', color: '#ff7a3d', blurb: '載貨與貿易：倉庫更大、艦隊任務收穫更多。' },
-  sci: { id: 'sci', name: '科研探險船', icon: '🔭', color: '#6fc8ff', blurb: '偵察、抗寒、抗危害：揭霧半徑大、極地省油、特殊海域最穩。' },
+  war: { id: 'war', name: '戰艦', icon: '\ue08b', color: '#7f9bb5', blurb: '火力與裝甲：為階段④海戰準備；耐火、抗地獄。' },
+  mer: { id: 'mer', name: '商船', icon: '\ue06a', color: '#ff7a3d', blurb: '載貨與貿易：倉庫更大、艦隊任務收穫更多。' },
+  sci: { id: 'sci', name: '科研探險船', icon: '\ue01d', color: '#6fc8ff', blurb: '偵察、抗寒、抗危害：揭霧半徑大、極地省油、特殊海域最穩。' },
 });
 export const BRANCH_ORDER = ['war', 'mer', 'sci'];
 // 設計表 §3.3：len 船長、decks 層數、spd 航速倍率、cargo、hull、fp、scout 揭霧半徑、cold 抗寒、haz 抗特殊海域危害、trade 貿易加成、hours 改裝時數
@@ -78,7 +78,7 @@ export function needText(z) {
   return Object.keys(by).sort().map((t) => `${by[t].join('/')} T${t}`).join(' 或 ') + ' 以上';
 }
 export function meetsNeed(f, z) { if (!z || !z.need) return true; const o = flagOf(f); if (!o.branch || !z.need.branches.includes(o.branch)) return false; return o.tier >= (z.need.tiers ? z.need.tiers[o.branch] : z.need.tier); }
-export const gateMsg = (z) => `${z.icon} ${z.name}進不去：需要 ${needText(z)} 的旗艦（⚓ 艦隊 → ⭐ 旗艦晉升）`;
+export const gateMsg = (z) => `${z.icon} ${z.name}進不去：需要 ${needText(z)} 的旗艦（\ue012 艦隊 → \ue084 旗艦晉升）`;
 /** 這條航線會不會被硬條件擋下？回傳第一個擋住的海域 {id, z} 或 null。已經在該海域裡 → 放行（可以開出來，不被困死）。 */
 export function routeGate(f, x0, y0, x1, y1) {
   const here = zoneAtPoint(x0, y0);
@@ -160,6 +160,6 @@ export function promoReset(s) {
 export function promoTick(s, tEnd, ev) {
   const f = s.fleet, fl = f && f.flag; holdDrain(s); if (!fl || !fl.up) return; if (tEnd < fl.up.end) return;
   const row = OWN(FLAG_ROWS, fl.up.to) ? FLAG_ROWS[fl.up.to] : null; if (!row) { fl.up = null; return; } fl.branch = row.branch; fl.tier = row.tier; fl.up = null;
-  ev && ev({ t: Math.min(tEnd, tEnd), type: 'promo', sub: 'done', text: `⭐ 旗艦晉升完成：${BRANCHES[row.branch].icon}${row.name}（${BRANCHES[row.branch].name} T${row.tier}）！船身加長到 ${row.len} m、${row.decks} 層甲板。`, to: row.id });
+  ev && ev({ t: Math.min(tEnd, tEnd), type: 'promo', sub: 'done', text: `\ue084 旗艦晉升完成：${BRANCHES[row.branch].icon}${row.name}（${BRANCHES[row.branch].name} T${row.tier}）！船身加長到 ${row.len} m、${row.decks} 層甲板。`, to: row.id });
 }
 export const refitting = (f) => { const fl = f && f.flag; return !!(fl && fl.up); };

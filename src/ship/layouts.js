@@ -12,7 +12,7 @@ const PI = Math.PI;
 export function plate(d, text, x, y, z, ry, w = 1.3, h = 0.34, tilt = 0) {
   const c = document.createElement('canvas'); c.width = 256; c.height = Math.round(256 * h / w);
   const g = c.getContext('2d'); g.fillStyle = '#1b2a3a'; g.fillRect(0, 0, c.width, c.height); g.strokeStyle = '#d8b25a'; g.lineWidth = 5; g.strokeRect(3, 3, c.width - 6, c.height - 6);
-  g.fillStyle = '#ffe9b0'; g.font = `bold ${Math.round(c.height * 0.5)}px "Noto Sans TC","Microsoft JhengHei",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, c.width / 2, c.height / 2 + 2);
+  g.fillStyle = '#ffe9b0'; g.font = `bold ${Math.round(c.height * 0.5)}px ArkIcons,"Noto Sans TC","Microsoft JhengHei",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, c.width / 2, c.height / 2 + 2);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, toneMapped: false }));
   m.position.set(x, y, z); m.rotation.set(tilt, ry, 0); m.rotation.order = 'YXZ'; d.group.add(m); return m;
@@ -21,7 +21,7 @@ export function signBoard(d, text, x, y, z, ry, w, h, bg = '#12202e', fg = '#ffc
   const c = document.createElement('canvas'); c.width = 512; c.height = Math.round(512 * h / w);
   const g = c.getContext('2d'); g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height);
   g.strokeStyle = fg; g.lineWidth = 6; g.strokeRect(5, 5, c.width - 10, c.height - 10);
-  g.fillStyle = fg; g.font = `bold ${Math.round(c.height * 0.56)}px "Noto Sans TC","Microsoft JhengHei",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, c.width / 2, c.height / 2 + 3);
+  g.fillStyle = fg; g.font = `bold ${Math.round(c.height * 0.56)}px ArkIcons,"Noto Sans TC","Microsoft JhengHei",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, c.width / 2, c.height / 2 + 3);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, toneMapped: false }));
   m.position.set(x, y, z); m.rotation.y = ry; d.group.add(m); return m;

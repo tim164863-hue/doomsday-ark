@@ -1,0 +1,13 @@
+{
+  "name": "ark-icons-tool",
+  "private": true,
+  "type": "module",
+  "description": "只在重建圖示字型時需要：cd tools/icons && npm i && node ../build-icon-font.mjs",
+  "devDependencies": {
+    "@iconify-json/game-icons": "^1.2.4",
+    "@iconify-json/ph": "^1.2.2",
+    "svg2ttf": "^6.1.0",
+    "svgicons2svgfont": "^16.0.0",
+    "ttf2woff2": "^8.0.1"
+  }
+}

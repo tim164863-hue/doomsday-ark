@@ -26,25 +26,25 @@ const dur = (sec) => { sec = Math.max(0, Math.round(sec)); const h = Math.floor(
 const mmss = (sec) => { sec = Math.max(0, Math.ceil(sec)); const m = Math.floor(sec / 60), s = sec % 60; return `${m}:${String(s).padStart(2, '0')}`; };
 const fmt = (n) => (Math.abs(n) >= 100 ? Math.round(n) : Math.round(n * 10) / 10);
 const costHTML = (c, s) => Object.keys(c).map((k) => `<span class="${s && s.res[k] < c[k] ? 'lack' : ''}">${RES[k].icon}${c[k]}</span>`).join(' ');
-const EV_ICON = { raid: '🏴‍☠️', seazone: '🧭', battle: '⚔️', weather: '🌦', storm: '⛈', shortage: '⚠️', trip: '🚣', sick: '🤒', recover: '💪', crate: '🎁', rain: '🌧', build: '🔨', fight: '💢', makeup: '🤝', party: '🎉', celebrate: '🎊', help: '🩹', meal: '🍽' };
-const CAT_ICON = { work: '⌨️', rest: '🛋', off: '😴' };
+const EV_ICON = { raid: '\ue009', seazone: '\ue034', battle: '\ue08b', weather: '\ue032', storm: '\ue02f', shortage: '\ue099', trip: '\ue01e', sick: '\ue08f', recover: '\ue019', crate: '\ue04c', rain: '\ue030', build: '\ue04f', fight: '\ue078', makeup: '\ue050', party: '\ue035', celebrate: '\ue035', help: '\ue017', meal: '\ue047' };
+const CAT_ICON = { work: '\ue059', rest: '\ue036', off: '\ue067' };
 const REASON = { focus: '專心工作中', happy: '心情不錯', tired: '有點累了', anxious: '有點不安', bored: '有點無聊' };
 
 export class HUD {
   constructor(game) {
     this.game = game; this.ui = game.ui; this.play = null; this.root = game.ui.root; this.tags = new Map(); this.log = []; this.modalKind = null; this.crewOpen = innerWidth > 700; this.rows = new Map(); this.moreOpen = false;
-    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">📋<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">🚣<span class="bdg hide"></span></button><button class="rb" id="btnFleet" title="艦隊 (F)">⚓<span class="bdg hide"></span></button><button class="rb" id="btnChart" title="海圖 (M)">🧭<span class="bdg hide"></span></button><button class="rb" id="btnHelm" title="駕駛母船 (G)">🛳️</button><button class="rb" id="btnRel" title="船員關係 (R)">💞</button><button class="rb" id="btnCrewL" title="船員列表">👥</button>${game.small ? '<button class="rb" id="btnChar" title="更換角色">🧑‍✈️</button>' : ''}</div></div>`);
+    this.bar = $(`<div id="resbar"><div class="rcs"></div><div class="racts"><button class="rb" id="btnTasks" title="每日任務 (J)">\ue02b<span class="bdg hide"></span></button><button class="rb" id="btnTrips" title="出海探索 (B)">\ue01e<span class="bdg hide"></span></button><button class="rb" id="btnFleet" title="艦隊 (F)">\ue012<span class="bdg hide"></span></button><button class="rb" id="btnChart" title="海圖 (M)">\ue034<span class="bdg hide"></span></button><button class="rb" id="btnHelm" title="駕駛母船 (G)">\ue00c</button><button class="rb" id="btnRel" title="船員關係 (R)">\ue052</button><button class="rb" id="btnCrewL" title="船員列表">\ue096</button>${game.small ? '<button class="rb" id="btnChar" title="更換角色">\ue085</button>' : ''}</div></div>`);
     this.crewList = $(`<div id="crewmini"></div>`);
     this.prompt = $(`<div id="prompt" class="hide"></div>`);
     this.modal = $(`<div id="modal" class="hide"><div class="mcard"></div></div>`);
-    this.tagLayer = $(`<div id="tags"></div>`); this.pilotBar = $(`<div id="pilotbar" class="hide"><div class="pn"></div><div class="ps"><u></u></div><small class="pt">WASD / 搖桿　Shift 加速</small><button data-a="home" class="pri">🏠 返港</button></div>`);
-    this.helmBar = $(`<div id="helmbar" class="hide"><div class="hn">🚢</div><div class="hk"><b class="kt">0.0</b><small>節</small><b class="hd">000°</b><small class="hp"></small></div><div class="ps" title="油門"><u></u></div><small class="pt">W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車</small><div class="hs"></div><button data-a="stop">⏹ 停車</button><button data-a="exit" class="pri">⚓ 下錨</button></div>`);
-    { const hb = this.bar.querySelector('#btnHelm'); if (hb && game.small) hb.title = '駕駛小船 (G)'; } this.pill = $(`<button id="tlpill" title="資源／選單（點開或收起）"><i>📊</i><span class="pv"></span><i class="wxi"></i><i class="szi" style="display:none"></i><span class="car">▾</span></button>`); this.ui.top.prepend(this.pill); this.pill.onclick = () => { const o = document.body.classList.toggle('tlopen'); this.pill.querySelector('.car').textContent = o ? '▴' : '▾'; this.ui.placeToast && this.ui.placeToast(); };
+    this.tagLayer = $(`<div id="tags"></div>`); this.pilotBar = $(`<div id="pilotbar" class="hide"><div class="pn"></div><div class="ps"><u></u></div><small class="pt">WASD / 搖桿　Shift 加速</small><button data-a="home" class="pri">\ue055 返港</button></div>`);
+    this.helmBar = $(`<div id="helmbar" class="hide"><div class="hn">\ue003</div><div class="hk"><b class="kt">0.0</b><small>節</small><b class="hd">000°</b><small class="hp"></small></div><div class="ps" title="油門"><u></u></div><small class="pt">W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車</small><div class="hs"></div><button data-a="stop">\ue086 停車</button><button data-a="exit" class="pri">\ue012 下錨</button></div>`);
+    { const hb = this.bar.querySelector('#btnHelm'); if (hb && game.small) hb.title = '駕駛小船 (G)'; } this.pill = $(`<button id="tlpill" title="資源／選單（點開或收起）"><i>\ue025</i><span class="pv"></span><i class="wxi"></i><i class="szi" style="display:none"></i><span class="car">▾</span></button>`); this.ui.top.prepend(this.pill); this.pill.onclick = () => { const o = document.body.classList.toggle('tlopen'); this.pill.querySelector('.car').textContent = o ? '▴' : '▾'; this.ui.placeToast && this.ui.placeToast(); };
     this.syncJoy(); this._joyT = setInterval(() => { this.syncJoy(); this.syncBottom(); }, 150); this.root.append(this.tagLayer, this.bar, this.crewList, this.prompt, this.modal, this.pilotBar, this.helmBar); this.helmBar.querySelector('[data-a=stop]').onclick = () => { this.play.helm.thr = 0; }; this.helmBar.querySelector('[data-a=exit]').onclick = () => this.play.helm.stop(); this.bar.querySelector('#btnHelm').onclick = () => this.play.helm.toggle(); this.pilotBar.querySelector('[data-a=home]').onclick = () => this.play.stopPilot(true);
     const rcs = this.bar.querySelector('.rcs');
     for (const k of RES_KEYS) rcs.append($(`<div class="rc" data-k="${k}" title="${RES[k].name}"><i>${RES[k].icon}</i><b>0</b><small></small></div>`));
-    rcs.append($(`<div class="rc cond" data-k="cond" title="船體狀況"><i>🛠</i><b>0%</b><span class="bar"><u></u></span></div>`));
-    rcs.append($(`<div class="rc wx" data-k="wx" title="目前天氣" style="display:none"><i>🌤</i><b></b></div>`)); rcs.append($(`<div class="rc sz" data-k="sz" title="特殊海域" style="display:none"><i>🌀</i><b></b></div>`));
+    rcs.append($(`<div class="rc cond" data-k="cond" title="船體狀況"><i>\ue092</i><b>0%</b><span class="bar"><u></u></span></div>`));
+    rcs.append($(`<div class="rc wx" data-k="wx" title="目前天氣" style="display:none"><i>\ue087</i><b></b></div>`)); rcs.append($(`<div class="rc sz" data-k="sz" title="特殊海域" style="display:none"><i>\ue093</i><b></b></div>`));
     this.bar.querySelector('#btnTasks').onclick = () => this.openModal('tasks'); this.bar.querySelector('#btnTrips').onclick = () => this.openModal('trips'); this.bar.querySelector('#btnFleet').onclick = () => this.openModal('fleet'); this.bar.querySelector('#btnChart').onclick = () => this.chart.toggle(); this.chart = new SeaChart(this); this.battle = new BattleUI(this);
     this.bar.querySelector('#btnRel').onclick = () => this.openModal('rel');
     { const cb = this.bar.querySelector('#btnChar'); if (cb) cb.onclick = () => this.openModal('char'); }
@@ -75,15 +75,15 @@ export class HUD {
   }
   showHelmBar(on) { this.helmBar.classList.toggle('hide', !on); this.bar.querySelector('#btnHelm').classList.toggle('on', !!on); if (on) this.updateHelmBar(this.play.helm); }
   updateHelmBar(H) {
-    const b = this.helmBar, sh = this.play.game.small ? FL.homeShip(this.s.fleet) : null; b.querySelector('.hn').textContent = sh ? `${SHIPS[sh.type].icon} ${sh.name}` : '🚢 母船';
+    const b = this.helmBar, sh = this.play.game.small ? FL.homeShip(this.s.fleet) : null; b.querySelector('.hn').textContent = sh ? `${SHIPS[sh.type].icon} ${sh.name}` : '\ue003 母船';
     b.querySelector('.kt').textContent = (Math.abs(H.v) * 1.944).toFixed(1); const bear = ((Math.PI / 2 - H.yaw) * 180 / Math.PI % 360 + 360) % 360; b.querySelector('.hd').textContent = String(Math.round(bear) % 360).padStart(3, '0') + '°';
-    const w = this.s.fleet && this.s.fleet.world; b.querySelector('.hp').textContent = w && w.pos ? `📍${w.pos.x.toFixed(2)},${w.pos.y.toFixed(2)}` : '';
-    const fl = this.s.res ? this.s.res.fuel : 0; b.querySelector('.hs').textContent = `📍${w && w.pos ? w.pos.x.toFixed(2) + ',' + w.pos.y.toFixed(2) : '-'} · 🧭${Math.round(H.dist0)} m · ⛽−${(H.fuelUsed || 0).toFixed(2)} (${fl.toFixed(1)})`;
+    const w = this.s.fleet && this.s.fleet.world; b.querySelector('.hp').textContent = w && w.pos ? `\ue061${w.pos.x.toFixed(2)},${w.pos.y.toFixed(2)}` : '';
+    const fl = this.s.res ? this.s.res.fuel : 0; b.querySelector('.hs').textContent = `\ue061${w && w.pos ? w.pos.x.toFixed(2) + ',' + w.pos.y.toFixed(2) : '-'} · \ue034${Math.round(H.dist0)} m · \ue049−${(H.fuelUsed || 0).toFixed(2)} (${fl.toFixed(1)})`;
     b.querySelector('.ps u').style.width = Math.max(0, Math.min(100, H.thr / 1.35 * 100)) + '%'; b.querySelector('.ps').classList.toggle('rev', H.thr < 0);
   }
   noteHelm() { this._chartDirty = true; }
   showPilotBar(on) { this.pilotBar.classList.toggle('hide', !on); document.body.classList.toggle('piloting', !!on); }
-  updatePilotBar(P) { const nm = FL.findShip(this.s, P.id); this.pilotBar.querySelector('.pn').textContent = `${SHIPS[P.type].icon} ${nm ? nm.name : ''}`; this.pilotBar.querySelector('.ps u').style.width = Math.min(100, Math.abs(P.v) / (P.max * 1.7) * 100) + '%'; this.pilotBar.querySelector('button').textContent = P.homing ? '⏳ 返港中…' : '🏠 返港'; }
+  updatePilotBar(P) { const nm = FL.findShip(this.s, P.id); this.pilotBar.querySelector('.pn').textContent = `${SHIPS[P.type].icon} ${nm ? nm.name : ''}`; this.pilotBar.querySelector('.ps u').style.width = Math.min(100, Math.abs(P.v) / (P.max * 1.7) * 100) + '%'; this.pilotBar.querySelector('button').textContent = P.homing ? '\ue054 返港中…' : '\ue055 返港'; }
   attach(play) { this.play = play; this.buildTags(); this.quest = new QuestUI(this.game, play, this); this.refresh(true); }
   helpOpen() { return !this.ui.help.classList.contains('hide'); }
   get s() { return this.play.state; }
@@ -102,19 +102,19 @@ export class HUD {
     const done = s.daily.tasks.filter((t) => t.progress >= t.target && !t.claimed).length; const bt = this.bar.querySelector('#btnTasks .bdg'); bt.textContent = done; bt.classList.toggle('hide', !done);
     const nTr = s.trips.length; const bb = this.bar.querySelector('#btnTrips .bdg'); bb.textContent = nTr; bb.classList.toggle('hide', !nTr);
     const fl = s.fleet; if (fl) { const bf = this.bar.querySelector('#btnFleet .bdg'); const idle = fl.ships.filter((x) => x.state === 'sail').length; bf.textContent = idle; bf.classList.toggle('hide', !idle); }
-    if (fl && fl.world && fl.world.pos) { const evs = FL.pendingEvents(s, nowSec()); const bc = this.bar.querySelector('#btnChart .bdg'); bc.textContent = evs.length; bc.classList.toggle('hide', !evs.length); this._evSeen = this._evSeen || new Set(); for (const sh of evs) { const key = sh.id + ':' + sh.n; if (!this._evSeen.has(key)) { this._evSeen.add(key); this.ui.toast('🧭 海上事件：' + sh.name + ' 需要你的決定（按 M 開海圖）'); } } }
+    if (fl && fl.world && fl.world.pos) { const evs = FL.pendingEvents(s, nowSec()); const bc = this.bar.querySelector('#btnChart .bdg'); bc.textContent = evs.length; bc.classList.toggle('hide', !evs.length); this._evSeen = this._evSeen || new Set(); for (const sh of evs) { const key = sh.id + ':' + sh.n; if (!this._evSeen.has(key)) { this._evSeen.add(key); this.ui.toast('\ue034 海上事件：' + sh.name + ' 需要你的決定（按 M 開海圖）'); } } }
     if (this.battle) this.battle.refresh();
     this.renderCrew(force); this.refreshPrompt(force); this.updateTagStates(); if (this.modalKind) this.refreshModal(force);
   }
   renderCrew(force) {
     const bots = [...this.game.crew.bots.values()]; this.crewList.classList.toggle('closed', !this.crewOpen); this.bar.querySelector('#btnCrewL').classList.toggle('on', this.crewOpen);
     if (!this.crewOpen) return; const st = S.staffOf(this.s); const t = nowSec();
-    if (force || this._n !== bots.length) { this._n = bots.length; this.crewList.innerHTML = '<div class="ch">👥 船員 <small>點一下走過去</small></div>'; this.rows.clear(); for (const b of bots) { const row = $(`<div class="cr"><span class="m"></span><span class="n"></span><span class="f"></span><span class="s"></span></div>`); row.onclick = () => { if (b.away) { this.ui.toast(`${b.title} 正在海上`); return; } this.play.walkToBot(b); this.ui.toast('走向 ' + b.title); }; this.crewList.append(row); this.rows.set(b, row); } if (!bots.length) this.crewList.append($(`<div class="cr dim">等待船員資料…</div>`)); }
+    if (force || this._n !== bots.length) { this._n = bots.length; this.crewList.innerHTML = '<div class="ch">\ue096 船員 <small>點一下走過去</small></div>'; this.rows.clear(); for (const b of bots) { const row = $(`<div class="cr"><span class="m"></span><span class="n"></span><span class="f"></span><span class="s"></span></div>`); row.onclick = () => { if (b.away) { this.ui.toast(`${b.title} 正在海上`); return; } this.play.walkToBot(b); this.ui.toast('走向 ' + b.title); }; this.crewList.append(row); this.rows.set(b, row); } if (!bots.length) this.crewList.append($(`<div class="cr dim">等待船員資料…</div>`)); }
     for (const b of bots) {
       const row = this.rows.get(b); if (!row) continue; const c = this.s.crew[b.key]; const away = !!(c && c.away); const hurt = !!(c && c.inj > t);
       const f = FAC_ORDER.find((x) => st[x] === b.key); const m = MOODS[b.mood] || MOODS.focus;
-      row.querySelector('.m').textContent = hurt ? '🤕' : m.icon; row.querySelector('.n').textContent = b.title; row.querySelector('.f').textContent = f && this.s.fac[f].lv ? FAC[f].icon : '';
-      row.querySelector('.s').textContent = away ? '🚣' : hurt ? '🩹' : b.sleeping ? '💤' : CAT_ICON[b.info.cat] || '';
+      row.querySelector('.m').textContent = hurt ? '\ue017' : m.icon; row.querySelector('.n').textContent = b.title; row.querySelector('.f').textContent = f && this.s.fac[f].lv ? FAC[f].icon : '';
+      row.querySelector('.s').textContent = away ? '\ue01e' : hurt ? '\ue017' : b.sleeping ? '\ue01c' : CAT_ICON[b.info.cat] || '';
       row.title = `${b.title}　${hurt ? '受傷休養中' : m.name}${f ? '　駐守：' + FAC[f].name : ''}${away ? '　出海中' : ''}`; row.classList.toggle('away', away);
     }
   }
@@ -124,7 +124,7 @@ export class HUD {
     for (const f of FAC_ORDER) { const el = $(`<button class="ft"><i>${FAC[f].icon}</i><span class="t">${FAC[f].name}</span><span class="lv"></span></button>`); el.onclick = (e) => { e.stopPropagation(); this.play.walkToFac(f); }; this.tagLayer.append(el); this.tags.set(f, { el, v: new THREE.Vector3(), on: null }); }
   }
   updateTagStates() {
-    const s = this.s; for (const f of FAC_ORDER) { const T = this.tags.get(f); const st = s.fac[f]; T.el.classList.toggle('empty', st.lv === 0); T.el.classList.toggle('dmg', st.dmg && st.lv > 0); T.el.querySelector('.lv').textContent = st.lv ? (st.dmg ? '⚠ 故障' : 'Lv' + st.lv) : '＋ 建造'; }
+    const s = this.s; for (const f of FAC_ORDER) { const T = this.tags.get(f); const st = s.fac[f]; T.el.classList.toggle('empty', st.lv === 0); T.el.classList.toggle('dmg', st.dmg && st.lv > 0); T.el.querySelector('.lv').textContent = st.lv ? (st.dmg ? '\ue099 故障' : 'Lv' + st.lv) : '＋ 建造'; }
   }
   updateTags() {
     if (!this.play) return; const g = this.game, cam = g.camera, W = g.W, H = g.H; const play = this.play;
@@ -137,7 +137,7 @@ export class HUD {
     for (const f of FAC_ORDER) { const T = this.tags.get(f); const fv = play.fac[f]; const deckOk = !g.homeless && (g.deckVis ? g.deckVis[fv.deck] : true) && (g.controls.mode === 'overview' || fv.deck === g.viewDeck); fv.worldPos(T.v); place(T, T.v, deckOk); }
     const live = new Set(); for (const tr of this.s.trips) {
       live.add('b' + tr.id); let T = this.tags.get('b' + tr.id); if (!T) { const el = $(`<div class="ft boat"></div>`); this.tagLayer.append(el); T = { el, v: new THREE.Vector3(), on: null }; this.tags.set('b' + tr.id, T); }
-      const site = SITES.find((x) => x.id === tr.site); T.el.innerHTML = `🚣 ${esc(site.name)}<small>${tr.crew.map(esc).join('、')} · ${mmss(tr.end - nowSec())}</small>`;
+      const site = SITES.find((x) => x.id === tr.site); T.el.innerHTML = `\ue01e ${esc(site.name)}<small>${tr.crew.map(esc).join('、')} · ${mmss(tr.end - nowSec())}</small>`;
       const w = play.boatWorld(tr.id, T.v); if (w) place(T, T.v, true, 600); else T.el.style.display = 'none';
     }
     for (const [k, T] of this.tags) if (k[0] === 'b' && !live.has(k)) { T.el.remove(); this.tags.delete(k); }
@@ -155,31 +155,31 @@ export class HUD {
   }
   renderSpotPrompt(sp) {
     const s = this.s; const K = KIND[sp.kind]; const taken = spotTaken(sp); const best = s.rel && s.rel.best && s.rel.best[sp.kind]; const G = this.play.games; const vs = sp.kind === 'pickle' || sp.kind === 'pingpong';
-    const inv = G.nearBots(sp).map((b) => { const aff = R.affOf(s, R.BOSS, b.key); return `<button data-a="invite" data-k="${esc(b.key)}" ${taken ? 'disabled' : ''}>🤝 邀 ${esc(b.title)} <small>${R.label(aff)}·${Math.round(G.chance(b) * 100)}%</small></button>`; }).join('');
-    this.prompt.innerHTML = `<div class="ph"><span class="ic">${K.icon}</span><b>${K.name}</b><em>${taken ? '使用中' : '可以玩'}</em>${best ? `<em>🏆 ${best}${K.unit}</em>` : ''}</div><div class="pd">${esc(tt(K.desc))}</div><div class="pb"><button class="pri" data-a="play" ${taken ? 'disabled' : ''}><kbd>E</kbd> ${K.icon} ${vs ? '先跟發球機練習' : '開始玩'}</button>${inv}</div>${inv ? '<div class="pd2" style="opacity:.7">邀請成功率看對方的心情、忙不忙與你們的交情。</div>' : ''}`;
+    const inv = G.nearBots(sp).map((b) => { const aff = R.affOf(s, R.BOSS, b.key); return `<button data-a="invite" data-k="${esc(b.key)}" ${taken ? 'disabled' : ''}>\ue050 邀 ${esc(b.title)} <small>${R.label(aff)}·${Math.round(G.chance(b) * 100)}%</small></button>`; }).join('');
+    this.prompt.innerHTML = `<div class="ph"><span class="ic">${K.icon}</span><b>${K.name}</b><em>${taken ? '使用中' : '可以玩'}</em>${best ? `<em>\ue094 ${best}${K.unit}</em>` : ''}</div><div class="pd">${esc(tt(K.desc))}</div><div class="pb"><button class="pri" data-a="play" ${taken ? 'disabled' : ''}><kbd>E</kbd> ${K.icon} ${vs ? '先跟發球機練習' : '開始玩'}</button>${inv}</div>${inv ? '<div class="pd2" style="opacity:.7">邀請成功率看對方的心情、忙不忙與你們的交情。</div>' : ''}`;
   }
   renderMascotPrompt(m) {
     const bn = m.type === 'benben'; const line = m.bub || (bn ? '戴著圓眼鏡、愛跑步的綠色毛球。' : '紅通通愛心形狀，最愛跟著奔奔。');
-    this.prompt.innerHTML = `<div class="ph"><span class="ic">${bn ? '🟢' : '❤️'}</span><b>${bn ? '奔奔' : '抱抱'}</b><em>特別版吉祥物</em></div><div class="pd">${esc(line)}</div><div class="pb"><button class="pri" data-a="poke"><kbd>E</kbd> ${bn ? '摸摸奔奔' : '抱抱抱抱'}（附近船員心情 +）</button></div>`;
+    this.prompt.innerHTML = `<div class="ph"><span class="ic">${bn ? '\ue02a' : '\ue052'}</span><b>${bn ? '奔奔' : '抱抱'}</b><em>特別版吉祥物</em></div><div class="pd">${esc(line)}</div><div class="pb"><button class="pri" data-a="poke"><kbd>E</kbd> ${bn ? '摸摸奔奔' : '抱抱抱抱'}（附近船員心情 +）</button></div>`;
   }
   renderFacPrompt(f) {
     const s = this.s, F = FAC[f], st = s.fac[f], r = S.rates(s, s.simT); const stf = S.staffOf(s)[f]; const bot = stf && this.play.botOf(stf); const bonus = S.staffBonus(s, f, s.simT);
     let line = F.desc; if (st.lv && F.res) { const prod = F.base * LV_MULT[st.lv] * (st.dmg ? 0.5 : 1) * (1 + bonus); line = `${F.desc}　產出 ${RES[F.res].icon}${RES[F.res].name} +${prod.toFixed(1)}/分`; } else if (st.lv && f === 'infirmary') line = `${F.desc}（復原時間 ÷${(1 + 0.6 * st.lv).toFixed(1)}）`;
-    const staff = stf ? `<div class="pd2">👤 駐守：<b>${esc(stf)}</b>${bot ? '（' + ({ work: '工作中', rest: '休息中', off: '下班' }[bot.info.cat] || '') + (bonus ? `，真實狀態加成 +${Math.round(bonus * 100)}%` : '') + '）' : ''}</div>` : '';
+    const staff = stf ? `<div class="pd2">\ue095 駐守：<b>${esc(stf)}</b>${bot ? '（' + ({ work: '工作中', rest: '休息中', off: '下班' }[bot.info.cat] || '') + (bonus ? `，真實狀態加成 +${Math.round(bonus * 100)}%` : '') + '）' : ''}</div>` : '';
     const btns = []; const nc = S.nextCost(s, f);
     if (st.dmg) btns.push(`<button class="pri" data-a="repair"><kbd>E</kbd> 修理 ${costHTML(REPAIR_FAC_COST, s)}</button>`);
     if (nc && !st.dmg) btns.push(`<button class="${btns.length ? '' : 'pri'}" data-a="build"><kbd>E</kbd> ${st.lv ? '升級到 Lv' + (st.lv + 1) : '建造'} ${costHTML(nc, s)}</button>`);
-    if (f === 'workshop' && st.lv) btns.push(`<button data-a="hull" class="${s.cond < 99 && !btns.length ? 'pri' : ''}">🛠 整修船體 +${REPAIR_HULL.gain}% ${costHTML({ parts: REPAIR_HULL.parts }, s)}</button>`);
-    if (!nc && !st.dmg && !btns.length) btns.push(`<span class="maxed">已達最高等級 ✨</span>`);
+    if (f === 'workshop' && st.lv) btns.push(`<button data-a="hull" class="${s.cond < 99 && !btns.length ? 'pri' : ''}">\ue092 整修船體 +${REPAIR_HULL.gain}% ${costHTML({ parts: REPAIR_HULL.parts }, s)}</button>`);
+    if (!nc && !st.dmg && !btns.length) btns.push(`<span class="maxed">已達最高等級 \ue080</span>`);
     this.prompt.innerHTML = `<div class="ph"><span class="ic">${F.icon}</span><b>${F.name}</b><em>${st.lv ? 'Lv' + st.lv : '尚未建造'}</em>${st.dmg ? '<em class="bad">故障</em>' : ''}</div><div class="pd">${esc(line)}</div>${staff}<div class="pb">${btns.join('')}</div>`;
   }
   renderBotPrompt(b) {
     const s = this.s, now = nowSec(); const m = MOODS[b.mood] || MOODS.focus; const st = S.staffOf(s); const f = FAC_ORDER.find((x) => st[x] === b.key);
     const cool = (s.cdCheer[b.key] || 0) - now; const sleepy = b.sleeping || b.inBath;
-    let info = `${m.icon} ${m.name} · ${{ work: '工作中', rest: '休息中', off: '下班' }[b.info.cat] || ''}${f && s.fac[f].lv ? ' · 駐守' + FAC[f].name : ''}`; if (b.hurt) info = '🤕 受傷休養中 · ' + info;
-    const aff = R.affOf(s, R.BOSS, b.key); info += ` · 💞${R.label(aff)}`;
-    const more = this.moreOpen ? `<div class="pd2">${esc(b.hurt ? '身體不舒服，需要休息。' : REASON[b.mood] || '')}${b.cheerUntil > Date.now() ? ' · 剛被你打氣 💖' : ''}</div>` : '';
-    this.prompt.innerHTML = `<div class="ph"><span class="ic">${b.hurt ? '🤕' : m.icon}</span><b>${esc(b.title)}</b><em>${esc(info)}</em></div>${more}<div class="pb"><button class="pri" data-a="chat" ${sleepy ? 'disabled' : ''}><kbd>E</kbd> 💬 聊天</button><button data-a="mood">👀 看心情</button><button data-a="rel">💞 關係</button><button data-a="cheer" ${sleepy || cool > 0 ? 'disabled' : ''}>💖 打氣${cool > 0 ? ` (${Math.ceil(cool)}s)` : ''}</button></div>`;
+    let info = `${m.icon} ${m.name} · ${{ work: '工作中', rest: '休息中', off: '下班' }[b.info.cat] || ''}${f && s.fac[f].lv ? ' · 駐守' + FAC[f].name : ''}`; if (b.hurt) info = '\ue017 受傷休養中 · ' + info;
+    const aff = R.affOf(s, R.BOSS, b.key); info += ` · \ue052${R.label(aff)}`;
+    const more = this.moreOpen ? `<div class="pd2">${esc(b.hurt ? '身體不舒服，需要休息。' : REASON[b.mood] || '')}${b.cheerUntil > Date.now() ? ' · 剛被你打氣 \ue052' : ''}</div>` : '';
+    this.prompt.innerHTML = `<div class="ph"><span class="ic">${b.hurt ? '\ue017' : m.icon}</span><b>${esc(b.title)}</b><em>${esc(info)}</em></div>${more}<div class="pb"><button class="pri" data-a="chat" ${sleepy ? 'disabled' : ''}><kbd>E</kbd> \ue026 聊天</button><button data-a="mood">\ue040 看心情</button><button data-a="rel">\ue052 關係</button><button data-a="cheer" ${sleepy || cool > 0 ? 'disabled' : ''}>\ue052 打氣${cool > 0 ? ` (${Math.ceil(cool)}s)` : ''}</button></div>`;
   }
   promptClick(a, t, k) {
     if (t.type === 'spot') { if (a === 'invite') this.play.act('invite', { spot: t.spot, bot: this.play.botOf(k) }); else this.play.act('play', t.spot); return; }
@@ -199,12 +199,12 @@ export class HUD {
     const fr = pairs.filter((p) => p[2] >= R.FRIEND).sort((a, b) => b[2] - a[2]).slice(0, 8), rv = pairs.filter((p) => p[2] <= R.RIVAL || p[3]).sort((a, b) => a[2] - b[2]).slice(0, 8);
     const team = keys.map((k) => [k, R.teamBonus(s, k, now)]).filter((x) => Math.abs(x[1]) >= 0.005);
     const best = s.rel && s.rel.best ? Object.keys(s.rel.best).filter((k) => KIND[k]) : [];
-    c.innerHTML = `<h2>💞 船員關係 <button class="x" data-x="close">✕</button></h2><p class="sub">交情會因為一起玩、吃飯、共患難而變好，也會因為摩擦變差；氣氛好駐守效率 +，冷戰時 −。船員偶爾也會吵架、再和好。</p>
-      <h3>你 ↔ 船員</h3><ul class="rlist">${boss.length ? boss.map(([k, a]) => row(nm(k), a)).join('') : '<li class="sub">還沒有船員</li>'}</ul>
-      <h3>❤️ 好朋友</h3><ul class="rlist">${fr.length ? fr.map((p) => row(`${nm(p[0])} × ${nm(p[1])}`, p[2])).join('') : '<li class="sub">還沒有人特別要好——一起吃飯、打球、度過風暴就會慢慢變熟。</li>'}</ul>
-      <h3>⚔️ 對頭 / 冷戰</h3><ul class="rlist">${rv.length ? rv.map((p) => row(`${nm(p[0])} × ${nm(p[1])}`, p[2], p[3] ? ` <em class="bad">💢 冷戰中 ${dur(R.feudUntil(s, p[0], p[1]) - now)}</em>` : '')).join('') : '<li class="sub">目前相安無事。</li>'}</ul>
-      <h3>⚙️ 團隊氣氛對效率的影響</h3><ul class="rlist">${team.length ? team.map(([k, b]) => `<li><span class="rn">${nm(k)}</span><span class="rv ${b < 0 ? 'bad' : ''}">${b > 0 ? '+' : ''}${Math.round(b * 100)}%</span></li>`).join('') : '<li class="sub">氣氛普通，沒有加成。</li>'}</ul>
-      ${best.length ? `<h3>🏆 個人紀錄</h3><div class="rbest">${best.map((k) => `<span>${KIND[k].icon} ${KIND[k].name} <b>${s.rel.best[k]}${KIND[k].unit}</b></span>`).join('')}</div>` : ''}
+    c.innerHTML = `<h2>\ue052 船員關係 <button class="x" data-x="close">✕</button></h2><p class="sub">交情會因為一起玩、吃飯、共患難而變好，也會因為摩擦變差；氣氛好駐守效率 +，冷戰時 −。船員偶爾也會吵架、再和好。</p>
+      <h3>你 \ue016 船員</h3><ul class="rlist">${boss.length ? boss.map(([k, a]) => row(nm(k), a)).join('') : '<li class="sub">還沒有船員</li>'}</ul>
+      <h3>\ue052 好朋友</h3><ul class="rlist">${fr.length ? fr.map((p) => row(`${nm(p[0])} × ${nm(p[1])}`, p[2])).join('') : '<li class="sub">還沒有人特別要好——一起吃飯、打球、度過風暴就會慢慢變熟。</li>'}</ul>
+      <h3>\ue08b 對頭 / 冷戰</h3><ul class="rlist">${rv.length ? rv.map((p) => row(`${nm(p[0])} × ${nm(p[1])}`, p[2], p[3] ? ` <em class="bad">\ue078 冷戰中 ${dur(R.feudUntil(s, p[0], p[1]) - now)}</em>` : '')).join('') : '<li class="sub">目前相安無事。</li>'}</ul>
+      <h3>\ue04a 團隊氣氛對效率的影響</h3><ul class="rlist">${team.length ? team.map(([k, b]) => `<li><span class="rn">${nm(k)}</span><span class="rv ${b < 0 ? 'bad' : ''}">${b > 0 ? '+' : ''}${Math.round(b * 100)}%</span></li>`).join('') : '<li class="sub">氣氛普通，沒有加成。</li>'}</ul>
+      ${best.length ? `<h3>\ue094 個人紀錄</h3><div class="rbest">${best.map((k) => `<span>${KIND[k].icon} ${KIND[k].name} <b>${s.rel.best[k]}${KIND[k].unit}</b></span>`).join('')}</div>` : ''}
       <p class="sub" style="margin-top:8px">${(() => { const ks = [...new Set(this.play.games.spots.map((q) => KIND[q.kind].icon + KIND[q.kind].name))]; return ks.length ? '在 ' + ks.slice(0, 6).join('、') + (ks.length > 6 ? ' 等' : '') + tt(' 旁按 E 就能玩；也可以邀請附近的船員一起。') : '這艘船上暫時沒有可玩的設施。'; })()}</p>`;
     c.querySelector('.x').onclick = () => this.closeModal();
   }
@@ -221,27 +221,27 @@ export class HUD {
   renderReport() {
     const { first, away, rep } = this.payload; const c = this.modal.querySelector('.mcard'); const s = this.s;
     if (first) {
-      c.innerHTML = `<h2>🚢 歡迎登上末日方舟，${this.game.owner ? 'T董' : '船長'}！</h2><p class="sub">這艘船即使你不在也會自己運轉（最多補算 48 小時）。</p>
-      <ul class="how"><li>🍖💧⛽🔩 <b>四種資源</b>會隨時間生產與消耗，船員越多消耗越多。</li><li>🔨 走近設施<span class="nt">按 <kbd>E</kbd> </span><span class="to">點提示按鈕</span><b>建造／升級／修理</b>；點資源列旁的標籤可自動走過去。</li><li>💬 走近船員可以<b>聊天、看心情、打氣</b>（只影響遊戲裡的小人）。</li><li>🎾 走到<b>遊樂設施</b>（匹克球、桌球、籃框、街機、吧台、躺椅、泡湯…）<span class="nt">按 <kbd>E</kbd> 就能玩：指針掃到綠色區塊時按 <kbd>E</kbd>／點一下。</span><span class="to">點提示按鈕開始玩；指針到綠色區時點大按鈕。</span>可以邀請旁邊的船員一起玩，交情會變好；船員之間也會變成朋友、吵架、和好，點 💞 看關係。</li><li>🚣 點 🚣 派船員<b>出海探索</b>沉船殘骸：風險越高，收穫越多，也可能受傷。</li><li>📋 每天 3 個<b>每日任務</b>，完成可領資源。</li></ul>
+      c.innerHTML = `<h2>\ue003 歡迎登上末日方舟，${this.game.owner ? 'T董' : '船長'}！</h2><p class="sub">這艘船即使你不在也會自己運轉（最多補算 48 小時）。</p>
+      <ul class="how"><li>\ue047\ue03c\ue049\ue069 <b>四種資源</b>會隨時間生產與消耗，船員越多消耗越多。</li><li>\ue04f 走近設施<span class="nt">按 <kbd>E</kbd> </span><span class="to">點提示按鈕</span><b>建造／升級／修理</b>；點資源列旁的標籤可自動走過去。</li><li>\ue026 走近船員可以<b>聊天、看心情、打氣</b>（只影響遊戲裡的小人）。</li><li>\ue08e 走到<b>遊樂設施</b>（匹克球、桌球、籃框、街機、吧台、躺椅、泡湯…）<span class="nt">按 <kbd>E</kbd> 就能玩：指針掃到綠色區塊時按 <kbd>E</kbd>／點一下。</span><span class="to">點提示按鈕開始玩；指針到綠色區時點大按鈕。</span>可以邀請旁邊的船員一起玩，交情會變好；船員之間也會變成朋友、吵架、和好，點 \ue052 看關係。</li><li>\ue01e 點 \ue01e 派船員<b>出海探索</b>沉船殘骸：風險越高，收穫越多，也可能受傷。</li><li>\ue02b 每天 3 個<b>每日任務</b>，完成可領資源。</li></ul>
       <div class="mb"><button class="pri" data-x="close">開始航行</button></div>`;
     } else {
       const sm = S.summarize(rep); const lost = rep.capped ? '（超過 48 小時的部分不計）' : '';
       const rows = RES_KEYS.map((k) => `<tr><td>${RES[k].icon} ${RES[k].name}</td><td class="up">+${Math.round(rep.produced[k])}</td><td class="dn">−${Math.round(rep.consumed[k])}</td><td><b>${sm.net[k] >= 0 ? '+' : ''}${Math.round(sm.net[k])}</b></td><td class="now">${Math.floor(s.res[k])}</td></tr>`).join('');
       const evs = rep.events.filter((e) => e.type !== 'raid' && !(e.type === 'trip' && rep.trips.length)).slice(-10).map((e) => `<li><span class="ei">${EV_ICON[e.type] || '•'}</span><span class="et">${hm(e.t)}</span>${esc(e.text)}</li>`).join('') || '<li class="dim">一切平靜，沒有特別的事。</li>';
-      const inj = sm.injuries.length ? `<p class="warn">🤕 受傷：${sm.injuries.map(esc).join('、')}</p>` : '';
-      const raids = rep.events.filter((e) => e.type === 'raid').slice(-8); const raidH = raids.length ? `<h3>🏴‍☠️ 離線時被突襲</h3><ul class="evl pvlog">${raids.map((e) => `<li><span class="ei">🏴‍☠️</span><span class="et">${hm(e.t)}</span>${esc(e.text.replace(/^[^ ]+ /, ''))}</li>`).join('')}</ul>` : '';
-      const trips = rep.trips.length ? `<h3>🚣 出海成果</h3><ul class="evl">${rep.trips.map((tr) => `<li><span class="ei">${tr.fail ? '🌫' : '📦'}</span>${esc(tr.text)}</li>`).join('')}</ul>` : '';
-      c.innerHTML = `<h2>🌅 你不在的時候…</h2><p class="sub">離線 <b>${dur(away)}</b>，已補算 ${rep.ticks} 分鐘的航行 ${lost}</p>
+      const inj = sm.injuries.length ? `<p class="warn">\ue017 受傷：${sm.injuries.map(esc).join('、')}</p>` : '';
+      const raids = rep.events.filter((e) => e.type === 'raid').slice(-8); const raidH = raids.length ? `<h3>\ue009 離線時被突襲</h3><ul class="evl pvlog">${raids.map((e) => `<li><span class="ei">\ue009</span><span class="et">${hm(e.t)}</span>${esc(e.text.replace(/^[^ ]+ /, ''))}</li>`).join('')}</ul>` : '';
+      const trips = rep.trips.length ? `<h3>\ue01e 出海成果</h3><ul class="evl">${rep.trips.map((tr) => `<li><span class="ei">${tr.fail ? '\ue02e' : '\ue06a'}</span>${esc(tr.text)}</li>`).join('')}</ul>` : '';
+      c.innerHTML = `<h2>\ue089 你不在的時候…</h2><p class="sub">離線 <b>${dur(away)}</b>，已補算 ${rep.ticks} 分鐘的航行 ${lost}</p>
       <table class="rt"><tr><th></th><th>生產</th><th>消耗</th><th>淨變化</th><th>目前</th></tr>${rows}</table>
-      <div class="cndl">🛠 船體狀況 ${Math.round(s.cond)}%</div>${inj}${raidH}${trips}<h3>📜 發生的事</h3><ul class="evl">${evs}</ul>${rep.newDay ? '<p class="note">📋 新的一天，每日任務已更新。</p>' : ''}
-      <div class="mb"><button data-x="tasks">📋 今日任務</button><button class="pri" data-x="close">繼續航行</button></div>`;
+      <div class="cndl">\ue092 船體狀況 ${Math.round(s.cond)}%</div>${inj}${raidH}${trips}<h3>\ue076 發生的事</h3><ul class="evl">${evs}</ul>${rep.newDay ? '<p class="note">\ue02b 新的一天，每日任務已更新。</p>' : ''}
+      <div class="mb"><button data-x="tasks">\ue02b 今日任務</button><button class="pri" data-x="close">繼續航行</button></div>`;
     }
     c.querySelectorAll('[data-x]').forEach((b) => (b.onclick = () => { if (b.dataset.x === 'tasks') this.openModal('tasks'); else this.closeModal(); }));
   }
 
   // -- 每日任務
   renderTasks() {
-    const c = this.modal.querySelector('.mcard'); c.innerHTML = `<h2>📋 每日任務 <button class="x" data-x="close">✕</button></h2><p class="sub" id="tkSub"></p><div id="tkQuest"></div><div id="tkList"></div><h3>📜 最近消息</h3><ul class="evl" id="tkLog"></ul>`;
+    const c = this.modal.querySelector('.mcard'); c.innerHTML = `<h2>\ue02b 每日任務 <button class="x" data-x="close">✕</button></h2><p class="sub" id="tkSub"></p><div id="tkQuest"></div><div id="tkList"></div><h3>\ue076 最近消息</h3><ul class="evl" id="tkLog"></ul>`;
     c.querySelector('.x').onclick = () => this.closeModal(); this.renderTasksLive();
   }
   renderTasksLive() {
@@ -260,29 +260,29 @@ export class HUD {
   // -- 艦隊
   statsRow(type, lv = 1) {
     const st = FL.shipStats({ type, lv }); const B = SHIPS[type];
-    return `<span class="st" title="速度">💨 ${st.speed.toFixed(1)}</span><span class="st" title="載貨量（每趟收穫上限）">📦 ${st.cargo}</span><span class="st" title="耐久">🛡 ${st.hull}</span><span class="st" title="火力：降低遇襲風險、提高戰果">🎯 ${st.fp}</span><span class="st zn" title="可航行海域">${B.zones.map((z) => ZONES[z].icon).join('')}</span>`;
+    return `<span class="st" title="速度">\ue09b ${st.speed.toFixed(1)}</span><span class="st" title="載貨量（每趟收穫上限）">\ue06a ${st.cargo}</span><span class="st" title="耐久">\ue077 ${st.hull}</span><span class="st" title="火力：降低遇襲風險、提高戰果">\ue08c ${st.fp}</span><span class="st zn" title="可航行海域">${B.zones.map((z) => ZONES[z].icon).join('')}</span>`;
   }
   /** 角色挑選（非船東）：10 位角色；點一下立刻換上，存在存檔的 pl.c。 */
   renderChar() {
     const c = this.modal.querySelector('.mcard'); const cur = this.game.charId; let imgs = null;
-    const html = () => `<h2>🧑‍✈️ 選擇你的角色 <button class="x" data-x="close">✕</button></h2><p class="sub">點一下就會換上，下次登入還是這位。</p>
-    <div class="chargrid">${CHARS.map((ch) => `<button class="chc${ch.id === this.game.charId ? ' on' : ''}" data-c="${ch.id}"><span class="cp">${imgs && imgs[ch.id] ? `<img alt="${ch.name}" src="${imgs[ch.id]}">` : `<i>${ch.tag}</i>`}</span><b>${ch.name}</b><small>${ch.blurb}</small>${ch.id === this.game.charId ? '<em>✔ 使用中</em>' : ''}</button>`).join('')}</div>`;
+    const html = () => `<h2>\ue085 選擇你的角色 <button class="x" data-x="close">✕</button></h2><p class="sub">點一下就會換上，下次登入還是這位。</p>
+    <div class="chargrid">${CHARS.map((ch) => `<button class="chc${ch.id === this.game.charId ? ' on' : ''}" data-c="${ch.id}"><span class="cp">${imgs && imgs[ch.id] ? `<img alt="${ch.name}" src="${imgs[ch.id]}">` : `<i>${ch.tag}</i>`}</span><b>${ch.name}</b><small>${ch.blurb}</small>${ch.id === this.game.charId ? '<em>\ue027 使用中</em>' : ''}</button>`).join('')}</div>`;
     const bind = () => { c.querySelector('.x').onclick = () => this.closeModal(); c.querySelectorAll('.chc').forEach((el) => { el.onclick = () => { const id = el.dataset.c; if (id === this.game.charId) return; if (this.game.setChar(id)) { c.innerHTML = html(); bind(); this.ui.toast(`換上「${charById(id).name}」`); } }; }); };
     c.innerHTML = html(); bind();
     setTimeout(() => { if (this.modalKind !== 'char') return; imgs = charPreviews(CHARS.map((x) => x.id)); const sc = c.scrollTop; c.innerHTML = html(); c.scrollTop = sc; bind(); }, 30);
   }
   renderPick() {
     const c = this.modal.querySelector('.mcard');
-    c.innerHTML = `<h2>⚓ 選擇你的第一艘船 <button class="x" data-x="close" title="稍後再選">✕</button></h2><p class="sub">每位船長都從一艘小船開始。它會在你離線時自動出海撈資源；賺到資源與稀有「藍圖」後，就能建造、升級更大的船，慢慢組成自己的艦隊。<b>選了就不能換</b>，但其他船型之後都能靠藍圖解鎖。</p>
-    <div class="pickgrid">${STARTERS.map((t) => { const B = SHIPS[t]; return `<div class="pk" data-t="${t}"><div class="pi">${B.icon}</div><b>${B.name}</b><small>${B.role}</small><div class="strow">${this.statsRow(t)}</div><div class="pb"><button data-a="view">👁 看模型</button><button class="pri" data-a="pick">選這艘</button></div></div>`; }).join('')}</div>
-    <p class="sub">之後在 ⚓ 艦隊 面板可建造更多船、升級、改變航向。</p>`;
+    c.innerHTML = `<h2>\ue012 選擇你的第一艘船 <button class="x" data-x="close" title="稍後再選">✕</button></h2><p class="sub">每位船長都從一艘小船開始。它會在你離線時自動出海撈資源；賺到資源與稀有「藍圖」後，就能建造、升級更大的船，慢慢組成自己的艦隊。<b>選了就不能換</b>，但其他船型之後都能靠藍圖解鎖。</p>
+    <div class="pickgrid">${STARTERS.map((t) => { const B = SHIPS[t]; return `<div class="pk" data-t="${t}"><div class="pi">${B.icon}</div><b>${B.name}</b><small>${B.role}</small><div class="strow">${this.statsRow(t)}</div><div class="pb"><button data-a="view">\ue03f 看模型</button><button class="pri" data-a="pick">選這艘</button></div></div>`; }).join('')}</div>
+    <p class="sub">之後在 \ue012 艦隊 面板可建造更多船、升級、改變航向。</p>`;
     c.querySelector('.x').onclick = () => this.closeModal();
     c.querySelectorAll('.pk').forEach((el) => { const t = el.dataset.t; el.querySelector('[data-a=view]').onclick = () => this.preview(t, 1, 'pick'); el.querySelector('[data-a=pick]').onclick = () => { const r = this.play.fleetAct('pick', { type: t }); if (r && r.ok) { this.closeModal(); this.openModal('fleet'); } }; });
   }
   preview(type, lv, back) { this.showPvBar(type, back); this.play.viewType(type, lv); }
   showPvBar(type, back) {
     this.hidePvBar(); const B = SHIPS[type]; const f = this.s.fleet;
-    const el = $(`<div id="pvbar"><b>${B.icon} ${B.name}</b><small>${B.role}　拖曳旋轉 · 滾輪縮放</small><button data-a="back">⬅ 返回</button>${back === 'pick' && !f.pick ? '<button class="pri" data-a="pick">選這艘</button>' : ''}</div>`);
+    const el = $(`<div id="pvbar"><b>${B.icon} ${B.name}</b><small>${B.role}　拖曳旋轉 · 滾輪縮放</small><button data-a="back">\ue013 返回</button>${back === 'pick' && !f.pick ? '<button class="pri" data-a="pick">選這艘</button>' : ''}</div>`);
     const done = () => { this.hidePvBar(); this.play.clearPreview(); };
     el.querySelector('[data-a=back]').onclick = () => { done(); this.game.showPanorama(); this.openModal(back || 'fleet'); };
     const pk = el.querySelector('[data-a=pick]'); if (pk) pk.onclick = () => { const r = this.play.fleetAct('pick', { type }); if (r && r.ok) { done(); this.game.showPanorama(); this.openModal('fleet'); } };
@@ -295,24 +295,24 @@ export class HUD {
   matHtml(s) {
     const m = (s.fleet && s.fleet.mat) || {}; const bp = (s.fleet && s.fleet.bp) || {};
     const mats = SZM.MAT_ORDER.map((k) => { const M = SZM.MATERIALS[k], Z = SZM.SPECIAL_ZONES[M.zone]; return `<span class="mt ${m[k] ? '' : 'z'}" title="${M.name}（${Z.name}）"><i>${M.icon}</i>${M.name}<b>${m[k] | 0}</b></span>`; }).join('');
-    const bps = SZM.PROMO_BP_IDS.map((k) => `<span class="mt bp ${bp[k] ? '' : 'z'}" title="${SZM.PROMO_BP[k].name}">${bp[k] ? '🗺️' : '🔒'}${SZM.PROMO_BP[k].name.replace('藍圖', '')}</span>`).join('');
+    const bps = SZM.PROMO_BP_IDS.map((k) => `<span class="mt bp ${bp[k] ? '' : 'z'}" title="${SZM.PROMO_BP[k].name}">${bp[k] ? '\ue062' : '\ue05e'}${SZM.PROMO_BP[k].name.replace('藍圖', '')}</span>`).join('');
     return `<div class="matbar">${mats}</div><div class="matbar">${bps}</div>`;
   }
   szHtml() {
     const s = this.s, w = s.fleet.world; if (!w || !w.pos) return ''; const sz = w.sz || {}; const n = SZM.PROMO_BP_IDS.filter((k) => s.fleet.bp[k]).length;
-    const zs = SZM.SZ_ORDER.map((id) => { const Z = SZM.SPECIAL_ZONES[id], seen = this.chart.szSeen && this.chart.szSeen[id]; return `<span class="zc ${seen ? '' : 'un'}" style="${seen ? `border-color:${Z.color};color:${Z.color}` : ''}" title="${seen ? Z.blurb : '還沒找到'}">${seen ? Z.icon + Z.short : '❓'}${sz.n && sz.n[id] ? ` ×${sz.n[id]}` : ''}</span>`; }).join('');
-    return `<h3>特殊海域・稀有掉落 <small class="dim">稀有藍圖 ${n}/9（旗艦晉升用）</small></h3><div class="zonebar">${zs}</div>${this.matHtml(s)}<p class="sub">五個特殊海域藏在世界地圖上：🌫迷霧、🌀漩渦、🔥火焰、😈地獄、🗿巨石陣。裡面有危害，但會掉落旗艦晉升需要的稀有藍圖與材料。在海圖上找到它們（迷霧只有外緣看得到）。停泊仍會慢慢磨損、風暴也會受損，但船體最低停在 20%（不會沉船）；記得用工坊／零件修。</p>`;
+    const zs = SZM.SZ_ORDER.map((id) => { const Z = SZM.SPECIAL_ZONES[id], seen = this.chart.szSeen && this.chart.szSeen[id]; return `<span class="zc ${seen ? '' : 'un'}" style="${seen ? `border-color:${Z.color};color:${Z.color}` : ''}" title="${seen ? Z.blurb : '還沒找到'}">${seen ? Z.icon + Z.short : '\ue071'}${sz.n && sz.n[id] ? ` ×${sz.n[id]}` : ''}</span>`; }).join('');
+    return `<h3>特殊海域・稀有掉落 <small class="dim">稀有藍圖 ${n}/9（旗艦晉升用）</small></h3><div class="zonebar">${zs}</div>${this.matHtml(s)}<p class="sub">五個特殊海域藏在世界地圖上：\ue02e迷霧、\ue093漩渦、\ue042火焰、\ue07b地獄、\ue000巨石陣。裡面有危害，但會掉落旗艦晉升需要的稀有藍圖與材料。在海圖上找到它們（迷霧只有外緣看得到）。停泊仍會慢慢磨損、風暴也會受損，但船體最低停在 20%（不會沉船）；記得用工坊／零件修。</p>`;
   }
   /** 頂部 / 膠囊的海域 chip：巨石陣中心 = 開古碑；其他 = 打開海圖 */
   szClick() { const fx = this.game.szFx; if (!fx) return; if (fx.id === 'stonehenge' && fx.depth >= 0.3) { this.openPuzzle(); return; } this.chart.open(); }
-  openPuzzle() { const c = SZM.puzzleCan(this.s, nowSec()); if (!c.ok) { this.ui.toast('🗿 ' + c.why); return; } this.chart.close(); this.pz = { phase: 'ready', day: c.day, seq: SZM.puzzleSeq(this.s, c.day), got: [], lit: -1 }; this.openModal('puzzle'); }
+  openPuzzle() { const c = SZM.puzzleCan(this.s, nowSec()); if (!c.ok) { this.ui.toast('\ue000 ' + c.why); return; } this.chart.close(); this.pz = { phase: 'ready', day: c.day, seq: SZM.puzzleSeq(this.s, c.day), got: [], lit: -1 }; this.openModal('puzzle'); }
   renderPuzzle() {
     const c = this.modal.querySelector('.mcard'), P = this.pz; if (!P) { this.closeModal(); return; } const SYM = ['◆', '●', '▲', '■', '★', '☾'];
     const tiles = SYM.map((y, i) => `<button class="pzt ${P.lit === i ? 'lit' : ''}" data-i="${i}" ${P.phase === 'input' ? '' : 'disabled'}>${y}</button>`).join('');
     const dots = P.seq.map((_, i) => `<i class="${i < P.got.length ? 'on' : ''}"></i>`).join('');
-    const body = P.phase === 'ready' ? `<p class="sub">古碑會依序亮起 ${P.seq.length} 個符文。記住順序，再照樣點一遍。<br><b>每天只能讀一次</b>（失敗也算），答對有古碑殘片，還有機會得到科研 T3 藍圖。</p><div class="mb"><button class="pri" data-a="go">🗿 開始讀碑</button><button data-x="close">先不要</button></div>`
+    const body = P.phase === 'ready' ? `<p class="sub">古碑會依序亮起 ${P.seq.length} 個符文。記住順序，再照樣點一遍。<br><b>每天只能讀一次</b>（失敗也算），答對有古碑殘片，還有機會得到科研 T3 藍圖。</p><div class="mb"><button class="pri" data-a="go">\ue000 開始讀碑</button><button data-x="close">先不要</button></div>`
       : P.phase === 'show' ? '<p class="sub">看仔細…</p>' : P.phase === 'input' ? `<p class="sub">輪到你了：依序點擊符文</p><div class="pzd">${dots}</div>` : `<p class="${P.won ? 'ok' : 'warn'}">${P.msg}</p><div class="mb"><button class="pri" data-x="close">好</button></div>`;
-    c.innerHTML = `<h2>🗿 古碑 <button class="x" data-x="close">✕</button></h2><div class="pzg">${tiles}</div>${body}`;
+    c.innerHTML = `<h2>\ue000 古碑 <button class="x" data-x="close">✕</button></h2><div class="pzg">${tiles}</div>${body}`;
     c.querySelectorAll('[data-x=close]').forEach((b) => (b.onclick = () => { this.pz = null; this.closeModal(); }));
     const go = c.querySelector('[data-a=go]'); if (go) go.onclick = () => this.pzShow();
     c.querySelectorAll('.pzt').forEach((b) => (b.onclick = () => this.pzTap(+b.dataset.i)));
@@ -325,18 +325,18 @@ export class HUD {
   }
   renderFleet() {
     const c = this.modal.querySelector('.mcard'); const s = this.s; const f = s.fleet; this.fleetSigV = this.fleetSig();
-    const fr = PM.flagRow(f), fb = fr.branch ? PM.BRANCHES[fr.branch] : null, pst = PM.promoStatus(s, nowSec()); const flag = f.flagship ? `<div class="shipc flag"><div class="sh"><span class="ic">${fb ? fb.icon : FLAGSHIP.icon}</span><div><b>${fb ? fr.name : FLAGSHIP.name}</b><em>${fb ? fb.name + ' T' + fr.tier : '旗艦'}</em><small>${FLAGSHIP.role}</small></div></div><div class="strow">${statChips(fr)}</div>${pst.up ? `<div class="strow"><span class="st">🛠 改裝中</span></div>` : ''}<div class="mb" style="margin-top:6px"><button class="pri" data-a="promo">⭐ 旗艦晉升${pst.up ? '（改裝中）' : pst.cur.tier >= 3 ? '（已滿階）' : ''}</button></div><div class="strow"><span class="st">💨 ${FLAGSHIP.speed}</span><span class="st">📦 ${FLAGSHIP.cargo}</span><span class="st">🛡 ${FLAGSHIP.hull}</span><span class="st">🎯 ${FLAGSHIP.fp}</span><span class="st zn">${ZONE_ORDER.map((z) => ZONES[z].icon).join('')}</span></div></div>` : '';
-    const ships = f.ships.map((sh) => this.shipCard(sh)).join('') || (f.pick ? '<p class="dim">還沒有船。到下方「船塢」建造第一艘吧。</p>' : `<p class="warn">你還沒選第一艘船。</p><div class="mb"><button class="pri" data-a="openpick">⚓ 選擇第一艘船</button></div>`);
+    const fr = PM.flagRow(f), fb = fr.branch ? PM.BRANCHES[fr.branch] : null, pst = PM.promoStatus(s, nowSec()); const flag = f.flagship ? `<div class="shipc flag"><div class="sh"><span class="ic">${fb ? fb.icon : FLAGSHIP.icon}</span><div><b>${fb ? fr.name : FLAGSHIP.name}</b><em>${fb ? fb.name + ' T' + fr.tier : '旗艦'}</em><small>${FLAGSHIP.role}</small></div></div><div class="strow">${statChips(fr)}</div>${pst.up ? `<div class="strow"><span class="st">\ue092 改裝中</span></div>` : ''}<div class="mb" style="margin-top:6px"><button class="pri" data-a="promo">\ue084 旗艦晉升${pst.up ? '（改裝中）' : pst.cur.tier >= 3 ? '（已滿階）' : ''}</button></div><div class="strow"><span class="st">\ue09b ${FLAGSHIP.speed}</span><span class="st">\ue06a ${FLAGSHIP.cargo}</span><span class="st">\ue077 ${FLAGSHIP.hull}</span><span class="st">\ue08c ${FLAGSHIP.fp}</span><span class="st zn">${ZONE_ORDER.map((z) => ZONES[z].icon).join('')}</span></div></div>` : '';
+    const ships = f.ships.map((sh) => this.shipCard(sh)).join('') || (f.pick ? '<p class="dim">還沒有船。到下方「船塢」建造第一艘吧。</p>' : `<p class="warn">你還沒選第一艘船。</p><div class="mb"><button class="pri" data-a="openpick">\ue012 選擇第一艘船</button></div>`);
     const known = FL.bpIds().filter((k) => f.bp[k]).length;
     const dock = SHIP_ORDER.map((t) => { const B = SHIPS[t]; const have = B.free || f.bp[t]; const cb = FL.canBuild(s, t); const own = f.ships.filter((x) => x.type === t).length;
-      return `<div class="dk ${have ? '' : 'lock'}" data-t="${t}"><div class="dh"><span class="ic">${B.icon}</span><div><b>${B.name}</b><small>${B.role}</small></div><em class="${B.free ? 'st0' : have ? 'st1' : 'st2'}">${B.free ? '入門' : have ? '🗺️ 已有藍圖' : '🔒 需藍圖'}</em></div><div class="strow">${this.statsRow(t)}</div><div class="dc">${costHTML(B.cost, s)} · ⏱ ${B.build} 分${own ? ` · 已有 ${own}` : ''}</div><div class="pb"><button data-a="view">👁 看模型</button><button class="${cb.ok ? 'pri' : ''}" data-a="build" ${cb.ok ? '' : 'disabled'} title="${cb.ok ? '' : cb.why}">${have ? '建造' : '尚無藍圖'}</button></div></div>`; }).join('');
+      return `<div class="dk ${have ? '' : 'lock'}" data-t="${t}"><div class="dh"><span class="ic">${B.icon}</span><div><b>${B.name}</b><small>${B.role}</small></div><em class="${B.free ? 'st0' : have ? 'st1' : 'st2'}">${B.free ? '入門' : have ? '\ue062 已有藍圖' : '\ue05e 需藍圖'}</em></div><div class="strow">${this.statsRow(t)}</div><div class="dc">${costHTML(B.cost, s)} · \ue091 ${B.build} 分${own ? ` · 已有 ${own}` : ''}</div><div class="pb"><button data-a="view">\ue03f 看模型</button><button class="${cb.ok ? 'pri' : ''}" data-a="build" ${cb.ok ? '' : 'disabled'} title="${cb.ok ? '' : cb.why}">${have ? '建造' : '尚無藍圖'}</button></div></div>`; }).join('');
     const zones = ZONE_ORDER.map((z) => { const Z = ZONES[z]; return `<span class="zc" style="border-color:${Z.color};color:${Z.color}" title="航程≈${Z.min} 分(速度1.0) · 危險 ${Math.round(Z.danger * 100)}% · 收穫×${Z.rich}">${Z.icon} ${Z.name}</span>`; }).join('');
-    c.innerHTML = `<h2>⚓ 艦隊 <button class="mini" data-a="chart" title="海圖 (M)">🧭 海圖</button><button class="x" data-x="close">✕</button></h2>
+    c.innerHTML = `<h2>\ue012 艦隊 <button class="mini" data-a="chart" title="海圖 (M)">\ue034 海圖</button><button class="x" data-x="close">✕</button></h2>
       <p class="sub">小船在你離線時也會自動出海（閒置任務）：依船的戰力挑海域，帶回資源，偶爾發現稀有藍圖。燃料至少會替方舟留 ${15}。艦隊上限 ${FLEET_MAX} 艘。</p>
       ${flag}<div id="flShips">${ships}</div>
       <h3>船塢・藍圖 <small class="dim">已取得 ${known}/5 張藍圖 — 出海探索與閒置任務都有機會找到</small></h3><div class="dockgrid" id="flDock">${dock}</div>
       ${this.szHtml()}
-      <h3>海域</h3><div class="zonebar">${zones}</div><p class="sub">更遠的海域收穫更多、也更危險；潛艇能下深淵，破冰船能闖冰海。世界地圖在 🧭 海圖（按 M）：方舟可以航行、探索迷霧、決定海上事件。</p>`;
+      <h3>海域</h3><div class="zonebar">${zones}</div><p class="sub">更遠的海域收穫更多、也更危險；潛艇能下深淵，破冰船能闖冰海。世界地圖在 \ue034 海圖（按 M）：方舟可以航行、探索迷霧、決定海上事件。</p>`;
     c.querySelector('.x').onclick = () => this.closeModal(); c.querySelector('[data-a=chart]').onclick = () => this.chart.open();
     const op = c.querySelector('[data-a=openpick]'); if (op) op.onclick = () => this.openModal('pick'); const pb = c.querySelector('[data-a=promo]'); if (pb) pb.onclick = () => this.openModal('promo');
     c.querySelectorAll('.dk').forEach((el) => { const t = el.dataset.t; el.querySelector('[data-a=view]').onclick = () => this.preview(t, 1, 'fleet'); el.querySelector('[data-a=build]').onclick = () => { this.play.fleetAct('build', { type: t }); this.renderFleet(); }; });
@@ -348,15 +348,15 @@ export class HUD {
   }
   shipCard(sh) {
     const B = SHIPS[sh.type]; const s = this.s; const st = FL.shipStats(sh); const z = FL.zoneOf(sh); const uc = FL.upgradeCost(sh);
-    const stateTxt = { dock: sh.auto ? '停港待命（即將出航）' : '停港中（自動出航已關）', build: '建造中', wreck: '重創擱淺，需整修', sail: sh.m ? `航向 ${ZONES[sh.m.zone].icon}${ZONES[sh.m.zone].name}` : '航行中', pilot: '🎮 T董駕駛中' }[sh.state];
-    const opts = `<option value="auto" ${sh.zone === 'auto' ? 'selected' : ''}>自動（推薦：${ZONES[FL.autoZone(sh)].name}）</option>` + B.zones.map((q) => `<option value="${q}" ${sh.zone === q ? 'selected' : ''}>${ZONES[q].icon} ${ZONES[q].name}（危險 ${Math.round(FL.missionRisk(sh, q) * 100)}% · ${FL.missionMinutes(sh, q)} 分 · ⛽${FL.missionFuel(sh, q)}）</option>`).join('');
-    const hs = this.game.small ? FL.homeShip(s.fleet) : null; const isHome = !!hs && hs.id === sh.id; const homeBtn = this.game.small && !isHome && FL.canBeHome(sh) && sh.state === 'dock' ? '<button data-a="home" title="把這艘換成你的家（甲板 / 船員都會搬過去）">⭐ 設為旗艦</button>' : '';
-    return `<div class="shipc${isHome ? ' flag' : ''}" data-id="${sh.id}" data-type="${sh.type}"><div class="sh"><span class="ic">${B.icon}</span><div><b>${esc(sh.name)} <button class="mini" data-a="rename" title="改名">✎</button></b><em>${isHome ? '⭐ 旗艦 · ' : ''}Lv${sh.lv}</em><small>${stateTxt}</small></div><button data-a="view" ${sh.state === 'sail' ? 'title="航行中，返港後才能檢視"' : ''}>👁 檢視</button></div>
+    const stateTxt = { dock: sh.auto ? '停港待命（即將出航）' : '停港中（自動出航已關）', build: '建造中', wreck: '重創擱淺，需整修', sail: sh.m ? `航向 ${ZONES[sh.m.zone].icon}${ZONES[sh.m.zone].name}` : '航行中', pilot: '\ue048 T董駕駛中' }[sh.state];
+    const opts = `<option value="auto" ${sh.zone === 'auto' ? 'selected' : ''}>自動（推薦：${ZONES[FL.autoZone(sh)].name}）</option>` + B.zones.map((q) => `<option value="${q}" ${sh.zone === q ? 'selected' : ''}>${ZONES[q].icon} ${ZONES[q].name}（危險 ${Math.round(FL.missionRisk(sh, q) * 100)}% · ${FL.missionMinutes(sh, q)} 分 · \ue049${FL.missionFuel(sh, q)}）</option>`).join('');
+    const hs = this.game.small ? FL.homeShip(s.fleet) : null; const isHome = !!hs && hs.id === sh.id; const homeBtn = this.game.small && !isHome && FL.canBeHome(sh) && sh.state === 'dock' ? '<button data-a="home" title="把這艘換成你的家（甲板 / 船員都會搬過去）">\ue084 設為旗艦</button>' : '';
+    return `<div class="shipc${isHome ? ' flag' : ''}" data-id="${sh.id}" data-type="${sh.type}"><div class="sh"><span class="ic">${B.icon}</span><div><b>${esc(sh.name)} <button class="mini" data-a="rename" title="改名">✎</button></b><em>${isHome ? '\ue084 旗艦 · ' : ''}Lv${sh.lv}</em><small>${stateTxt}</small></div><button data-a="view" ${sh.state === 'sail' ? 'title="航行中，返港後才能檢視"' : ''}>\ue03f 檢視</button></div>
       <div class="strow">${this.statsRow(sh.type, sh.lv)}</div>
       <div class="hpbar" title="船況 ${Math.round(sh.hp)}%"><u style="width:${sh.hp}%;background:${sh.hp < 35 ? '#ff6b5e' : sh.hp < 65 ? '#ffc65e' : '#6fd78f'}"></u></div>
       ${sh.state === 'sail' || sh.state === 'build' ? `<div class="tb"><u data-prog></u><span data-eta></span></div>` : ''}
       <div class="ctl"><label>目標海域 <select ${sh.state === 'build' ? 'disabled' : ''}>${opts}</select></label></div>
-      <div class="pb">${homeBtn}${sh.state === 'dock' ? `<button data-a="pilot">🎮 駕駛</button>` : ''}<button data-a="auto" class="${sh.auto ? 'pri' : ''}">${sh.auto ? '⏵ 自動出航：開' : '⏸ 自動出航：關'}</button>${sh.hp < 99 && sh.state !== 'sail' && sh.state !== 'build' ? `<button data-a="fix" class="${sh.state === 'wreck' ? 'pri' : ''}">🔧 整修 ${costHTML(FL.repairCostShip(sh), s)}</button>` : ''}${uc ? `<button data-a="up" ${sh.state === 'dock' ? '' : 'disabled'}>⬆ 升到 Lv${sh.lv + 1} ${costHTML(uc, s)}</button>` : '<span class="maxed">已達最高等級 ✨</span>'}</div></div>`;
+      <div class="pb">${homeBtn}${sh.state === 'dock' ? `<button data-a="pilot">\ue048 駕駛</button>` : ''}<button data-a="auto" class="${sh.auto ? 'pri' : ''}">${sh.auto ? '⏵ 自動出航：開' : '\ue06b 自動出航：關'}</button>${sh.hp < 99 && sh.state !== 'sail' && sh.state !== 'build' ? `<button data-a="fix" class="${sh.state === 'wreck' ? 'pri' : ''}">\ue09d 整修 ${costHTML(FL.repairCostShip(sh), s)}</button>` : ''}${uc ? `<button data-a="up" ${sh.state === 'dock' ? '' : 'disabled'}>\ue015 升到 Lv${sh.lv + 1} ${costHTML(uc, s)}</button>` : '<span class="maxed">已達最高等級 \ue080</span>'}</div></div>`;
   }
   renderFleetLive(force) {
     const c = this.modal.querySelector('.mcard'); if (!c.querySelector('#flShips')) return; const s = this.s; const now = nowSec();
@@ -368,13 +368,13 @@ export class HUD {
   // -- 出海
   renderTrips() {
     const c = this.modal.querySelector('.mcard'); this.sel = this.sel || { site: null, crew: new Set() };
-    c.innerHTML = `<h2>🚣 出海探索 <button class="x">✕</button></h2><p class="sub">派 1–3 位船員駕救生艇去撈沉船殘骸。時間到自動返航；高風險收穫多但可能受傷（受傷時間會被醫療室縮短）。你離線時也會照常進行。</p>
+    c.innerHTML = `<h2>\ue01e 出海探索 <button class="x">✕</button></h2><p class="sub">派 1–3 位船員駕救生艇去撈沉船殘骸。時間到自動返航；高風險收穫多但可能受傷（受傷時間會被醫療室縮短）。你離線時也會照常進行。</p>
     <div id="trActive"></div><h3>目的地</h3><div id="trSites" class="sites"></div><h3>船員</h3><div id="trCrew" class="crewsel"></div><div class="mb"><span id="trCost"></span><button class="pri" id="trGo">出發</button></div>`;
     c.querySelector('.x').onclick = () => this.closeModal();
     const sites = c.querySelector('#trSites'); SITES.forEach((st) => {
       const tier = TIERS[st.tier]; const res = Object.keys(st.w).sort((a, b) => st.w[b] - st.w[a]).slice(0, 3).map((k) => RES[k].icon).join(''); const fuel = 3 + st.tier * 4;
       const lo = Math.round(tier.units * 0.75), hi = Math.round(tier.units * 1.25);
-      const el = $(`<button class="site" data-id="${st.id}"><b>${esc(st.name)}</b><span class="tier" style="color:${tier.color};border-color:${tier.color}">${tier.name}</span><small>⏱ ${tier.min} 分 · ⛽${fuel} · 受傷率 ≈${Math.round(tier.risk * 100)}%</small><small>可能收穫 ${res} ≈ ${lo}–${hi}（每多派一人 +25%）</small></button>`);
+      const el = $(`<button class="site" data-id="${st.id}"><b>${esc(st.name)}</b><span class="tier" style="color:${tier.color};border-color:${tier.color}">${tier.name}</span><small>\ue091 ${tier.min} 分 · \ue049${fuel} · 受傷率 ≈${Math.round(tier.risk * 100)}%</small><small>可能收穫 ${res} ≈ ${lo}–${hi}（每多派一人 +25%）</small></button>`);
       el.onclick = () => { this.sel.site = st.id; this.renderTripsLive(true); }; sites.append(el);
     });
     c.querySelector('#trGo').onclick = () => {
@@ -390,12 +390,12 @@ export class HUD {
     const av = S.availableCrew(s, now); const cs = c.querySelector('#trCrew'); const keys = S.crewKeys(s); const sig = JSON.stringify([keys, av, [...this.sel.crew], keys.map((k) => s.crew[k].away + ':' + (s.crew[k].inj > now ? 1 : 0))]); 
     if (cs.dataset.sig !== sig) {
       cs.dataset.sig = sig; cs.innerHTML = '';
-      for (const k of keys) { const cr = s.crew[k]; const ok = av.includes(k); const why = cr.away ? '出海中' : cr.inj > now ? '受傷休養' : ''; const b = this.play.botOf(k); const m = b ? (MOODS[b.mood] || MOODS.focus).icon : '👤';
+      for (const k of keys) { const cr = s.crew[k]; const ok = av.includes(k); const why = cr.away ? '出海中' : cr.inj > now ? '受傷休養' : ''; const b = this.play.botOf(k); const m = b ? (MOODS[b.mood] || MOODS.focus).icon : '\ue095';
         const el = $(`<button class="cm ${this.sel.crew.has(k) ? 'sel' : ''}" ${ok ? '' : 'disabled'}>${m} ${esc(k)}${why ? `<small>${why}</small>` : ''}</button>`);
         el.onclick = () => { if (this.sel.crew.has(k)) this.sel.crew.delete(k); else if (this.sel.crew.size < 3) this.sel.crew.add(k); else this.ui.toast('最多 3 位'); this.renderTripsLive(true); }; cs.append(el); }
       if (!keys.length) cs.innerHTML = '<span class="dim">等待船員資料…</span>';
     }
     const st = SITES.find((x) => x.id === this.sel.site); const fuel = st ? 3 + st.tier * 4 : 0; const n = this.sel.crew.size; const can = !!st && n >= 1 && s.res.fuel >= fuel;
-    c.querySelector('#trCost').innerHTML = st ? `燃料 <span class="${s.res.fuel < fuel ? 'lack' : ''}">⛽${fuel}</span> · 派 ${n} 人` : '請選擇目的地與船員'; const go = c.querySelector('#trGo'); go.disabled = !can; go.textContent = st ? '出發：' + st.name : '出發';
+    c.querySelector('#trCost').innerHTML = st ? `燃料 <span class="${s.res.fuel < fuel ? 'lack' : ''}">\ue049${fuel}</span> · 派 ${n} 人` : '請選擇目的地與船員'; const go = c.querySelector('#trGo'); go.disabled = !can; go.textContent = st ? '出發：' + st.name : '出發';
   }
 }

@@ -1,6 +1,6 @@
 // 末日方舟 · 階段⑤：玩家對玩家（PvP）突襲。純函式、決定性。設計與限制見 DESIGN-expansion.md §5 / DESIGN-fleet.md §3–4。
 //
-// ⚠️ 免費 Firebase Spark：沒有 Cloud Functions、沒有可信伺服器 → 這裡的一切都「防不了作弊」。
+// \ue099 免費 Firebase Spark：沒有 Cloud Functions、沒有可信伺服器 → 這裡的一切都「防不了作弊」。
 //   存檔、presence 快照、raid 文件都是玩家自己寫的；Firestore 規則只能限制「形狀 / 大小 / 頻率 / 與對方快照比較的上限」。
 //   所以掠奪量被設計得很小（每次 ≤ 8%、每天 ≤ 20%、12 小時護盾），就算有人偽造，傷害也有上限。
 //
@@ -138,7 +138,7 @@ export function canRaid(s, pub, uid, selfUid, now, isOwnerUid) {
 /** 守衛艦：用目標公開的戰力換算成階段④的「海盜」數值（階段④的砲戰場 / 機器人 / 風險估計原封不動沿用）。 */
 export function guardFoe(own, pub, nm) {
   const r = Math.max(0.2, (+pub.fp || 0) / Math.max(0.5, own.fp)); const lv = +clamp(0.75 * Math.pow(r, 0.55), 0.6, 1.9).toFixed(2);
-  const f = foeStats({ k: 'pirate', lv, nm: nm || '守衛艦' }); return { ...f, icon: '⚓', name: nm || '守衛艦', guard: true };
+  const f = foeStats({ k: 'pirate', lv, nm: nm || '守衛艦' }); return { ...f, icon: '\ue012', name: nm || '守衛艦', guard: true };
 }
 export const attLv = (own, pub) => guardFoe(own, pub).lv;
 /** 開始一場攻擊（記下目標快照 + 宣稱量，之後交戰報告只能對應這一場） */
@@ -153,7 +153,7 @@ export const WHY = { guest: '登入後才能參加玩家對戰', owner: '船東�
  * 贏（過 arenaWin 合理性檢查）→ 掠奪 att.claim（受自己資源上限限制）、產生 raid 文件（回傳 doc，由呼叫端 create 到雲端；失敗會放進 pv.out 重送）。
  * 輸 / 時間到 / 撤離（won:false）→ 沒有掠奪；船體損失 = 砲戰場實際傷害（一律用 hullDmg，保底 20%）。
  */
-export const attFoe = (a) => { const f = foeStats({ k: 'pirate', lv: a.lv, nm: '守衛艦 ' + a.h }); return { ...f, icon: '⚓', name: '守衛艦 ' + a.h, guard: true }; };
+export const attFoe = (a) => { const f = foeStats({ k: 'pirate', lv: a.lv, nm: '守衛艦 ' + a.h }); return { ...f, icon: '\ue012', name: '守衛艦 ' + a.h, guard: true }; };
 export function raidSubmit(s, now, rep, own, selfUid) {
   const pv = pvOf(s), a = pv && pv.att; if (!a) return { ok: false, msg: '沒有進行中的突襲' };
   if (!rep || rep.id !== a.id) return { ok: false, msg: '這份戰報不屬於目前這場突襲，已忽略' };
@@ -161,7 +161,7 @@ export function raidSubmit(s, now, rep, own, selfUid) {
   pv.att = null; pv.cd = Math.floor(now + PV.atkCool); pv.st.atk++;
   const tSub = Math.floor(now), bSub = bucketOf(tSub);      // 12 小時桶以「送出當下」為準（不是開打當下）：跨桶時文件的 b 與 t 才會一致，規則（b == floor(t/43200)）才不會事後擋掉
   const w = arenaWin(rep, attFoe(a), own);
-  if (!w) { const h = hullDmg(s, num(rep && rep.loss) ? clamp(rep.loss, 0, 100) : 0); return { ok: true, win: false, hull: +h.toFixed(1), msg: `⚓ 突襲 ${a.h} 失敗，沒有搶到東西${h > 0 ? `，船體 −${h.toFixed(0)}%` : ''}` }; }
+  if (!w) { const h = hullDmg(s, num(rep && rep.loss) ? clamp(rep.loss, 0, 100) : 0); return { ok: true, win: false, hull: +h.toFixed(1), msg: `\ue012 突襲 ${a.h} 失敗，沒有搶到東西${h > 0 ? `，船體 −${h.toFixed(0)}%` : ''}` }; }
   const hull = hullDmg(s, w.loss), got = {};
   for (const k of PV.lootKeys) { const c = Math.floor((a.claim[k] | 0) * PV.atkShare); if (c < 1) continue; const b = s.res[k];   // 攻擊者只拿宣稱量的 50%（防守者損失的是全額）
        s.res[k] = Math.min(resCap(s, k), b + c); const g = Math.round(s.res[k] - b); if (g > 0) got[k] = g; }
@@ -170,7 +170,7 @@ export function raidSubmit(s, now, rep, own, selfUid) {
   const doc = sanRaidDoc({ attacker: selfUid, defender: a.tgt, b: bSub, t: tSub, ah: handleOf(selfUid), loot: a.claim, ap: arkPos(s.fleet.world, now) });
   if (doc) { pv.out.push(doc); if (pv.out.length > PV.outMax) pv.out.shift(); }
   const txt = Object.keys(got).map((k) => `${RES[k].icon}+${got[k]}`).join(' ');
-  return { ok: true, win: true, doc, got, hull: +hull.toFixed(1), msg: `🏴‍☠️ 突襲 ${a.h} 成功！搶到 ${txt || '（你的倉庫滿了）'}${hull > 0 ? `，船體 −${hull.toFixed(0)}%` : ''}` };
+  return { ok: true, win: true, doc, got, hull: +hull.toFixed(1), msg: `\ue009 突襲 ${a.h} 成功！搶到 ${txt || '（你的倉庫滿了）'}${hull > 0 ? `，船體 −${hull.toFixed(0)}%` : ''}` };
 }
 export const raidDocId = (d) => `${d.attacker}_${d.b}`;
 /** 送出成功的 raid 文件從 outbox 移除；超過 24 小時還沒送出的丟掉 */
@@ -223,11 +223,11 @@ export function pvTick(s, tEnd, ev, own) {
   }
 }
 export function raidText(e) {
-  if (e.why === 'shield') return `🛡 你離線時 ${e.from} 想突襲你的方舟，被護盾擋下了（沒有損失）。`;
-  if (e.why === 'old') return `⌛ 你離線時 ${e.from} 的突襲通知太舊（超過 48 小時），已作廢，沒有任何損失。`;
-  if (e.why === 'small') return `🏴‍☠️ 你離線時 ${e.from} 來突襲，只搶走 ${fmt(e.res)}（太少了）。船體沒有受損，也沒有啟動護盾。`;
-  if (e.why === 'poor') return `🏴‍☠️ 你離線時 ${e.from} 來突襲，但倉庫已經達到今日損失上限，什麼都沒搶走。`;
-  return `🏴‍☠️ 你離線時 ${e.from} 突襲了你的方舟！損失 ${fmt(e.res)}${e.hull > 0 ? `，船體 −${e.hull}%` : ''}。已啟動 12 小時護盾。${e.why === 'cap' ? '（受每次 8% / 每日 20% 上限保護，實際損失比對方宣稱的少）' : ''}`;
+  if (e.why === 'shield') return `\ue077 你離線時 ${e.from} 想突襲你的方舟，被護盾擋下了（沒有損失）。`;
+  if (e.why === 'old') return `\ue053 你離線時 ${e.from} 的突襲通知太舊（超過 48 小時），已作廢，沒有任何損失。`;
+  if (e.why === 'small') return `\ue009 你離線時 ${e.from} 來突襲，只搶走 ${fmt(e.res)}（太少了）。船體沒有受損，也沒有啟動護盾。`;
+  if (e.why === 'poor') return `\ue009 你離線時 ${e.from} 來突襲，但倉庫已經達到今日損失上限，什麼都沒搶走。`;
+  return `\ue009 你離線時 ${e.from} 突襲了你的方舟！損失 ${fmt(e.res)}${e.hull > 0 ? `，船體 −${e.hull}%` : ''}。已啟動 12 小時護盾。${e.why === 'cap' ? '（受每次 8% / 每日 20% 上限保護，實際損失比對方宣稱的少）' : ''}`;
 }
 /** 顯示用：護盾剩餘秒數 */
 export const shieldLeft = (s, now) => { const pv = pvOf(s); return pv && pv.sh > now ? pv.sh - now : 0; };

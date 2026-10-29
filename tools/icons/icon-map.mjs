@@ -1,0 +1,36 @@
+// emoji 碼位序列 → 圖示。ph:* = Phosphor (MIT, fill/bold)；gi:* = game-icons.net (CC BY 3.0)。
+// 改這裡後執行：node tools/build-icon-font.mjs（重建字型並更新 src/ui/icons.js），再用 tools/icons/emoji-codemod.mjs 轉換新增的 emoji。
+export const MAP = {
+  '2693': 'ph:anchor-fill', '26a0': 'ph:warning-fill', '26fd': 'ph:gas-pump-fill', '1f3f4-200d-2620': 'gi:pirate-flag', '1f9ed': 'ph:compass-fill',
+  '1f6a3': 'ph:boat-fill', '2694': 'ph:sword-fill', '1f6a2': 'gi:cruiser', '1f5ff': 'gi:ancient-ruins', '1f529': 'ph:nut-fill', '1f4cb': 'ph:clipboard-text-fill',
+  '2b50': 'ph:star-fill', '1f4a5': 'gi:explosion-rays', '1f6e0': 'ph:toolbox-fill', '1f4e6': 'ph:package-fill', '1f576': 'ph:sunglasses-fill', '1f512': 'ph:lock-fill',
+  '1f5fa': 'ph:map-trifold-fill', '23f3': 'ph:hourglass-medium-fill', '1f9d1-200d-2708': 'ph:steering-wheel-fill', '1f3af': 'ph:target-fill', '1f389': 'ph:confetti-fill',
+  '1f300': 'ph:tornado-fill', '1f4a7': 'ph:drop-fill', '1f6e1': 'ph:shield-fill', '2753': 'ph:question-fill', '1f7e2': 'ph:circle-fill', '1f91d': 'ph:handshake-fill',
+  '1f49e': 'ph:heart-fill', '1f356': 'ph:fork-knife-fill', '1f6f3': 'gi:ship-bow', '2601': 'ph:cloud-fill', '23f1': 'ph:timer-fill', '1f525': 'ph:fire-fill',
+  '2764': 'ph:heart-fill', '1f3c6': 'ph:trophy-fill', '1f9ca': 'gi:ice-cube', '26c8': 'ph:cloud-lightning-fill', '1f393': 'ph:graduation-cap-fill', '1f3f3': 'ph:flag-fill',
+  '1f4a8': 'ph:wind-fill', '1f4ca': 'ph:chart-bar-fill', '1f915': 'ph:bandaids-fill', '1f527': 'ph:wrench-fill', '1f4a2': 'ph:smiley-angry-fill', '1f30a': 'ph:waves-fill',
+  '1f32b': 'ph:cloud-fog-fill', '2600': 'ph:sun-fill', '1f6df': 'ph:lifebuoy-fill', '1f30c': 'ph:moon-stars-fill', '1f465': 'ph:users-fill', '2714': 'ph:check-bold',
+  '1f37d': 'ph:fork-knife-fill', '1f38a': 'ph:confetti-fill', '2728': 'ph:sparkle-fill', '26f5': 'ph:sailboat-fill', '1fa79': 'ph:bandaids-fill', '26a1': 'ph:lightning-fill',
+  '1f573': 'ph:circle-dashed-bold', '1f4ac': 'ph:chat-circle-text-fill', '1f328': 'ph:cloud-snow-fill', '2744': 'ph:snowflake-fill', '1f43b-200d-2744': 'gi:polar-bear',
+  '1f427': 'gi:penguin', '1f3e0': 'ph:house-fill', '23f9': 'ph:stop-fill', '1f4a4': 'ph:bed-fill', '1f305': 'ph:sun-horizon-fill', '1f441': 'ph:eye-fill',
+  '1f3ae': 'ph:game-controller-fill', '23f8': 'ph:pause-fill', '1f50a': 'ph:speaker-high-fill', '1f3a3': 'ph:fish-simple-fill', '1f379': 'ph:wine-fill', '2668': 'ph:thermometer-hot-fill',
+  '1f6cb': 'ph:couch-fill', '2194': 'ph:arrows-left-right-bold', '1f912': 'ph:thermometer-fill', '1f4aa': 'ph:barbell-fill', '1f381': 'ph:gift-fill', '1f511': 'ph:key-fill',
+  '1f451': 'ph:crown-simple-fill', '1f40d': 'gi:snake', '1f96c': 'ph:leaf-fill', '1fab8': 'gi:coral', '1f3d9': 'ph:buildings-fill', '1f52d': 'ph:binoculars-fill',
+  '2b06': 'ph:arrow-up-bold', '1f608': 'ph:smiley-nervous-fill', '1f327': 'ph:cloud-rain-fill', '1f4f1': 'ph:device-mobile-fill', '1f528': 'ph:hammer-fill', '1f4cd': 'ph:map-pin-fill',
+  '1f464': 'ph:user-fill', '1f496': 'ph:heart-fill', '1f4dc': 'ph:scroll-fill', '1f4cf': 'ph:ruler-fill', '1f307': 'ph:buildings-fill', '1f3a5': 'ph:video-camera-fill',
+  '1f4f7': 'ph:camera-fill', '1f509': 'ph:speaker-low-fill', '1f507': 'ph:speaker-x-fill', '1f35c': 'ph:bowl-food-fill', '1f52c': 'ph:microscope-fill', '1f3a7': 'ph:headphones-fill',
+  '1f93f': 'gi:diving-helmet', '1f604': 'ph:smiley-fill', '1f62a': 'ph:smiley-blank-fill', '1f630': 'ph:smiley-nervous-fill', '1f971': 'ph:smiley-blank-fill', '1f495': 'ph:heart-fill',
+  '1f942': 'ph:wine-fill', '1f483': 'ph:music-notes-fill', '1f622': 'ph:smiley-sad-fill', '1f94e': 'ph:baseball-fill', '1f3d3': 'ph:racquet-fill', '1f3c0': 'ph:basketball-fill',
+  '1f579': 'ph:joystick-fill', '1f3ca': 'ph:person-simple-swim-fill', '1f3c3': 'ph:person-simple-run-fill', '1f3cb': 'ph:barbell-fill', '1f501': 'ph:repeat-bold', '1f645': 'ph:prohibit-fill',
+  '1f378': 'ph:martini-fill', '1f974': 'ph:smiley-x-eyes-fill', '1f60c': 'ph:smiley-wink-fill', '1f3da': 'ph:house-line-fill', '1f309': 'ph:bridge-fill', '1fab5': 'gi:wood-pile',
+  '26d4': 'ph:minus-circle-fill', '1f6ab': 'ph:prohibit-fill', '1f310': 'ph:globe-fill', '2615': 'ph:coffee-fill', '1f4fa': 'ph:television-fill', '1f991': 'gi:squid', '1f409': 'gi:dragon-head',
+  '1f3e5': 'ph:first-aid-kit-fill', '1f6f6': 'ph:boat-fill', '1f6a4': 'ph:boat-fill', '231b': 'ph:hourglass-fill', '1f6b6': 'ph:person-simple-walk-fill', '1f4e1': 'ph:broadcast-fill',
+  '1f40b': 'gi:sperm-whale', '1fae7': 'gi:bubbles', '1f536': 'ph:diamond-fill', '1f53b': 'ph:caret-down-fill', '1faa8': 'gi:rock', '26c5': 'ph:cloud-sun-fill', '1f326': 'ph:cloud-sun-fill',
+  '2328': 'ph:keyboard-fill', '1f634': 'ph:moon-stars-fill', '1f324': 'ph:sun-dim-fill', '1f440': 'ph:eyes-fill', '2699': 'ph:gear-fill', '1f3be': 'ph:tennis-ball-fill',
+  '2b05': 'ph:arrow-left-bold', '1f3e2': 'ph:buildings-fill', '1f30b': 'gi:volcano', '1f4b1': 'ph:arrows-left-right-bold', '1f3e6': 'ph:bank-fill', '1f4e5': 'ph:download-simple-fill',
+  '21a9': 'ph:arrow-u-up-left-bold', '1f513': 'ph:lock-open-fill', '2705': 'ph:check-circle-fill', '1f47b': 'ph:ghost-fill', '1f4e8': 'ph:envelope-simple-fill',
+  '1f50d': 'ph:magnifying-glass-fill', '2757': 'ph:warning-circle-fill', '1f319': 'ph:moon-fill', '1f5c2': 'ph:folders-fill', '1f6d7': 'ph:elevator-fill', '1f5a5': 'ph:desktop-fill',
+  '1f39e': 'ph:film-strip-fill', '25b6': 'ph:play-fill', '1f552': 'ph:clock-fill', '1f7e0': 'ph:circle-fill',
+};
+// 沒有對應 emoji、但程式要用的圖示（名稱 → 規格）；會一起進字型與 src/ui/icons.js 的 IC。
+export const EXTRA = { fishing_boat: 'gi:fishing-boat', speed_boat: 'gi:speed-boat', submarine: 'gi:submarine' };

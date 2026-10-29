@@ -14,18 +14,18 @@ const yawOfDir = (hx, hz) => Math.atan2(-hx, -hz);
 const faceTo = (ax, az, bx, bz) => Math.atan2(bx - ax, bz - az);
 
 export const KIND = {
-  pickle: { icon: '🥎', name: '匹克球', desc: '和對手在球網兩側來回對打，先拿 5 分。對方擊球後在甜蜜區按 E 回擊。', best: '匹克球最長連擊', unit: '拍' },
-  pingpong: { icon: '🏓', name: '桌球', desc: '球速更快的對打，先拿 5 分。', best: '桌球最長連擊', unit: '拍' },
-  hoop: { icon: '🏀', name: '投籃', desc: '連投 5 球，出手時在甜蜜區按 E；完美出手 3 分、普通進球 2 分。', best: '投籃', unit: '分' },
-  arcade: { icon: '🕹️', name: '街機打靶', desc: '6 發子彈，指針掃到綠區時按 E，越準分越高。', best: '街機', unit: '分' },
-  dive: { icon: '🏊', name: '跳水', desc: '兩個動作：起跳力道、空中入水姿勢。', best: '跳水', unit: '分' },
-  slide: { icon: '🌊', name: '水上滑梯', desc: '爬上塔頂、蹬出去、衝進泳池，入水時機決定水花。', best: '滑梯', unit: '分' },
-  treadmill: { icon: '🏃', name: '跑步機', desc: '配合節奏按 E 維持步頻，跑越準距離越長。', best: '跑步', unit: '公尺' },
-  bench: { icon: '🏋️', name: '臥推', desc: '6 下，重量遞增；推起的瞬間按 E。', best: '臥推', unit: '公斤' },
-  bar: { icon: '🍹', name: '吧台調酒', desc: '倒酒、搖勻、裝飾，三個動作調出一杯特調。', best: '調酒', unit: '分' },
-  tub: { icon: '♨️', name: '泡湯', desc: '跟著呼吸的節奏按 E，放鬆身心。', best: '泡湯', unit: '分' },
-  fish: { icon: '🎣', name: '釣魚', desc: '在欄杆邊甩竿：先抓準甩竿力道，等浮標下沉再在甜蜜區按 E 提竿，連釣 3 次。', best: '釣魚', unit: '分' },
-  lounger: { icon: '🛋️', name: '躺椅放鬆', desc: '躺著曬太陽，跟著呼吸節奏按 E。', best: '放鬆', unit: '分' },
+  pickle: { icon: '\ue01a', name: '匹克球', desc: '和對手在球網兩側來回對打，先拿 5 分。對方擊球後在甜蜜區按 E 回擊。', best: '匹克球最長連擊', unit: '拍' },
+  pingpong: { icon: '\ue072', name: '桌球', desc: '球速更快的對打，先拿 5 分。', best: '桌球最長連擊', unit: '拍' },
+  hoop: { icon: '\ue01b', name: '投籃', desc: '連投 5 球，出手時在甜蜜區按 E；完美出手 3 分、普通進球 2 分。', best: '投籃', unit: '分' },
+  arcade: { icon: '\ue057', name: '街機打靶', desc: '6 發子彈，指針掃到綠區時按 E，越準分越高。', best: '街機', unit: '分' },
+  dive: { icon: '\ue06d', name: '跳水', desc: '兩個動作：起跳力道、空中入水姿勢。', best: '跳水', unit: '分' },
+  slide: { icon: '\ue09a', name: '水上滑梯', desc: '爬上塔頂、蹬出去、衝進泳池，入水時機決定水花。', best: '滑梯', unit: '分' },
+  treadmill: { icon: '\ue06c', name: '跑步機', desc: '配合節奏按 E 維持步頻，跑越準距離越長。', best: '跑步', unit: '公尺' },
+  bench: { icon: '\ue019', name: '臥推', desc: '6 下，重量遞增；推起的瞬間按 E。', best: '臥推', unit: '公斤' },
+  bar: { icon: '\ue09c', name: '吧台調酒', desc: '倒酒、搖勻、裝飾，三個動作調出一杯特調。', best: '調酒', unit: '分' },
+  tub: { icon: '\ue090', name: '泡湯', desc: '跟著呼吸的節奏按 E，放鬆身心。', best: '泡湯', unit: '分' },
+  fish: { icon: '\ue044', name: '釣魚', desc: '在欄杆邊甩竿：先抓準甩竿力道，等浮標下沉再在甜蜜區按 E 提竿，連釣 3 次。', best: '釣魚', unit: '分' },
+  lounger: { icon: '\ue036', name: '躺椅放鬆', desc: '躺著曬太陽，跟著呼吸節奏按 E。', best: '放鬆', unit: '分' },
 };
 
 // ----------------------------------------------------------------- 場地清單（從船上的 POI 建出來）
@@ -80,7 +80,7 @@ export class Games {
   /** 結果畫面：回傳 'again' | 'exit'。 */
   ask({ title, lines, stars }) {
     return new Promise((res, rej) => { this.mg.resolvers.add(rej); const done = (v) => { this.mg.resolvers.delete(rej); res(v); };
-      this.mg.result({ title, lines, stars, buttons: [{ text: '🔁 再玩一次', pri: true, fn: () => done('again') }, { text: '離開', fn: () => done('exit') }] }); });
+      this.mg.result({ title, lines, stars, buttons: [{ text: '\ue073 再玩一次', pri: true, fn: () => done('again') }, { text: '離開', fn: () => done('exit') }] }); });
   }
   mesh(deck, geo, color, x, y, z) { const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.6 })); m.position.set(x, y, z); this.game.ship.decks[deck].group.add(m); this.temp.push(m); return m; }
   ball(deck, color = 0xf2e94e, r = 0.11) { const m = this.mesh(deck, new THREE.SphereGeometry(r, 14, 10), color, 0, -9, 0); m.castShadow = true; return m; }
@@ -128,9 +128,9 @@ export class Games {
     if (roll >= ch) {
       R.inviteDeclined(s, bot.key);
       const why = bot.hurt ? '我還在養傷，下次吧…' : bot.info.cat === 'work' ? pick(['手邊的工作還沒忙完，晚點吧！', '現在有點忙，抱歉啦。']) : bot.mood === 'tired' ? pick(['有點累了，想休息…', '今天體力不太行，下次！']) : pick(['這次先不了，下次一定！', '嗯…我先看看就好。']);
-      bot.say(why, 4, 'chat'); ui.toast(`🙅 ${bot.title}婉拒了邀請`); this.play.save(); return false;
+      bot.say(why, 4, 'chat'); ui.toast(`\ue070 ${bot.title}婉拒了邀請`); this.play.save(); return false;
     }
-    bot.say(pick(['好啊，走！', '正好想活動一下！', '來吧，我可不會手下留情喔。', '好呀，等我一下！']), 3.2, 'chat'); ui.toast(`🤝 ${bot.title}接受了邀請`); return true;
+    bot.say(pick(['好啊，走！', '正好想活動一下！', '來吧，我可不會手下留情喔。', '好呀，等我一下！']), 3.2, 'chat'); ui.toast(`\ue050 ${bot.title}接受了邀請`); return true;
   }
   async summon(bot, sp) {
     const f = this.active.flags; this.mg.open({ icon: KIND[sp.kind].icon, title: KIND[sp.kind].name, hint: `等 ${bot.title} 走過來…（Esc 取消）` });
@@ -167,7 +167,7 @@ export class Games {
     if (!bot) return; const s = this.s; const before = R.affOf(s, R.BOSS, bot.key); const r = R.playTogether(s, bot.key, result); const ui = this.game.ui;
     bot.cheerUntil = Date.now() + 90000; bot.setMoodNow();
     bot.say(pick(result === 'win' ? ['被你打敗了，下次再來！', '打得好！我輸得心服口服。'] : result === 'lose' ? ['嘿嘿，這次我贏啦！', '承讓承讓～'] : ['玩得真開心！', '下次還要找我喔！']), 4.2, 'mood');
-    const k0 = R.kindOf(before); const lab = R.label(r.aff); ui.toast(`💞 你和${bot.title}：${lab}（+${(r.aff - before).toFixed(1)}）${k0 !== r.kind ? ' ✨關係升級！' : ''}`);
+    const k0 = R.kindOf(before); const lab = R.label(r.aff); ui.toast(`\ue052 你和${bot.title}：${lab}（+${(r.aff - before).toFixed(1)}）${k0 !== r.kind ? ' \ue080關係升級！' : ''}`);
   }
   /** 一款遊戲收尾：算星等、最高分、跟船員比較；回傳 'again' | 'exit' */
   async wrapUp(sp, { score, max, lines = [], vs = true, title, botScore }) {
@@ -175,7 +175,7 @@ export class Games {
     const out = [...lines]; let result = 'draw';
     if (bot && vs) { const bs = botScore ?? Math.round(max * (0.38 + 0.42 * botSkill(bot.key)) * (0.8 + rnd() * 0.4)); result = score > bs ? 'win' : score < bs ? 'lose' : 'draw'; out.push(`${bot.title} 的成績：${bs}${K.unit}`); title = title || (result === 'win' ? '你贏了！' : result === 'lose' ? `${bot.title} 贏了` : '平手'); }
     else if (bot) title = title || '一起玩得很開心';
-    if (R.saveBest(this.s, sp.kind, score)) out.push('🏆 新個人紀錄！'); else out.push(`個人紀錄：${R.ensureRel(this.s).best[sp.kind]}${K.unit}`);
+    if (R.saveBest(this.s, sp.kind, score)) out.push('\ue094 新個人紀錄！'); else out.push(`個人紀錄：${R.ensureRel(this.s).best[sp.kind]}${K.unit}`);
     this.afterBot(bot, result); this.play.save(); this.mg.flash(stars >= 2 ? 'perfect' : 'good', '');
     return this.ask({ title: title || `${K.icon} ${K.name}：${Math.round(score)}${K.unit}`, lines: out, stars });
   }
@@ -215,9 +215,9 @@ export class Games {
       pts[winner === 'me' ? 0 : 1]++; mg.setScore(`${pts[0]} : ${pts[1]}`); server = winner; ball.position.y = -9; await mg.wait(1.1);
     }
     const win = pts[0] > pts[1]; const bs = (bot ? bot.title : '發球機'); const lines = [`比數 ${pts[0]} : ${pts[1]}`, `最長連擊 ${best} 拍`];
-    if (R.saveBest(this.s, sp.kind, best)) lines.push('🏆 連擊新紀錄！'); else lines.push(`連擊紀錄：${R.ensureRel(this.s).best[sp.kind]} 拍`);
+    if (R.saveBest(this.s, sp.kind, best)) lines.push('\ue094 連擊新紀錄！'); else lines.push(`連擊紀錄：${R.ensureRel(this.s).best[sp.kind]} 拍`);
     this.afterBot(bot, win ? 'win' : 'lose'); this.play.save(); void mach;
-    return this.ask({ title: win ? `🎉 你贏了！（對 ${bs}）` : `${bs} 贏了`, lines, stars: win ? (pts[1] <= 2 ? 3 : 2) : pts[0] >= 4 ? 1 : 0 });
+    return this.ask({ title: win ? `\ue035 你贏了！（對 ${bs}）` : `${bs} 贏了`, lines, stars: win ? (pts[1] <= 2 ? 3 : 2) : pts[0] >= 4 ? 1 : 0 });
   }
   /** 投籃 */
   async hoop(sp, bot) {
@@ -257,13 +257,13 @@ export class Games {
   async bar(sp, bot) {
     const mg = this.mg; await this.move(sp.x, sp.z, sp.face, sp.deck, 'eat', 'mug', 0.2); this.open(sp, '倒酒 → 搖勻 → 裝飾', ''); let sum = 0;
     for (const [i, nm] of ['倒酒', '搖勻', '裝飾'].entries()) { mg.msg(`第 ${i + 1} 步：${nm}`); const r = await mg.arm({ speed: 1.0 + i * 0.25, sweet: 0.09, center: 0.3 + rnd() * 0.4, label: nm + '！' }); sum += r.q; mg.flash(r.grade); await mg.wait(0.6); }
-    const sc = Math.round(sum / 3 * 100); const nm = sc >= 85 ? '招牌特調 🍸' : sc >= 50 ? '清爽氣泡飲 🍹' : '有點奇怪的飲料 🥴';
+    const sc = Math.round(sum / 3 * 100); const nm = sc >= 85 ? '招牌特調 \ue063' : sc >= 50 ? '清爽氣泡飲 \ue09c' : '有點奇怪的飲料 \ue07e';
     return this.wrapUp(sp, { score: sc, max: 100, vs: false, lines: [`調出了：${nm}`, `完成度 ${sc}%`] });
   }
   async relax(sp, bot, y, pose, hold = null) {
     const mg = this.mg; this.open(sp, '跟著呼吸的節奏按 E', ''); let sum = 0;
     for (let i = 0; i < 4; i++) { mg.msg(i % 2 ? '吐氣…' : '吸氣…'); const r = await mg.arm({ speed: 0.6, sweet: 0.16, center: 0.5, label: '放鬆' }); sum += r.q; mg.flash(r.grade); await mg.wait(0.5); }
-    const sc = Math.round(sum / 4 * 100); return this.wrapUp(sp, { score: sc, max: 100, vs: false, lines: [`放鬆值 ${sc}%`, sc >= 70 ? '整個人都輕鬆了 😌' : '還有一點緊繃，再來一次吧'] });
+    const sc = Math.round(sum / 4 * 100); return this.wrapUp(sp, { score: sc, max: 100, vs: false, lines: [`放鬆值 ${sc}%`, sc >= 70 ? '整個人都輕鬆了 \ue07d' : '還有一點緊繃，再來一次吧'] });
   }
   /** 釣魚（小船欄杆）：甩竿力道 → 等浮標下沉 → 提竿 */
   async fish(sp, bot) {

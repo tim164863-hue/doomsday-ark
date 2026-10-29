@@ -9,40 +9,40 @@ import { NDECK } from '../ship/config.js';
 
 const ACT = { match: '打球對戰', arcade: '玩街機', bar: '吧台小酌', lounge: '躺椅曬/看星', swim: '泳池游泳', tub: '泡按摩池', treadmill: '跑步機', bench: '重訓', jog: '操場慢跑', hoop: '投籃', eat: '吃飯', chat: '聊天', rail: '看海', tv: '看比賽直播', coffee: '喝咖啡' };
 const STATUS = { work: ['工作中', '#5fd08a'], rest: ['休息中', '#ffd36b'], off: ['下班', '#8aa0b8'] };
-const PHASE = { night: '🌙 夜', dawn: '🌅 黎明', day: '☀️ 白天', dusk: '🌇 黃昏' };
+const PHASE = { night: '\ue066 夜', dawn: '\ue089 黎明', day: '\ue088 白天', dusk: '\ue022 黃昏' };
 const $ = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstElementChild; };
 
 export class UI {
   constructor(game) {
     this.game = game; this.root = document.getElementById('ui'); this.labelRoot = document.getElementById('labels'); this.labels = new Map(); this.build();
     on('crew', () => this.renderList()); on('elevator', (d) => this.showElevator(d)); on('time', () => this.syncTime()); on('quality', (q) => { this.qsel.value = 'auto'; this.toast('畫質自動降為 ' + q); });
-    game.ui = this; game.onModeChange = (m) => { this.camBtn.textContent = '🎥 ' + MODE_NAMES[m]; this.refreshDeckBtns(); };
+    game.ui = this; game.onModeChange = (m) => { this.camBtn.textContent = '\ue097 ' + MODE_NAMES[m]; this.refreshDeckBtns(); };
     setInterval(() => this.renderList(true), 1000);
   }
   build() {
     const g = this.game, r = this.root;
     r.innerHTML = '';
     this.top = $(`<div id="top"><div class="brand"><b>末日方舟</b><span>DOOMSDAY ARK</span></div><div class="chips"><span id="dataChip" class="chip">連線中…</span><span id="phaseChip" class="chip"></span><span id="wxChip" class="chip hide"></span><button id="szChip" class="chip hide" title="特殊海域（點一下看詳情）"></button><span id="fpsChip" class="chip dim"></span></div>
-      <div class="tools"><select id="qsel" title="畫質"><option value="auto">畫質：自動</option><option value="high">畫質：高</option><option value="mid">畫質：中</option><option value="low">畫質：低</option></select><button id="sndBtn" title="音效：開／關">🔊</button><button id="helpBtn" title="操作說明 (H)">❓</button></div></div>`);
-    this.right = $(`<div id="right"><button id="camBtn" title="切換視角 (V)">🎥 追隨</button><button id="panBtn" title="全景：顯示整艘船 (0)">🚢 全景</button><div id="decks"></div><button id="exBtn" title="展開甲板">🗂 展開</button><button id="listBtn" title="成員 (L)">👥 成員</button></div>`);
-    this.crewPanel = $(`<div id="crew" class="hide"><div class="hd">👥 船員 <small>點選即可聚焦</small><button class="x">✕</button></div><div class="bd"></div></div>`);
-    this.timebar = $(`<div id="timebar" class="collapsed"><div class="row1"><button id="tbBtn" title="攝影模式：只調整畫面光線與時段，不影響遊戲時間／進度"><span class="pm">📷</span><span id="clock"></span><span class="car">▴</span></button>
-      <span class="ex"><button data-t="0.27" title="拍攝：日出光線">🌅</button><button data-t="0.5" title="拍攝：正午光線">☀️</button><button data-t="0.745" title="拍攝：日落光線">🌇</button><button data-t="0.96" title="拍攝：星空光線">🌌</button>
-      <span class="sep"></span><button id="pp" title="暫停/繼續 (T)">⏸</button><span class="pmL">光線流速</span><button data-s="1" class="sp on">1×</button><button data-s="5" class="sp">5×</button><button data-s="20" class="sp">20×</button>
+      <div class="tools"><select id="qsel" title="畫質"><option value="auto">畫質：自動</option><option value="high">畫質：高</option><option value="mid">畫質：中</option><option value="low">畫質：低</option></select><button id="sndBtn" title="音效：開／關">\ue081</button><button id="helpBtn" title="操作說明 (H)">\ue071</button></div></div>`);
+    this.right = $(`<div id="right"><button id="camBtn" title="切換視角 (V)">\ue097 追隨</button><button id="panBtn" title="全景：顯示整艘船 (0)">\ue003 全景</button><div id="decks"></div><button id="exBtn" title="展開甲板">\ue046 展開</button><button id="listBtn" title="成員 (L)">\ue096 成員</button></div>`);
+    this.crewPanel = $(`<div id="crew" class="hide"><div class="hd">\ue096 船員 <small>點選即可聚焦</small><button class="x">✕</button></div><div class="bd"></div></div>`);
+    this.timebar = $(`<div id="timebar" class="collapsed"><div class="row1"><button id="tbBtn" title="攝影模式：只調整畫面光線與時段，不影響遊戲時間／進度"><span class="pm">\ue023</span><span id="clock"></span><span class="car">▴</span></button>
+      <span class="ex"><button data-t="0.27" title="拍攝：日出光線">\ue089</button><button data-t="0.5" title="拍攝：正午光線">\ue088</button><button data-t="0.745" title="拍攝：日落光線">\ue022</button><button data-t="0.96" title="拍攝：星空光線">\ue067</button>
+      <span class="sep"></span><button id="pp" title="暫停/繼續 (T)">\ue06b</button><span class="pmL">光線流速</span><button data-s="1" class="sp on">1×</button><button data-s="5" class="sp">5×</button><button data-s="20" class="sp">20×</button>
       <button id="tbSize" title="縮放時間軸：小／中／大">⤢ 中</button></span></div>
-      <div class="pmNote ex">📷 攝影模式：只改變畫面光線，<b>不影響遊戲時間／進度</b>（遊戲進度以現實時間計算）</div><input id="slider" class="ex" type="range" min="0" max="1000" step="1"></div>`);
+      <div class="pmNote ex">\ue023 攝影模式：只改變畫面光線，<b>不影響遊戲時間／進度</b>（遊戲進度以現實時間計算）</div><input id="slider" class="ex" type="range" min="0" max="1000" step="1"></div>`);
     this.tbSize = localStorage.getItem('ark.tbsize') || 'm'; this.timebar.dataset.size = this.tbSize;
-    this.elev = $(`<div id="elevPop" class="hide"><div class="t">🛗 電梯・選擇樓層</div><div class="b"></div></div>`);
+    this.elev = $(`<div id="elevPop" class="hide"><div class="t">\ue03d 電梯・選擇樓層</div><div class="b"></div></div>`);
     this.help = $(`<div id="help" class="hide"><div class="card"><h2>末日方舟 · 操作說明</h2>
-      <div class="cols"><div><h3>🖥 電腦</h3><p><b>W A S D / 方向鍵</b> 移動（Shift 跑步）</p><p><b>點擊地板</b> 自動尋路（可跨樓層）</p><p><b>左鍵拖曳</b> 轉動鏡頭　<b>滾輪</b> 縮放</p><p><b>右鍵拖曳</b> 平移（自由視角）</p><p><b>V</b> 切換 追隨/自由/俯瞰　<b>T</b> 暫停時間</p><p><b>1–5</b> 看某一層（含以下各層）　<b>0</b> 全景　<b>L</b> 成員　<b>H</b> 說明</p><p><b>G</b> 🛳️ 駕駛母船（W/S 油門、A/D 舵、空白鍵停車）</p></div>
-      <div><h3>📱 手機</h3><p><b>左下搖桿</b> 移動</p><p><b>點一下地板</b> 走過去</p><p><b>單指拖曳</b> 轉鏡頭　<b>雙指捏合</b> 縮放</p><p>走到樓梯口自動上下樓；走進電梯會跳出樓層選單。</p></div></div>
+      <div class="cols"><div><h3>\ue038 電腦</h3><p><b>W A S D / 方向鍵</b> 移動（Shift 跑步）</p><p><b>點擊地板</b> 自動尋路（可跨樓層）</p><p><b>左鍵拖曳</b> 轉動鏡頭　<b>滾輪</b> 縮放</p><p><b>右鍵拖曳</b> 平移（自由視角）</p><p><b>V</b> 切換 追隨/自由/俯瞰　<b>T</b> 暫停時間</p><p><b>1–5</b> 看某一層（含以下各層）　<b>0</b> 全景　<b>L</b> 成員　<b>H</b> 說明</p><p><b>G</b> \ue00c 駕駛母船（W/S 油門、A/D 舵、空白鍵停車）</p></div>
+      <div><h3>\ue039 手機</h3><p><b>左下搖桿</b> 移動</p><p><b>點一下地板</b> 走過去</p><p><b>單指拖曳</b> 轉鏡頭　<b>雙指捏合</b> 縮放</p><p>走到樓梯口自動上下樓；走進電梯會跳出樓層選單。</p></div></div>
       <button class="ok">開始航行</button></div></div>`);
-    if (g.small) { const cols = this.help.querySelector('.cols'); cols.innerHTML = cols.innerHTML.replace('點擊地板</b> 自動尋路（可跨樓層）','點擊甲板</b> 自動尋路').replace('<b>1–5</b> 看某一層（含以下各層）　','').replace('🛳️ 駕駛母船（','⛵ 駕駛小船（').replace('走到樓梯口自動上下樓；走進電梯會跳出樓層選單。','你的小船就是你的家：船員在甲板上工作、吃飯、聊天，累了就進艙休息。'); }
+    if (g.small) { const cols = this.help.querySelector('.cols'); cols.innerHTML = cols.innerHTML.replace('點擊地板</b> 自動尋路（可跨樓層）','點擊甲板</b> 自動尋路').replace('<b>1–5</b> 看某一層（含以下各層）　','').replace('\ue00c 駕駛母船（','\ue075 駕駛小船（').replace('走到樓梯口自動上下樓；走進電梯會跳出樓層選單。','你的小船就是你的家：船員在甲板上工作、吃飯、聊天，累了就進艙休息。'); }
     this.toastEl = $(`<div id="toast"></div>`);
     r.append(this.top, this.right, this.crewPanel, this.timebar, this.elev, this.help, this.toastEl);
     this.qsel = this.top.querySelector('#qsel'); this.camBtn = this.right.querySelector('#camBtn'); this.dataChip = this.top.querySelector('#dataChip'); this.phaseChip = this.top.querySelector('#phaseChip'); this.wxChip = this.top.querySelector('#wxChip'); this.szChip = this.top.querySelector('#szChip'); this.szChip.onclick = () => { const h = this.game.hud; if (h) h.szClick(); }; this.fpsChip = this.top.querySelector('#fpsChip');
     this.qsel.value = g.qLocked && new URLSearchParams(location.search).get('q') == null ? g.qLevel : 'auto'; if (!g.qLocked) this.qsel.value = 'auto';
-    if (innerWidth <= 700) for (const op of this.qsel.options) op.textContent = op.textContent.replace('畫質：', '🎞 ');
+    if (innerWidth <= 700) for (const op of this.qsel.options) op.textContent = op.textContent.replace('畫質：', '\ue041 ');
     if (g.audio) g.audio.bind(this.top.querySelector('#sndBtn'));
     this.qsel.onchange = () => { const v = this.qsel.value; if (v === 'auto') { localStorage.removeItem('ark.quality'); g.qLocked = false; this.toast('畫質：自動（依 FPS 調整）'); } else { localStorage.setItem('ark.quality', v); g.qLocked = true; g.setQuality(v); this.toast('畫質：' + v); } };
     this.top.querySelector('#helpBtn').onclick = () => this.toggleHelp(); this.help.querySelector('.ok').onclick = () => { this.toggleHelp(false); localStorage.setItem('ark.helped', '1'); };
@@ -60,7 +60,7 @@ export class UI {
     this.slider.addEventListener('input', () => g.setTime(this.slider.value / 1000));
     const dk = this.right.querySelector('#decks'); this.deckBtns = [];
     for (let i = NDECK - 1; i >= 0; i--) { const b = $(`<button class="deck${i < 2 ? ' hullDeck' : ''}${i === 1 ? ' hullStart' : ''}" title="${TITLES[i]}"><i></i>${NAMES[i]}${i < 2 ? '<small>船艙</small>' : ''}</button>`); b.onclick = () => g.showDeck(i); dk.appendChild(b); this.deckBtns[i] = b; }
-    if (g.small) { dk.style.display = 'none'; this.right.querySelector('#exBtn').style.display = 'none'; this.right.querySelector('#panBtn').textContent = '🚢 全船'; this.right.querySelector('#panBtn').title = '全船：顯示整艘船'; }
+    if (g.small) { dk.style.display = 'none'; this.right.querySelector('#exBtn').style.display = 'none'; this.right.querySelector('#panBtn').textContent = '\ue003 全船'; this.right.querySelector('#panBtn').title = '全船：顯示整艘船'; }
     this.syncTime();
     const eb = this.elev.querySelector('.b'); for (let i = NDECK - 1; i >= 0; i--) { const b = $(`<button data-d="${i}">${NAMES[i]}<small>${TITLES[i]}</small></button>`); b.onclick = () => { g.player.useElevator(i); this.showElevator(null); }; eb.appendChild(b); }
     if (!localStorage.getItem('ark.helped')) setTimeout(() => this.toggleHelp(true), 1200);
@@ -72,7 +72,7 @@ export class UI {
   toggleCrew(v) { this.crewPanel.classList.toggle('hide', v === undefined ? !this.crewPanel.classList.contains('hide') : !v); this.renderList(); }
   refreshDeckBtns() { const g = this.game; this.deckBtns.forEach((b, i) => { b.classList.toggle('sel', g.soloDeck === i); b.classList.toggle('here', g.player.deck === i); }); this.right.querySelector('#panBtn').classList.toggle('sel', g.controls.mode === 'overview'); }
   showElevator(d) { if (d == null) { this.elev.classList.add('hide'); return; } this.elev.classList.remove('hide'); this.elev.querySelectorAll('button').forEach((b) => (b.disabled = +b.dataset.d === d)); }
-  syncTime() { const g = this.game; this.timebar.querySelector('#pp').textContent = g.paused ? '▶' : '⏸'; this.timebar.querySelectorAll('.sp').forEach((b) => b.classList.toggle('on', +b.dataset.s === g.speed)); }
+  syncTime() { const g = this.game; this.timebar.querySelector('#pp').textContent = g.paused ? '\ue06f' : '\ue06b'; this.timebar.querySelectorAll('.sp').forEach((b) => b.classList.toggle('on', +b.dataset.s === g.speed)); }
   renderList(light) {
     if (this.crewPanel.classList.contains('hide')) return; const g = this.game; const bd = this.crewPanel.querySelector('.bd'); const bots = [...g.crew.bots.values()];
     if (!light || this._listN !== bots.length) { bd.innerHTML = ''; this.rows = new Map(); this._listN = bots.length; for (const b of bots) { const row = $(`<div class="row"><span class="mi"></span><div class="nm"><b></b><small></small></div><div class="stt"></div></div>`); row.onclick = () => { g.controls.focusOn(b); if (innerWidth < 700) this.toggleCrew(false); }; bd.appendChild(row); this.rows.set(b, row); } }
@@ -85,27 +85,27 @@ export class UI {
     const g = this.game, w = g.wxNow, K = w && (KINDS[w.show] || KINDS[w.kind]); const notable = !!(w && (w.show !== 'clear' && w.show !== 'cloudy' && !(w.i < 0.2 && ['rain', 'storm', 'snow'].includes(w.kind)) || w.cold > 0.5));
     const txt = w ? `${K.icon} ${K.name} · ${w.temp}°C` : ''; if (g.hud && txt !== this._wxTxt) { this._wxTxt = txt; this.wxChip.textContent = txt; this.wxChip.classList.toggle('hide', !notable); const h = g.hud; if (h && h.pill) { const i = h.pill.querySelector('.wxi'); i.textContent = notable ? K.icon : ''; i.style.display = notable ? '' : 'none'; const r = h.bar.querySelector('.rc.wx'); if (r) { r.style.display = notable ? '' : 'none'; r.querySelector('i').textContent = K.icon; r.querySelector('b').textContent = `${K.name} ${w.temp}°C`; } } }
   }
-  /** 特殊海域：桌機 = 頂部 chip；手機 = 左上膠囊圖示 + 展開面板一列。內容 = 海域名 + 重點效果（⚠ = 旗艦階級未達建議） */
+  /** 特殊海域：桌機 = 頂部 chip；手機 = 左上膠囊圖示 + 展開面板一列。內容 = 海域名 + 重點效果（\ue099 = 旗艦階級未達建議） */
   updSz() {
-    const g = this.game, fx = g.szFx, h = g.hud; const txt = fx ? `${fx.z.icon} ${fx.z.short}${fx.un > 1 ? ' ⚠' : ''}${fx.trapped ? ' · 被困中' : ''}` : ''; if (txt === this._szTxt) return; this._szTxt = txt;
+    const g = this.game, fx = g.szFx, h = g.hud; const txt = fx ? `${fx.z.icon} ${fx.z.short}${fx.un > 1 ? ' \ue099' : ''}${fx.trapped ? ' · 被困中' : ''}` : ''; if (txt === this._szTxt) return; this._szTxt = txt;
     this.szChip.textContent = txt; this.szChip.classList.toggle('hide', !fx); this.szChip.style.borderColor = fx ? fx.z.color : ''; if (!h || !h.pill) return;
-    const i = h.pill.querySelector('.szi'); if (i) { i.textContent = fx ? fx.z.icon : ''; i.style.display = fx ? '' : 'none'; } const r = h.bar.querySelector('.rc.sz'); if (r) { r.style.display = fx ? '' : 'none'; if (fx) { r.querySelector('i').textContent = fx.z.icon; r.querySelector('b').textContent = `${fx.z.name}${fx.un > 1 ? ' ⚠' : ''}`; r.style.color = fx.z.color; } }
+    const i = h.pill.querySelector('.szi'); if (i) { i.textContent = fx ? fx.z.icon : ''; i.style.display = fx ? '' : 'none'; } const r = h.bar.querySelector('.rc.sz'); if (r) { r.style.display = fx ? '' : 'none'; if (fx) { r.querySelector('i').textContent = fx.z.icon; r.querySelector('b').textContent = `${fx.z.name}${fx.un > 1 ? ' \ue099' : ''}`; r.style.color = fx.z.color; } }
   }
   // ---- 每幀：標籤 + 狀態
   update() {
     const g = this.game; const es = g.envState;
     if (!this.sliding) this.slider.value = Math.round(g.dayT * 1000);
-    this.timebar.querySelector('#clock').textContent = '🕒 ' + fmtClock(g.dayT) + ' ' + PHASE[g.phaseKey]; this.phaseChip.textContent = PHASE[g.phaseKey] || '';
+    this.timebar.querySelector('#clock').textContent = '\ue02c ' + fmtClock(g.dayT) + ' ' + PHASE[g.phaseKey]; this.phaseChip.textContent = PHASE[g.phaseKey] || '';
     this._fc = (this._fc || 0) + 1;
     if (this._fc % 20 === 0) {
-      const d = g.dataInfo; if (d) { this.dataChip.textContent = d.virtual && !d.offline ? '🧑‍✈️ 虛擬船員 · ' + g.crew.bots.size + ' 位' : d.offline ? '🟠 離線示範資料' : '🟢 即時連線 · ' + g.crew.bots.size + ' 位船員'; this.dataChip.className = 'chip ' + (d.offline ? 'warn' : d.virtual ? 'virt' : 'ok'); }
+      const d = g.dataInfo; if (d) { this.dataChip.textContent = d.virtual && !d.offline ? '\ue085 虛擬船員 · ' + g.crew.bots.size + ' 位' : d.offline ? '\ue02a 離線示範資料' : '\ue02a 即時連線 · ' + g.crew.bots.size + ' 位船員'; this.dataChip.className = 'chip ' + (d.offline ? 'warn' : d.virtual ? 'virt' : 'ok'); }
       this.updWx(); this.updSz(); this.fpsChip.textContent = Math.round(g.fps) + ' fps · ' + g.qLevel; this.refreshDeckBtns();
     }
     this.updateLabels();
   }
   makeLabel(b, isPlayer) {
     const el = $(`<div class="lb${isPlayer ? ' me' : ''}"><div class="sp"></div><div class="st"></div><div class="nm"><span class="mi"></span><span class="n"></span></div></div>`);
-    el.querySelector('.n').textContent = b.title; if (isPlayer) el.querySelector('.mi').textContent = this.game.small ? '⚓' : '👑'; this.labelRoot.appendChild(el);
+    el.querySelector('.n').textContent = b.title; if (isPlayer) el.querySelector('.mi').textContent = this.game.small ? '\ue012' : '\ue037'; this.labelRoot.appendChild(el);
     el.onclick = () => { if (!isPlayer) this.game.controls.focusOn(b); }; return { el, sp: el.querySelector('.sp'), st: el.querySelector('.st'), mi: el.querySelector('.mi'), last: {} };
   }
   updateLabels() {
@@ -121,7 +121,7 @@ export class UI {
       L.el.style.transform = `translate(${((v.x * 0.5 + 0.5) * W).toFixed(1)}px,${((-v.y * 0.5 + 0.5) * H).toFixed(1)}px) translate(-50%,-100%)`;
       const sm = g.small; const far = dist > (sm ? 28 : 70), mid = dist > (sm ? 20 : 36), xfar = dist > 150; L.el.classList.toggle('xfar', xfar); L.el.classList.toggle('far', far); L.el.classList.toggle('mid', mid && !far); L.el.style.zIndex = 1000 - Math.round(dist);
       if (isP) continue;
-      const m = MOODS[b.mood] || MOODS.focus; const icon = b.hurt ? '🤕' : b.sleeping ? '💤' : m.icon; if (L.last.mi !== icon) { L.mi.textContent = icon; L.last.mi = icon; }
+      const m = MOODS[b.mood] || MOODS.focus; const icon = b.hurt ? '\ue017' : b.sleeping ? '\ue01c' : m.icon; if (L.last.mi !== icon) { L.mi.textContent = icon; L.last.mi = icon; }
       const sp = b.speech && b.speech.until > g.time ? b.speech : null; const spt = sp ? sp.text : ''; if (L.last.sp !== spt) { L.sp.textContent = spt; L.last.sp = spt; L.sp.className = 'sp' + (sp ? ' on ' + sp.kind : ''); }
       let st = ''; if (b.info.equity != null) { const p = b.info.pnl; st = `${b.info.equity.toFixed(1)}U <i class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '+' : ''}${p.toFixed(1)}%</i>${b.info.pos != null ? ' · ' + b.info.pos + '倉' : ''}`; }
       if (L.last.st !== st) { L.st.innerHTML = st; L.last.st = st; L.st.style.display = st ? '' : 'none'; }

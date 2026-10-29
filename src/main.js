@@ -13,7 +13,7 @@ import { homeShip } from './sim/fleet.js';
 const canvas = document.getElementById('gl');
 const P = new URLSearchParams(location.search);
 let game;
-await Promise.all([preloadAvatars(), initCloud()]);
+await Promise.all([preloadAvatars(), initCloud(), (document.fonts ? document.fonts.load('16px ArkIcons') : Promise.resolve()).catch(() => {})]); // 圖示字型要先載好，canvas 文字才不會畫成空框
 // 第一個畫面：沒登入、也沒選過訪客 → 先選 [Google 登入] / [訪客遊玩]（不再預設顯示 T董 的方舟）
 { const lm = localStorage.getItem(MODE_KEY); const dec = entryDecision({ user: cloud.user, mode: lm, params: P });
   if (dec === 'cloud' && lm !== 'google') localStorage.setItem(MODE_KEY, 'google');
@@ -26,7 +26,7 @@ try {
   const pl0 = ownerView ? null : (boot.state && boot.state.pl); // 非船東：角色 id + 船員種子（存檔可選欄位；沒有就隨機分配，play.init 會寫回存檔）
   game = new Game(canvas, { owner: ownerView, home: hs ? hs.type : null, homeLv: hs ? hs.lv : 1, char: pl0 && pl0.c, crewSeed: pl0 && pl0.s });
 } catch (e) {
-  document.getElementById('loading').innerHTML = '<div class="ld-title">😢</div><div class="ld-sub">你的瀏覽器不支援 WebGL，無法啟動末日方舟</div>';
+  document.getElementById('loading').innerHTML = '<div class="ld-title">\ue07c</div><div class="ld-sub">你的瀏覽器不支援 WebGL，無法啟動末日方舟</div>';
   throw e;
 }
 if (P.get('help') === '0') localStorage.setItem('ark.helped', '1');

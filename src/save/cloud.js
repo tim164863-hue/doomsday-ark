@@ -21,7 +21,7 @@ export const FIREBASE_CONFIG = {
 };
 /** 船東帳號：只有它看得到真實 bot 與交易電視。僅為「顯示」判斷（sessions.json 本來就是公開檔），不是安全邊界。
  *  只認 Firebase uid（不再比對 email，程式碼 / 打包檔裡也不放 email）。要換船東：把新的 uid 填進這個常數
- *  （uid 可在 🔑 選單最下方複製）。清單是空的 = 沒有任何人是船東。 */
+ *  （uid 可在 \ue058 選單最下方複製）。清單是空的 = 沒有任何人是船東。 */
 export const OWNER_UIDS = ['7yB5MDDkd3bymKEDHczUyb3buK63'];
 export const MIN_WRITE_GAP = 30000;
 export const MAX_DOC_CHARS = 100000;

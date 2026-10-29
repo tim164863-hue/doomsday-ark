@@ -82,11 +82,11 @@ export const insideWorld = (x, y) => Math.hypot(x - C, y - C) <= 1000 - 20;     
 export function sailTo(s, x, y, nowSec, reserve = 15) {
   const f = s.fleet; if (!f || !f.world || !f.world.pos) return { ok: false, msg: '世界地圖尚未建立' }; const w = f.world;
   if (!Number.isFinite(x) || !Number.isFinite(y) || !insideWorld(x, y)) return { ok: false, msg: '那裡已經是世界的盡頭' };
-  if (refitting(f)) return { ok: false, msg: '⭐ 旗艦正在改裝，完工前不能出航（艦隊小船不受影響）' };
+  if (refitting(f)) return { ok: false, msg: '\ue084 旗艦正在改裝，完工前不能出航（艦隊小船不受影響）' };
   const t = Math.max(s.simT, nowSec); const p = arkPos(w, t); const c = routeCost(p.x, p.y, x, y, f);
   { const g = routeGate(f, p.x, p.y, x, y); if (g) return { ok: false, msg: gateMsg(g.z), gate: g.id }; }   // 特殊海域硬條件（階段③）
   if (c.dist < 8) return { ok: false, msg: '已經在那裡了' };
-  if (s.res.fuel < c.fuel + reserve) return { ok: false, msg: `燃料不足：航程需要 ⛽${c.fuel}（至少保留 ${reserve}）` };
+  if (s.res.fuel < c.fuel + reserve) return { ok: false, msg: `燃料不足：航程需要 \ue049${c.fuel}（至少保留 ${reserve}）` };
   s.res.fuel -= c.fuel; w.pos = { x: p.x, y: p.y }; w.route = { x0: p.x, y0: p.y, x1: x, y1: y, t0: t, t1: t + c.minutes * 60, fuel: c.fuel };
   const z = zoneAt(x, y); return { ok: true, msg: `方舟起錨，航向 (${Math.round(x)}, ${Math.round(y)})，約 ${c.minutes} 分鐘`, cost: c, zone: z };
 }
@@ -97,7 +97,7 @@ export function worldTick(s, tEnd, ev) {
   const p = arkPos(w, tEnd); w.pos = { x: p.x, y: p.y }; const n = hazed(p.x, p.y) ? 0 : reveal(w, p.x, p.y, revealArkOf(f)); if (n) w.explored = (w.explored || 0) + n;
   if (!p.moving) { w.route = null; w.pos = { x: r.x1, y: r.y1 }; if (!hazed(r.x1, r.y1)) reveal(w, r.x1, r.y1, revealArkOf(f)); const z = zoneAt(r.x1, r.y1); ev && ev({ t: tEnd, type: 'arrive', text: `方舟抵達 ${zoneLabel(z)}。`, zone: z }); }
 }
-const NAMES = { near: '🌊近海', reef: '🪸珊瑚礁', ruins: '🏙️廢墟城市', ice: '🧊冰海', abyss: '🕳️深淵' };
+const NAMES = { near: '\ue09a近海', reef: '\ue002珊瑚礁', ruins: '\ue022廢墟城市', ice: '\ue007冰海', abyss: '\ue029深淵' };
 export const isHazed = hazed;
 export const zoneLabel = (z) => NAMES[z] || z;
 

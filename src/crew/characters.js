@@ -1,6 +1,6 @@
 // 角色資料庫（純資料 + 純計算，無 three.js；node 測試用）。
 //   - T董 是船東（owner uid）專屬角色，不在資料庫內，非船東帳號 / 訪客永遠拿不到。
-//   - 其他玩家：10 位可選角色（CHARS）。新玩家隨機分到一位，可在「🧑‍✈️ 角色」面板更換，存在存檔的可選欄位 pl.c。
+//   - 其他玩家：10 位可選角色（CHARS）。新玩家隨機分到一位，可在「\ue085 角色」面板更換，存在存檔的可選欄位 pl.c。
 //   - 小船船員：2–3 位隨機產生（名字 + 造型），由存檔的 pl.s（船員種子）決定，所以每次載入都一樣。
 // look 格式（給 avatar.js）：{ model, shirt, acc:[配件], ac:{配件顏色}, col:{ cool, green, warm: 目標色相(0–360) }, scale }
 import { hash, mulberry32 } from '../sim/rng.js';
@@ -9,16 +9,16 @@ export const MODELS = ['male-a', 'male-b', 'male-c', 'male-e', 'male-f', 'female
 export const OWNER_MODEL = 'male-d'; // T董 專用的基底模型（皇冠 / 金領帶）
 
 export const CHARS = [
-  { id: 'sailor', name: '水手阿浪', tag: '⚓', blurb: '愛唱歌的老水手', look: { model: 'male-a', shirt: 0x2a5aa8, acc: ['sailor'], ac: { sailor: 0x1f3f7a }, col: { green: 218 } } },
-  { id: 'captain', name: '老船長金鬍子', tag: '🧭', blurb: '航海二十年，什麼浪都見過', look: { model: 'male-b', shirt: 0xb83c2e, acc: ['captain'], ac: {}, col: {}, scale: 1.04 } },
-  { id: 'angler', name: '釣客小魚', tag: '🎣', blurb: '一桿在手，天下我有', look: { model: 'male-c', shirt: 0x5aa84a, acc: ['bucket', 'bag'], ac: { bucket: 0xe8c441, bag: 0x7a5a3a }, col: { warm: 92 } } },
-  { id: 'mechanic', name: '技師小柴', tag: '🔧', blurb: '沒有修不好的引擎', look: { model: 'male-e', shirt: 0xe9a03a, acc: ['hardhat'], ac: { hardhat: 0xffc21a }, col: {} } },
-  { id: 'cook', name: '主廚阿麵', tag: '🍜', blurb: '用有限的罐頭變出滿漢全席', look: { model: 'male-f', shirt: 0xe9eef2, acc: ['chef'], ac: { chef: 0xffffff }, col: { green: 8 }, scale: 0.97 } },
-  { id: 'explorer', name: '探險家小葵', tag: '🧭', blurb: '地圖上的空白就是用來走的', look: { model: 'female-a', shirt: 0x6c9a3a, acc: ['explorer', 'scarf'], ac: { explorer: 0xc9a766, scarf: 0xd9503a }, col: { cool: 98 } } },
-  { id: 'scientist', name: '博士小晴', tag: '🔬', blurb: '隨身帶著顯微鏡與好奇心', look: { model: 'female-b', shirt: 0x2fb5a8, acc: ['glasses'], ac: { glasses: 0x2b2f3a }, col: { warm: 172, cool: 335 } } },
-  { id: 'singer', name: '歌手小雪', tag: '🎧', blurb: '甲板就是她的舞台', look: { model: 'female-c', shirt: 0xe55a9a, acc: ['headphones', 'bow'], ac: { headphones: 0x2b2f3a, bow: 0xffffff }, col: { cool: 330 } } },
-  { id: 'diver', name: '潛水員小藍', tag: '🤿', blurb: '最愛海面下的世界', look: { model: 'female-e', shirt: 0x2a8ad9, acc: ['divermask', 'bag'], ac: { divermask: 0xff7a2a, bag: 0x2a8ad9 }, col: {} } },
-  { id: 'ranger', name: '巡守小火', tag: '🔥', blurb: '火辣脾氣、溫柔心腸', look: { model: 'female-f', shirt: 0xd9482f, acc: ['beanie'], ac: { beanie: 0xe0382b }, col: { cool: 8, warm: 275 } } },
+  { id: 'sailor', name: '水手阿浪', tag: '\ue012', blurb: '愛唱歌的老水手', look: { model: 'male-a', shirt: 0x2a5aa8, acc: ['sailor'], ac: { sailor: 0x1f3f7a }, col: { green: 218 } } },
+  { id: 'captain', name: '老船長金鬍子', tag: '\ue034', blurb: '航海二十年，什麼浪都見過', look: { model: 'male-b', shirt: 0xb83c2e, acc: ['captain'], ac: {}, col: {}, scale: 1.04 } },
+  { id: 'angler', name: '釣客小魚', tag: '\ue044', blurb: '一桿在手，天下我有', look: { model: 'male-c', shirt: 0x5aa84a, acc: ['bucket', 'bag'], ac: { bucket: 0xe8c441, bag: 0x7a5a3a }, col: { warm: 92 } } },
+  { id: 'mechanic', name: '技師小柴', tag: '\ue09d', blurb: '沒有修不好的引擎', look: { model: 'male-e', shirt: 0xe9a03a, acc: ['hardhat'], ac: { hardhat: 0xffc21a }, col: {} } },
+  { id: 'cook', name: '主廚阿麵', tag: '\ue01f', blurb: '用有限的罐頭變出滿漢全席', look: { model: 'male-f', shirt: 0xe9eef2, acc: ['chef'], ac: { chef: 0xffffff }, col: { green: 8 }, scale: 0.97 } },
+  { id: 'explorer', name: '探險家小葵', tag: '\ue034', blurb: '地圖上的空白就是用來走的', look: { model: 'female-a', shirt: 0x6c9a3a, acc: ['explorer', 'scarf'], ac: { explorer: 0xc9a766, scarf: 0xd9503a }, col: { cool: 98 } } },
+  { id: 'scientist', name: '博士小晴', tag: '\ue064', blurb: '隨身帶著顯微鏡與好奇心', look: { model: 'female-b', shirt: 0x2fb5a8, acc: ['glasses'], ac: { glasses: 0x2b2f3a }, col: { warm: 172, cool: 335 } } },
+  { id: 'singer', name: '歌手小雪', tag: '\ue051', blurb: '甲板就是她的舞台', look: { model: 'female-c', shirt: 0xe55a9a, acc: ['headphones', 'bow'], ac: { headphones: 0x2b2f3a, bow: 0xffffff }, col: { cool: 330 } } },
+  { id: 'diver', name: '潛水員小藍', tag: '\ue004', blurb: '最愛海面下的世界', look: { model: 'female-e', shirt: 0x2a8ad9, acc: ['divermask', 'bag'], ac: { divermask: 0xff7a2a, bag: 0x2a8ad9 }, col: {} } },
+  { id: 'ranger', name: '巡守小火', tag: '\ue042', blurb: '火辣脾氣、溫柔心腸', look: { model: 'female-f', shirt: 0xd9482f, acc: ['beanie'], ac: { beanie: 0xe0382b }, col: { cool: 8, warm: 275 } } },
 ];
 export const CHAR_IDS = CHARS.map((c) => c.id);
 export const charById = (id) => CHARS.find((c) => c.id === id) || null;

@@ -155,7 +155,7 @@ export class Play {
     const ui = this.game.ui; const bots = [...this.game.crew.bots.values()].filter((b) => !b.away && !b.sleeping && !b.inBath);
     const say = (b, txt, kind = 'chat') => b && b.say(txt, 4.8, kind);
     if (ev.type === 'raid') ui.toast(ev.text);
-    else if (ev.type === 'storm') { ui.toast('⛈ ' + ev.text); for (const b of bots.slice(0, 3)) say(b, pick(['好大的浪！抓穩！', '船在晃，東西快固定好！', '風暴來了…']), 'mood'); }
+    else if (ev.type === 'storm') { ui.toast('\ue02f ' + ev.text); for (const b of bots.slice(0, 3)) say(b, pick(['好大的浪！抓穩！', '船在晃，東西快固定好！', '風暴來了…']), 'mood'); }
     else if (ev.type === 'weather') {
       const recent = ev.t > nowSec() - 600; if (ev.sub !== 'lightning' || recent) ui.toast(ev.text);
       if (ev.sub === 'lightning' && ev.t > nowSec() - 120) { const g = this.game; g.wxfx.strike(90, g.camera); for (const b of bots.slice(0, 2)) say(b, pick(['哇！閃電打到船了！', '好近的雷…檢查一下船體！']), 'mood'); }
@@ -164,15 +164,15 @@ export class Play {
     }
     else if (ev.type === 'seazone') {
       const recent = ev.t > nowSec() - 600, g = this.game;
-      const short = (t) => { const i = t.indexOf('：'); const j = t.indexOf('（旗艦'); return i > 0 ? t.slice(0, i) + (j > 0 ? ' ⚠ 旗艦階級未達建議' : '') : t; };
+      const short = (t) => { const i = t.indexOf('：'); const j = t.indexOf('（旗艦'); return i > 0 ? t.slice(0, i) + (j > 0 ? ' \ue099 旗艦階級未達建議' : '') : t; };
       if (ev.sub === 'enter' && recent) ui.toast(short(ev.text)); else if (ev.sub === 'bp' || recent && ev.sub !== 'strike' && ev.sub !== 'mat' || ev.sub === 'mat' && ev.t > nowSec() - 120) ui.toast(ev.text);
       if (ev.sub === 'strike' && ev.t > nowSec() - 120) { g.wxfx.strike(90, g.camera); ui.toast(ev.text); for (const b of bots.slice(0, 2)) say(b, pick(['啊！地獄的雷打到船了！', '好燙…船體在冒煙！']), 'mood'); }
       else if (ev.sub === 'rock' && recent) { g.audio.event('crash', 14); for (const b of bots.slice(0, 2)) say(b, pick(['撞到石頭了！', '這些石柱怎麼會自己移動…']), 'mood'); }
       else if (ev.sub === 'enter' && recent) { const Z = ev.zone; const L = { fog: ['什麼都看不見…', '這霧好濃，別走散了。'], whirlpool: ['船被捲住了！抓穩！', '水在打轉…快往外開！'], fire: ['海面著火了！！', '好燙！飲水別浪費。'], hell: ['這裡是…地獄？', '快離開這裡，我不想待了…'], stonehenge: ['那些石頭…有人排過它們。', '好神秘的地方。'] }[Z]; if (L) for (const b of bots.slice(0, 2)) say(b, pick(L), 'mood'); }
       else if (ev.sub === 'bp' && ev.t > nowSec() - 600) for (const b of bots.slice(0, 2)) say(b, pick(['找到稀有藍圖了！', '這張圖紙…是旗艦升級用的！']), 'mood');
     }
-    else if (ev.type === 'shortage') { ui.toast('⚠️ ' + ev.text); for (const b of bots.slice(0, 2)) say(b, pick(['肚子好餓…', '水…有沒有水喝？', '補給是不是該補一下了？']), 'mood'); }
-    else if (ev.type === 'trip') { ui.toast('🚣 ' + ev.text); const b = this.botOf(ev.who); const tr = ev.injured || []; if (b) setTimeout(() => say(b, ev.fail ? pick(['這次運氣不太好…', '什麼都沒撈到，抱歉。']) : pick(['帶了東西回來囉！', '回來了！這趟不錯。']), 'mood'), 1200); for (const k of tr) { const x = this.botOf(k); if (x) setTimeout(() => say(x, '嘶…受了點傷。', 'mood'), 2400); } }
+    else if (ev.type === 'shortage') { ui.toast('\ue099 ' + ev.text); for (const b of bots.slice(0, 2)) say(b, pick(['肚子好餓…', '水…有沒有水喝？', '補給是不是該補一下了？']), 'mood'); }
+    else if (ev.type === 'trip') { ui.toast('\ue01e ' + ev.text); const b = this.botOf(ev.who); const tr = ev.injured || []; if (b) setTimeout(() => say(b, ev.fail ? pick(['這次運氣不太好…', '什麼都沒撈到，抱歉。']) : pick(['帶了東西回來囉！', '回來了！這趟不錯。']), 'mood'), 1200); for (const k of tr) { const x = this.botOf(k); if (x) setTimeout(() => say(x, '嘶…受了點傷。', 'mood'), 2400); } }
     else if (ev.type === 'battle') {
       const recent = ev.t > nowSec() - 900; if (recent) ui.toast(ev.text);
       if (ev.sub === 'start' && recent) { this.game.audio.event('crash', 18); for (const b of bots.slice(0, 2)) say(b, pick(['有東西從海裡冒出來了！', '全員戰鬥位置！', '是海怪！到海圖看看！']), 'mood'); }
@@ -180,13 +180,13 @@ export class Play {
       else if (recent && (ev.sub === 'lose' || ev.sub === 'caught')) for (const b of bots.slice(0, 2)) say(b, pick(['船體在漏水…', '好痛的一擊…']), 'mood');
     }
     else if (ev.type === 'fleet') ui.toast(ev.text);
-    else if (ev.type === 'blueprint') ui.toast('🗺️ ' + ev.text);
-    else if (ev.type === 'shipdone') { ui.toast('🛠 ' + ev.text); }
+    else if (ev.type === 'blueprint') ui.toast('\ue062 ' + ev.text);
+    else if (ev.type === 'shipdone') { ui.toast('\ue092 ' + ev.text); }
     else if (ev.type === 'promo') { ui.toast(ev.text); this.save(true); this.tierSync(true); for (const b of bots.slice(0, 3)) say(b, pick(['哇，船變大了！', '新的甲板在等我們！', '這才像旗艦！']), 'mood'); }
-    else if (ev.type === 'sick') { ui.toast('🤒 ' + ev.text); const b = this.botOf(ev.who); say(b, '頭好暈…', 'mood'); }
-    else if (ev.type === 'recover') { ui.toast('💪 ' + ev.text); say(this.botOf(ev.who), '好多了，謝謝關心！', 'mood'); }
-    else if (ev.type === 'crate' || ev.type === 'rain') { ui.toast('🎁 ' + ev.text); say(pick(bots), ev.type === 'rain' ? '下雨了！快接水！' : '看！海上漂來一個箱子！'); }
-    else if (ev.type === 'fight' || ev.type === 'makeup' || ev.type === 'party' || ev.type === 'celebrate' || ev.type === 'help') ui.toast((ev.type === 'fight' ? '💢 ' : ev.type === 'makeup' ? '🤝 ' : ev.type === 'help' ? '🩹 ' : '') + ev.text);
+    else if (ev.type === 'sick') { ui.toast('\ue08f ' + ev.text); const b = this.botOf(ev.who); say(b, '頭好暈…', 'mood'); }
+    else if (ev.type === 'recover') { ui.toast('\ue019 ' + ev.text); say(this.botOf(ev.who), '好多了，謝謝關心！', 'mood'); }
+    else if (ev.type === 'crate' || ev.type === 'rain') { ui.toast('\ue04c ' + ev.text); say(pick(bots), ev.type === 'rain' ? '下雨了！快接水！' : '看！海上漂來一個箱子！'); }
+    else if (ev.type === 'fight' || ev.type === 'makeup' || ev.type === 'party' || ev.type === 'celebrate' || ev.type === 'help') ui.toast((ev.type === 'fight' ? '\ue078 ' : ev.type === 'makeup' ? '\ue050 ' : ev.type === 'help' ? '\ue017 ' : '') + ev.text);
     if (this.social && ['fight', 'makeup', 'party', 'celebrate', 'help', 'storm'].includes(ev.type)) this.social.onEvent(ev);
     this.hud.logEvent(ev);
   }
@@ -233,17 +233,17 @@ export class Play {
     else if (name === 'cheer') { const bn = this.game.small ? '船長' : 'T董'; const b = (arg || (t && t.bot)); r = S.cheer(s, b.key, now); if (r.ok) { b.cheerUntil = Date.now() + 150000; b.setMoodNow(); b.say(pick(['謝謝' + bn + '！更有幹勁了！', bn + '人真好～', '收到鼓勵，滿血復活！']), 4.5, 'mood'); if (b.avatar.poseName === 'stand' && !b.actor.busy) { b.avatar.setPose('wave'); setTimeout(() => { if (b.avatar.poseName === 'wave') b.avatar.setPose('stand'); }, 2200); } } else if (r.wait) r.msg = `${b.title} 還在回味上次的打氣（${r.wait} 秒後再來）`; }
     else if (name === 'claim') { r = S.claimTask(s, arg); }
     else if (name === 'trip') { r = S.startTrip(s, arg.site, arg.crew, now); if (r.ok) { this.applyCrewFlags(); this.afterTripStart(r.trip); } }
-    if (r && r.msg) ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
+    if (r && r.msg) ui.toast((r.ok ? '' : '\ue099 ') + r.msg);
     if (r && r.ok) { const qe = { build: 'supply', claim: 'supply', chat: 'talk', trip: 'salvage' }[name]; if (qe) this.qNote(qe); }   // 新手教學任務：動作成功就記下事件（同步，發獎勵）
     this.save(); this.hud.refresh(true); return r;
   }
   // ------------------------------------------------------------ 新手教學任務（邏輯在 sim/quests.js；介面在 ui/questui.js）
   qNote(ev) { if (!this.state) return; const out = Q.noteQuest(this.state, ev); if (out.length) this.qDone(out); }
   qDone(out) {
-    const ui = this.game.ui; const ic = { food: '🍖', water: '💧', fuel: '⛽', parts: '🔩' };
+    const ui = this.game.ui; const ic = { food: '\ue047', water: '\ue03c', fuel: '\ue049', parts: '\ue069' };
     for (const o of out) {
-      if (o.final) ui.toast(o.bp === 'parts' ? '🎓 教學全部完成！獎勵：🔩+100' : `🎓 教學全部完成！獲得稀有藍圖：${SHIPS[o.bp].icon}${SHIPS[o.bp].name}`);
-      else ui.toast(`🎓 完成「${o.step.name}」　` + Object.keys(o.got).map((k) => ic[k] + '+' + o.got[k]).join(' '));
+      if (o.final) ui.toast(o.bp === 'parts' ? '\ue04e 教學全部完成！獎勵：\ue069+100' : `\ue04e 教學全部完成！獲得稀有藍圖：${SHIPS[o.bp].icon}${SHIPS[o.bp].name}`);
+      else ui.toast(`\ue04e 完成「${o.step.name}」　` + Object.keys(o.got).map((k) => ic[k] + '+' + o.got[k]).join(' '));
     }
     this.save(true); if (this.hud.quest) this.hud.quest.refresh(true);
   }
@@ -367,7 +367,7 @@ export class Play {
     else if (name === 'rename') r = F.renameShip(s, a.id, a.name);
     else if (name === 'home') r = F.setHome(s, a.id);
     if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg)) r.msg += SZM.rescueHint(s, now);
-    if (r && r.msg && name !== 'battleEngage') this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
+    if (r && r.msg && name !== 'battleEngage') this.game.ui.toast((r.ok ? '' : '\ue099 ') + r.msg);
     else if (r && r.ok && r.text && name.startsWith('battle') && name !== 'battleSubmit' && name !== 'battleRetreat') this.game.ui.toast(r.text);
     if (r && r.ok) { this.updateFleet(this.game.time); const qe = { build: 'buildShip', upgrade: 'upgrade' }[name]; if (qe) this.qNote(qe); }   // 教學任務事件要在 reloadHome 之前記下並存檔
     // 小船家：選船／換旗艦／升級旗艦 → 存檔後重新載入，場景換成新的船
@@ -375,14 +375,14 @@ export class Play {
     this.save(true); this.hud.refresh(true); return r;
   }
   reloadHome() {
-    this.reloading = true; this.game.ui.toast('⚓ 換成新的船，重新整備中…');
+    this.reloading = true; this.game.ui.toast('\ue012 換成新的船，重新整備中…');
     Promise.resolve(this.save(true)).catch(() => {}).then(() => { const u = new URL(location.href); u.searchParams.delete('fresh'); setTimeout(() => location.replace(u.toString()), 350); });
   }
   // ------------------------------------------------------------ 駕駛小船（T董親自開）
   HELM = { skiff: [0.35, 0.66, 0], speedboat: [-3.55, 1.28, 0], tug: [4.6, 1.6, 0], sub: [0.8, 3.2, 0], patrol: [4.1, 1.6, 1.4], icebreaker: [0.4, 9.0, 1.5] };
   startPilot(id) {
     if (this.pilot) return; if (this.helm.on) { this.helm.stop(); } const ship = F.findShip(this.state, id); if (!ship) return; const i = this.state.fleet.ships.indexOf(ship); const r = F.startPilot(this.state, id, nowSec());
-    if (!r.ok) { this.game.ui.toast('⚠️ ' + r.msg); return r; }
+    if (!r.ok) { this.game.ui.toast('\ue099 ' + r.msg); return r; }
     const b = this.berthOf(ship); const g = this.game; const av = Player.makeAvatar(g); av.setPose('stand'); const V = this.fleetViews.get(id); const h = this.HELM[ship.type] || [0, 1, 0]; av.group.position.set(h[0], h[1], h[2]); av.group.rotation.y = Math.PI / 2;
     if (V && V.home) { const sh = g.ship; av.group.position.set(h[0] * sh.k, h[1] * sh.k, h[2] * sh.k); sh.body.add(av.group); } else V && V.mesh.add(av.group);
     this.pilot = { id, type: ship.type, idx: i, x: b.x, z: b.z, yaw: b.yaw, v: 0, av, cam: new THREE.Vector3(b.x, 2, b.z), homing: false, keepT: 0, max: 7 + SHIPS[ship.type].speed * 5, t0: g.time };
@@ -408,7 +408,7 @@ export class Play {
     if (desired != null) { const diff = Math.abs(Math.atan2(Math.sin(desired - P.yaw), Math.cos(desired - P.yaw))); P.yaw = dampAngle(P.yaw, desired, 2.6, sdt); target = P.max * Math.min(1, mag) * (input.run && !P.homing ? 1.7 : 1) * Math.max(0.25, Math.cos(Math.min(diff, 1.4))); }
     P.v += (target - P.v) * Math.min(1, sdt * (target > P.v ? 0.9 : 1.6)); const px0 = P.x, pz0 = P.z; P.x += Math.cos(P.yaw) * P.v * sdt; P.z += -Math.sin(P.yaw) * P.v * sdt;
     { const sl = SHIPS[P.type].len, pst = { x: P.x, z: P.z, yaw: P.yaw, v: P.v, w: 0 }; const hit = sweepShip(pst, px0, pz0, { len: sl, hw: sl * 0.2 }, this.game.solidProbes(sl), sdt); P.x = pst.x; P.z = pst.z; P.v = pst.v;   // 領航也會撞到廢墟 / 殘骸 / 冰山 / 石柱（掃過式，不會穿過去）
-      if (hit && hit.imp > IMPACT_MIN && time - (P.hitT || -9) > 2) { P.hitT = time; const dmg = impactDamage(hit.imp), sh = F.findShip(this.state, P.id); if (sh && typeof sh.hp === 'number') sh.hp = Math.max(Math.min(sh.hp, SZ.floor), sh.hp - dmg); this.game.ui.toast('💥 撞上' + ({ debris: '漂流殘骸', ice: '冰山', stone: '石柱', ruin: '廢墟', bridge: '橋' }[hit.kind] || '障礙') + '！船體 −' + dmg.toFixed(1) + '%'); this.game.audio && this.game.audio.event('crash', 10); } }
+      if (hit && hit.imp > IMPACT_MIN && time - (P.hitT || -9) > 2) { P.hitT = time; const dmg = impactDamage(hit.imp), sh = F.findShip(this.state, P.id); if (sh && typeof sh.hp === 'number') sh.hp = Math.max(Math.min(sh.hp, SZ.floor), sh.hp - dmg); this.game.ui.toast('\ue006 撞上' + ({ debris: '漂流殘骸', ice: '冰山', stone: '石柱', ruin: '廢墟', bridge: '橋' }[hit.kind] || '障礙') + '！船體 −' + dmg.toFixed(1) + '%'); this.game.audio && this.game.audio.event('crash', 10); } }
     // 方舟船體（橢圓）擋住；外圍 260 單位為邊界
     // （母船被駕駛離開原位時，碰撞與邊界都在母船座標系裡算）
     const H = this.helm, hd = H.displaced; let lx = P.x, lz = P.z; if (hd) { const L = H.local(P.x, P.z); lx = L.x; lz = L.z; }
@@ -418,7 +418,7 @@ export class Play {
     P.cam.set(P.x, waveHeight(P.x, P.z, time) * 0.7 + 1.8, P.z); P.av.update(sdt, time);
     P.keepT += dt; if (P.keepT > 20) { P.keepT = 0; F.keepPilot(this.state, P.id, nowSec()); }
     g.player.avatar.group.visible = false;
-    for (const k of this.crates) { k.mesh.position.set(k.x, waveHeight(k.x, k.z, time) * 0.7 + 0.6 + Math.sin(time * 2 + k.ph) * 0.12, k.z); k.mesh.rotation.y = time * 0.7 + k.ph; if (Math.hypot(k.x - P.x, k.z - P.z) < 4.5 + SHIPS[P.type].len * 0.2) { k.mesh.removeFromParent(); this.crates.splice(this.crates.indexOf(k), 1); const r = F.pilotCollect(this.state, nowSec(), this.state.tz); this.game.ui.toast((r.ok ? '📦 ' : '') + r.msg); if (r.ok) this.qNote('supply'); this.save(); this.hud.refresh(true); if (r.ok) setTimeout(() => this.pilot && this.spawnCrates(), 4000); break; } }
+    for (const k of this.crates) { k.mesh.position.set(k.x, waveHeight(k.x, k.z, time) * 0.7 + 0.6 + Math.sin(time * 2 + k.ph) * 0.12, k.z); k.mesh.rotation.y = time * 0.7 + k.ph; if (Math.hypot(k.x - P.x, k.z - P.z) < 4.5 + SHIPS[P.type].len * 0.2) { k.mesh.removeFromParent(); this.crates.splice(this.crates.indexOf(k), 1); const r = F.pilotCollect(this.state, nowSec(), this.state.tz); this.game.ui.toast((r.ok ? '\ue06a ' : '') + r.msg); if (r.ok) this.qNote('supply'); this.save(); this.hud.refresh(true); if (r.ok) setTimeout(() => this.pilot && this.spawnCrates(), 4000); break; } }
     this.hud.updatePilotBar(P);
   }
   /** 世界 / 海圖動作 */
@@ -427,7 +427,7 @@ export class Play {
     const s = this.state; if (!s.fleet) return null; const now = nowSec(); let r = null;
     if (op === 'plan') r = PM.promoPlan(s, a.to); else if (op === 'cancel') r = PM.promoCancelPlan(s); else if (op === 'deposit') r = PM.promoDeposit(s);
     else if (op === 'start') { r = PM.promoStart(s, now); if (r && r.ok && this.game.helm.on) this.game.helm.stop(); } else if (op === 'reset') { r = PM.promoReset(s); if (r && r.ok) this.tierSync(false); }
-    if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
+    if (r && r.msg) this.game.ui.toast((r.ok ? '' : '\ue099 ') + r.msg);
     this.save(true); this.hud.refresh(true); return r;
   }
   /** 船身外形（長度 / 甲板數）是開機時依 localStorage 的階級決定的：旗艦階級跟畫面上的不一樣（升階 / 換機器）→ 存好後重新載入一次 */
@@ -435,7 +435,7 @@ export class Play {
     if (this.game.small || TIER_PREVIEW) { try { sessionStorage.removeItem('ark.tierReload'); } catch (e) { /* ignore */ } return; } const want = PM.flagRow(this.state.fleet).id; if (want === CUR_TIER) { try { sessionStorage.removeItem('ark.tierReload'); } catch (e) { /* ignore */ } return; }
     let n = 0; try { n = +(sessionStorage.getItem('ark.tierReload') || 0); } catch (e) { /* ignore */ } if (n >= 2) return;
     try { sessionStorage.setItem('ark.tierReload', String(n + 1)); localStorage.setItem(TIER_KEY, want); } catch (e) { return; }
-    if (announce) this.game.ui.toast('🛠 旗艦進塢整備中…船身馬上變大！'); setTimeout(() => location.reload(), announce ? 2200 : 300);
+    if (announce) this.game.ui.toast('\ue092 旗艦進塢整備中…船身馬上變大！'); setTimeout(() => location.reload(), announce ? 2200 : 300);
   }
   // ------------------------------------------------------------ 階段⑤：玩家對戰（PvP）。全部是「盡力而為」：雲端壞掉 / 訪客 / 船東 → 安靜地關閉，不影響遊戲本身。
   async pvpPrepare(st, boot) {
@@ -463,7 +463,7 @@ export class Play {
     if (import.meta.env.DEV && !/[?&]pvnotice=1/.test(location.search)) { pv.nt = 1; return; }   // DEV：預設略過說明（?pvnotice=1 才顯示）
     if (this.hud.modalKind || this.pendingReport || (this.hud.helpOpen && this.hud.helpOpen()) || document.getElementById('syncdlg') || (this.hud.battle && !this.hud.battle.el.classList.contains('hide'))) return;
     this.pvNoticeOpen = true;
-    showPvNotice(PVP.handleOf(pc.uid), async (k) => { this.pvNoticeOpen = false; if (k === 'hide') await pc.setHidden(s, true); else { pv.nt = 1; } pv.nt = 1; this.save(true); this.hud.refresh(true); this.game.ui.toast(k === 'hide' ? '🕶 已隱身，之後可以在「附近的船」卡片隨時打開' : '🏴‍☠️ 已開啟玩家對戰（可隨時隱身）'); this.pvpBeat(true); });
+    showPvNotice(PVP.handleOf(pc.uid), async (k) => { this.pvNoticeOpen = false; if (k === 'hide') await pc.setHidden(s, true); else { pv.nt = 1; } pv.nt = 1; this.save(true); this.hud.refresh(true); this.game.ui.toast(k === 'hide' ? '\ue08a 已隱身，之後可以在「附近的船」卡片隨時打開' : '\ue009 已開啟玩家對戰（可隨時隱身）'); this.pvpBeat(true); });
   }
   pvpScan(force) { return this.pvc ? this.pvc.scan(this.state, force) : Promise.resolve([]); }
   pvpSig() { const pc = this.pvc, pv = PVP.pvOf(this.state); return JSON.stringify([pc ? [pc.why, pc.scanning, pc.scanned, pc.err ? 1 : 0, pc.list.map((e) => e.uid + e.c.why + Math.round((e.c.dist || 0) / 4))] : 0, pv ? [pv.log.length, pv.sh > nowSec(), pv.in.length, pv.out.length, pv.att ? pv.att.id : 0, pv.cd > nowSec(), pv.st.won, pv.st.atk] : 0]); }
@@ -487,7 +487,7 @@ export class Play {
     else if (name === 'battleSubmit') r = BTL.battleSubmit(s, now, a.rep, F.combatOf(s));
     else if (name === 'rescue') { const w = s.fleet.world; if (this.game.helm.on) this.game.helm.stop(); r = SZM.rescueDo(s, now); }
     if (name === 'sail' && r && !r.ok && /燃料不足/.test(r.msg)) r.msg += SZM.rescueHint(s, now);   // 海圖出航燃料不足：在漩渦裡要提示拖船救援
-    if (r && r.msg) this.game.ui.toast((r.ok ? '' : '⚠️ ') + r.msg);
+    if (r && r.msg) this.game.ui.toast((r.ok ? '' : '\ue099 ') + r.msg);
     this.save(true); this.hud.refresh(true); return r;
   }
   /** 新玩家（非擁有者）第一次進來：等說明 / 報告視窗關閉後顯示選船畫面 */

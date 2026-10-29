@@ -69,7 +69,7 @@ export function relTick(s, t, tEnd, push) {
   }
   for (const k of Object.keys(R.cool)) if (R.cool[k] <= tEnd) delete R.cool[k];
   // 4. 夜間派對：當地 21:00 那一格決定今晚辦不辦（決定性）
-  if (localMin(t, s.tz) === PARTY_MIN - 1 && n >= 3) { const dk = dayOf(tEnd, s.tz); if (partyOn(s, dk) && R.party !== dk) { R.party = dk; for (const [a, b] of ps) if (!(R.feud[pairKey(a, b)] > tEnd)) bump(s, a, b, 2.5); push({ t: tEnd, type: 'party', text: '🎉 夜間派對開始了！大家聚到休閒甲板，氣氛很熱。' }); } }
+  if (localMin(t, s.tz) === PARTY_MIN - 1 && n >= 3) { const dk = dayOf(tEnd, s.tz); if (partyOn(s, dk) && R.party !== dk) { R.party = dk; for (const [a, b] of ps) if (!(R.feud[pairKey(a, b)] > tEnd)) bump(s, a, b, 2.5); push({ t: tEnd, type: 'party', text: '\ue035 夜間派對開始了！大家聚到休閒甲板，氣氛很熱。' }); } }
 }
 /** 今晚有沒有派對（種子 + 日期決定）。 */
 export const partyOn = (s, dk) => hash(s.seed, 'party', dk) % 100 < 35;
@@ -79,7 +79,7 @@ export const partyWindow = (s, ts) => { const m = localMin(ts, s.tz); return m >
 export function celebrate(s, tEnd, push, text) {
   const keys = crewList(s); if (keys.length < 2) return; const R = ensureRel(s); R.cel = tEnd;
   for (const [a, b] of pairsOf(keys)) if (!(R.feud[pairKey(a, b)] > tEnd)) bump(s, a, b, 3);
-  push({ t: tEnd, type: 'celebrate', text: '🎊 ' + text });
+  push({ t: tEnd, type: 'celebrate', text: '\ue035 ' + text });
 }
 /** 共患難：風暴 / 生病 / 缺糧時大家互相幫忙，交情上升（生病者額外多一位照顧他的人）。 */
 export function rally(s, tEnd, push, kind, who, pickF = 0) {

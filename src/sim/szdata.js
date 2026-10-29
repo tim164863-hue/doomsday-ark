@@ -25,30 +25,30 @@ export const SZ = {
 // need = 進入條件（階段③）：hard = 未達就進不去（海圖出航 / 手動駕駛都擋）；非 hard（火焰）= 強條件：未達可以進、但危害 ×unprep。
 //   tiers = 各分支要的最低階。注意解法順序：火焰的焰心鋼是戰艦 T1 要的、古碑殘片是科研 T2 要的，所以火焰 T0 可進（危害 ×3）、巨石陣科研 T1 就進得去。
 export const SPECIAL_ZONES = tbl({
-  fog: { id: 'fog', name: '迷霧海域', short: '迷霧', icon: '🌫', x: 620, y: 700, r: 90, color: '#c9d3dc', tint: [196, 208, 220],
+  fog: { id: 'fog', name: '迷霧海域', short: '迷霧', icon: '\ue02e', x: 620, y: 700, r: 90, color: '#c9d3dc', tint: [196, 208, 220],
     haz: { slow: 0.2, drift: 0.8, noReveal: true, mo: 0.15 }, mat: 'fogpearl', bp: ['bp_sci1', 'bp_sci2'], need: null,
     blurb: '能見度極低；海圖迷霧不會被揭開，航線會慢慢偏航；水手們有點發毛。' },
-  whirlpool: { id: 'whirlpool', name: '漩渦海域', short: '漩渦', icon: '🌀', x: 1400, y: 640, r: 80, color: '#3fc7c0', tint: [48, 190, 188],
+  whirlpool: { id: 'whirlpool', name: '漩渦海域', short: '漩渦', icon: '\ue093', x: 1400, y: 640, r: 80, color: '#3fc7c0', tint: [48, 190, 188],
     haz: { slow: 0.6, pull: 0.22, hull: 0.05 }, mat: 'vortex', bp: ['bp_mer1', 'bp_mer2'], need: null,
     blurb: '被捲住：航速 ×0.4、一直往中心拉、船體受損；到了中心會被困住，要重新規劃航線駛離。' },
-  fire: { id: 'fire', name: '火焰海域', short: '火焰', icon: '🔥', x: 1560, y: 1250, r: 85, color: '#ff8a3d', tint: [255, 128, 40],
+  fire: { id: 'fire', name: '火焰海域', short: '火焰', icon: '\ue042', x: 1560, y: 1250, r: 85, color: '#ff8a3d', tint: [255, 128, 40],
     haz: { hull: 0.08, water: 0.25 }, mat: 'ember', bp: ['bp_war1', 'bp_war2'], need: { branches: ['war', 'sci'], tier: 1, tiers: { war: 1, sci: 1 }, hard: false, unprep: 3 },
     blurb: '海面起火：船體持續灼傷、飲水蒸發。建議戰艦或科研 T1 以上（耐熱）才進得去。' },
-  hell: { id: 'hell', name: '地獄海域', short: '地獄', icon: '😈', x: 900, y: 1400, r: 70, color: '#c4223a', tint: [200, 24, 40],
+  hell: { id: 'hell', name: '地獄海域', short: '地獄', icon: '\ue07b', x: 900, y: 1400, r: 70, color: '#c4223a', tint: [200, 24, 40],
     haz: { hull: 0.12, strike: 0.025, mo: 0.6 }, mat: 'hellstone', bp: ['bp_war3', 'bp_mer3', 'bp_sci3'], need: { branches: ['war', 'mer', 'sci'], tier: 2, tiers: { war: 2, sci: 2, mer: 2 }, hard: true },
     blurb: '岩漿與閃電：船體重傷、持續落雷、船員士氣一路下滑。建議 T2 以上旗艦。' },
-  stonehenge: { id: 'stonehenge', name: '海上巨石陣', short: '巨石陣', icon: '🗿', x: 330, y: 1150, r: 75, color: '#9b8cc9', tint: [150, 130, 205],
+  stonehenge: { id: 'stonehenge', name: '海上巨石陣', short: '巨石陣', icon: '\ue000', x: 330, y: 1150, r: 75, color: '#9b8cc9', tint: [150, 130, 205],
     haz: { stuck: 1800, rock: 0.02, rockDmg: 1.2 }, mat: 'rune', bp: ['bp_sci3'], need: { branches: ['sci', 'war', 'mer'], tier: 1, tiers: { sci: 1, war: 2, mer: 2 }, hard: true },
     blurb: '石柱迷宮：自動航行進去會被卡住 +30 分鐘、可能撞上石柱；手動駕駛要穿過石柱；中心有古碑謎題。建議科研 T2 以上。' },
 });
 
 export const MAT_ORDER = ['fogpearl', 'vortex', 'ember', 'hellstone', 'rune'];
 export const MATERIALS = tbl({
-  fogpearl: { id: 'fogpearl', name: '迷霧珍珠', icon: '🫧', zone: 'fog' },
-  vortex: { id: 'vortex', name: '渦流核心', icon: '🌀', zone: 'whirlpool' },
-  ember: { id: 'ember', name: '焰心鋼', icon: '🔶', zone: 'fire' },
-  hellstone: { id: 'hellstone', name: '煉獄晶', icon: '🔻', zone: 'hell' },
-  rune: { id: 'rune', name: '古碑殘片', icon: '🪨', zone: 'stonehenge' },
+  fogpearl: { id: 'fogpearl', name: '迷霧珍珠', icon: '\ue001', zone: 'fog' },
+  vortex: { id: 'vortex', name: '渦流核心', icon: '\ue093', zone: 'whirlpool' },
+  ember: { id: 'ember', name: '焰心鋼', icon: '\ue03a', zone: 'fire' },
+  hellstone: { id: 'hellstone', name: '煉獄晶', icon: '\ue024', zone: 'hell' },
+  rune: { id: 'rune', name: '古碑殘片', icon: '\ue00b', zone: 'stonehenge' },
 });
 
 // 稀有藍圖（旗艦晉升用；進 fleet.bp，與造船藍圖共用欄位）

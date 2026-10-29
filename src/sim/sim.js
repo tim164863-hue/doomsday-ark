@@ -195,7 +195,7 @@ export function startTrip(s, siteId, crew, nowSec) {
   const site = SITES.find((x) => x.id === siteId); if (!site) return { ok: false, msg: '未知地點' };
   if (!crew.length || crew.length > 3) return { ok: false, msg: '請派 1–3 位船員' };
   const av = availableCrew(s, nowSec); if (!crew.every((k) => av.includes(k))) return { ok: false, msg: '有船員無法出海（受傷或已在外）' };
-  const fuel = 3 + site.tier * 4; if (s.res.fuel < fuel) return { ok: false, msg: `燃料不足：需要 ⛽${fuel}` };
+  const fuel = 3 + site.tier * 4; if (s.res.fuel < fuel) return { ok: false, msg: `燃料不足：需要 \ue049${fuel}` };
   const startSec = Math.floor(nowSec / TICK) * TICK > s.simT ? nowSec : s.simT; // 出海時間點以模擬時間為準，避免回溯
   s.res.fuel -= fuel; const tr = tripPlan(s, siteId, crew, Math.max(s.simT, startSec)); s.nextTripId++; s.trips.push(tr);
   for (const k of crew) s.crew[k].away = tr.id; s.stats.trips++; bumpTask(s, 'trip');

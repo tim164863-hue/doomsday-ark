@@ -28,7 +28,7 @@ export class MiniGame {
     }, true);
   }
   /** 開啟（或更新標題） */
-  open({ icon = '🎮', title = '', hint = '', score = '' } = {}) {
+  open({ icon = '\ue048', title = '', hint = '', score = '' } = {}) {
     this.active = true; this.el.classList.remove('hide'); document.body.classList.add('mging'); this.ui.res.classList.add('hide'); this.ui.res.innerHTML = '';
     this.ui.icon.textContent = icon; this.ui.title.textContent = title; this.setScore(score); this.msg(hint); this.idle();
   }

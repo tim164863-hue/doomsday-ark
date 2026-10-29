@@ -57,7 +57,7 @@ function canvasTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); draw(x, w, h);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t;
 }
-const CJK = "'Noto Sans CJK TC','Noto Sans TC','PingFang TC','Microsoft JhengHei','Heiti TC','WenQuanYi Zen Hei',sans-serif";
+const CJK = "ArkIcons,'Noto Sans CJK TC','Noto Sans TC','PingFang TC','Microsoft JhengHei','Heiti TC','WenQuanYi Zen Hei',sans-serif";
 /** 單面貼圖面板：pts = [[x,y],...]（船座標 x,y），side = ±1（法線朝 ±z），u 方向讓兩面都能正讀 */
 function panel(g, pts, tex, side, z = 0, o = {}) {
   const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]); const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
@@ -130,7 +130,7 @@ function speedboat(g, lv) {
       x.strokeStyle = 'rgba(120,40,0,.18)'; x.lineWidth = 3; for (let i = 1; i < 5; i++) { x.beginPath(); x.moveTo(0, h * i / 5); x.lineTo(w, h * i / 5 + 20); x.stroke(); }
       // 字放在三角形內：船座標 x≈MX+0.95、y≈中段
       const cu = 0.95 / sx2, cv = ((sy0 + 1.15) - sy0) / (sy1 - sy0); const px = (side < 0 ? 1 - cu : cu) * w, py = (1 - cv) * h;
-      x.font = `900 ${Math.round(h * 0.4)}px ${CJK}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#fff4e6'; x.strokeStyle = '#fff4e6'; x.lineWidth = 7; x.strokeText('順', px, py); x.fillText('順', px, py);
+      x.font = `900 ${Math.round(h * 0.4)}px ArkIcons,${CJK}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#fff4e6'; x.strokeStyle = '#fff4e6'; x.lineWidth = 7; x.strokeText('順', px, py); x.fillText('順', px, py);
     });
     panel(g, tri, tex, side, 0.0);
   }
@@ -143,7 +143,7 @@ function speedboat(g, lv) {
   const btex = canvasTex(256, 512, (x, w, h) => {
     x.fillStyle = '#f0e4c6'; x.fillRect(0, 0, w, h); x.strokeStyle = '#f0661a'; x.lineWidth = 16; x.strokeRect(8, 8, w - 16, h - 16);
     x.fillStyle = 'rgba(150,110,60,.12)'; for (let i = 0; i < 40; i++) x.fillRect(Math.random() * w, Math.random() * h, 30, 2);
-    x.font = `900 ${Math.round(w * 0.62)}px ${CJK}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#16120e'; x.strokeStyle = '#16120e'; x.lineWidth = 8;
+    x.font = `900 ${Math.round(w * 0.62)}px ArkIcons,${CJK}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#16120e'; x.strokeStyle = '#16120e'; x.lineWidth = 8;
     x.strokeText('洋', w / 2, h * 0.3); x.fillText('洋', w / 2, h * 0.3); x.strokeText('流', w / 2, h * 0.7); x.fillText('流', w / 2, h * 0.7);
   });
   for (const side of [-1, 1]) panel(g, [[bx0, by1], [bx1, by1], [bx1, by0], [bx0, by0]], btex, side, 0.0, { roughness: 0.9 });

@@ -13,7 +13,7 @@ export function showEntry({ cloud }) {
     el.innerHTML = `<div class="ecard"><div class="et">末日方舟</div><div class="es">DOOMSDAY ARK</div>
       <p class="ep">在末日的海上，開著你的方舟，探索、打撈、經營船員。</p>
       <button class="gbtn" id="eGoogle"${un ? ' disabled' : ''}>${GSVG}<span>用 Google 登入</span></button>
-      <button class="guest" id="eGuest">🧑‍✈️ 訪客遊玩</button>
+      <button class="guest" id="eGuest">\ue085 訪客遊玩</button>
       <p class="en">登入可雲端保存、換裝置繼續。訪客進度只存在這台裝置。<br>兩種玩法都從挑選第一艘小船開始：小漁船 / 洋流號快艇 / 打撈拖船。</p>
       ${un ? '<p class="ew">雲端服務暫時連不上，目前只能訪客遊玩。</p>' : ''}${bad ? '<p class="ew">偵測到內建瀏覽器（LINE / Facebook 等），Google 會擋下登入。請用 Safari / Chrome 開啟本頁。</p>' : ''}<div class="em" id="eMsg"></div></div>`;
     document.body.appendChild(el); const msg = (t) => { el.querySelector('#eMsg').textContent = t; };

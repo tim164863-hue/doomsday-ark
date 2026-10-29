@@ -13,7 +13,7 @@ export function chooseSave({ cloud, local, newer }) {
   return new Promise((resolve) => {
     const card = (key, title, s, btn) => `<div class="sc${cloud && newer === key ? ' newer' : ''}"><div class="st">${title}${cloud && newer === key ? ' <i>較新</i>' : ''}</div>${s ? `<div class="sd">最後遊玩 ${fmt(s.lastSeen)}<br>建立 ${fmt(s.created)}<br>設施等級合計 ${s.facLv} · 出海 ${s.trips} 次</div>` : '<div class="sd">（目前是空的）</div>'}<button data-k="${key}" class="${newer === key ? 'pri' : ''}">${btn}</button></div>`;
     const el = document.createElement('div'); el.id = 'syncdlg';
-    el.innerHTML = `<div class="mcard"><h3>☁️ 發現本機進度</h3><p class="sub">${cloud ? '雲端和這台裝置各有一份進度，選一份繼續（預設保留較新的）。沒選的那份不會被合併。' : '你的雲端方舟還是空的。要把這台裝置上的進度上傳嗎？'}</p><div class="scs">${cloud ? card('cloud', '☁️ 雲端存檔', cloud, '用雲端的') : ''}${card('local', '📱 本機存檔', local, cloud ? '用本機的（覆蓋雲端）' : '上傳到雲端')}</div>${cloud ? '' : '<button data-k="cloud" class="ghost">不用，從全新方舟開始</button>'}</div>`;
+    el.innerHTML = `<div class="mcard"><h3>\ue02d 發現本機進度</h3><p class="sub">${cloud ? '雲端和這台裝置各有一份進度，選一份繼續（預設保留較新的）。沒選的那份不會被合併。' : '你的雲端方舟還是空的。要把這台裝置上的進度上傳嗎？'}</p><div class="scs">${cloud ? card('cloud', '\ue02d 雲端存檔', cloud, '用雲端的') : ''}${card('local', '\ue039 本機存檔', local, cloud ? '用本機的（覆蓋雲端）' : '上傳到雲端')}</div>${cloud ? '' : '<button data-k="cloud" class="ghost">不用，從全新方舟開始</button>'}</div>`;
     el.addEventListener('click', (e) => { const k = e.target.closest('button[data-k]'); if (!k) return; el.remove(); resolve(k.dataset.k); });
     document.body.appendChild(el);
   });
@@ -32,19 +32,19 @@ export class AccountUI {
     const ae = cloud.authError; if (ae && ae.code === 'ark/redirect-lost') setTimeout(() => game.ui.toast('登入沒有完成（此瀏覽器擋掉了跳轉登入），請改用電腦版或換瀏覽器再試'), 2500);
     else if (ae && ae.code === 'auth/unauthorized-domain') setTimeout(() => game.ui.toast('這個網址尚未加入 Firebase 授權網域'), 2500);
     for (const n of boot.notes || []) {
-      if (n === 'cloud-offline') setTimeout(() => game.ui.toast(boot.mode === 'mirror' ? '⚠️ 雲端連不上，先用本機暫存進度' : '⚠️ 雲端連不上，這次進度不會儲存'), 3000);
+      if (n === 'cloud-offline') setTimeout(() => game.ui.toast(boot.mode === 'mirror' ? '\ue099 雲端連不上，先用本機暫存進度' : '\ue099 雲端連不上，這次進度不會儲存'), 3000);
       if (n === 'cloud-corrupt') setTimeout(() => game.ui.toast('雲端存檔損毀，已改用新的方舟'), 3000);
     }
   }
   syncText() {
-    const a = this.boot.adapter; if (this.boot.mode === 'mirror') return '⚠️ 雲端連不上 · 暫存於本機';
-    if (this.boot.mode === 'memory') return '⚠️ 雲端連不上 · 本次不儲存';
-    if (!a || !a.status) return ''; if (a.status === 'saving') return '☁️ 同步中…';
-    if (a.status === 'error' || a.status === 'offline') return '⚠️ 同步失敗，稍後重試'; if (a.status === 'ok') return '☁️ 已同步 ' + hm(a.lastOk); return a.dirty ? '☁️ 待同步' : '☁️ 已連線';
+    const a = this.boot.adapter; if (this.boot.mode === 'mirror') return '\ue099 雲端連不上 · 暫存於本機';
+    if (this.boot.mode === 'memory') return '\ue099 雲端連不上 · 本次不儲存';
+    if (!a || !a.status) return ''; if (a.status === 'saving') return '\ue02d 同步中…';
+    if (a.status === 'error' || a.status === 'offline') return '\ue099 同步失敗，稍後重試'; if (a.status === 'ok') return '\ue02d 已同步 ' + hm(a.lastOk); return a.dirty ? '\ue02d 待同步' : '\ue02d 已連線';
   }
   renderBtn() {
     const u = this.user;
-    if (!u) { this.btn.className = 'guest'; this.btn.innerHTML = '🔑<span class="lbl"> 登入</span>'; this.btn.title = 'Google 登入（雲端存檔）'; return; }
+    if (!u) { this.btn.className = 'guest'; this.btn.innerHTML = '\ue058<span class="lbl"> 登入</span>'; this.btn.title = 'Google 登入（雲端存檔）'; return; }
     const st = this.boot.adapter && this.boot.adapter.status; const bad = st === 'error' || st === 'offline' || this.boot.mode !== 'cloud';
     this.btn.className = 'in' + (bad ? ' bad' : ''); this.btn.title = (u.displayName || u.email) + '（點開選單）';
     const av = u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : `<b>${esc((u.displayName || u.email || '?').slice(0, 1).toUpperCase())}</b>`;
@@ -62,8 +62,8 @@ export class AccountUI {
     } else {
       const owner = this.boot.owner; const pl = this.game.play, pvc = pl && pl.pvc, pvOn = !owner && !!(pvc && pvc.enabled), hid = pvOn && !!(PVP.pvOf(pl.state) || {}).hid;   // 第 14 輪：uid 只有船東看得到；一般玩家改成隱身開關
       m.innerHTML = `<div class="ap">${u.photoURL ? `<img src="${esc(u.photoURL)}" alt="" referrerpolicy="no-referrer">` : '<b>' + esc((u.displayName || u.email).slice(0, 1).toUpperCase()) + '</b>'}<div><div class="an">${esc(u.displayName || '玩家')}</div><div class="ae">${esc(u.email)}</div></div></div>
-        <div class="ar">${owner ? '⚓ 船東：顯示真實 bot 與交易電視' : '🧑‍✈️ 虛擬船員（不含任何真人 bot 資料）'}</div><div class="ar" id="acctSync">${this.syncText()}</div>${owner ? `<div class="ar uid" title="點一下複製 uid">uid：<code id="acctUid">${esc(u.uid || '')}</code></div>` : ''}${pvOn ? `<button id="gHide" class="ghost pvh">🕶 玩家對戰隱身：${hid ? '開（別人看不到你）' : '關'}</button>` : ''}
-        <button id="gSync" class="ghost">立即同步</button><button id="gGuest" class="ghost">🧑‍✈️ 切換為訪客</button><button id="gOut" class="out">登出</button><div class="msg" id="acctMsg"></div>`;
+        <div class="ar">${owner ? '\ue012 船東：顯示真實 bot 與交易電視' : '\ue085 虛擬船員（不含任何真人 bot 資料）'}</div><div class="ar" id="acctSync">${this.syncText()}</div>${owner ? `<div class="ar uid" title="點一下複製 uid">uid：<code id="acctUid">${esc(u.uid || '')}</code></div>` : ''}${pvOn ? `<button id="gHide" class="ghost pvh">\ue08a 玩家對戰隱身：${hid ? '開（別人看不到你）' : '關'}</button>` : ''}
+        <button id="gSync" class="ghost">立即同步</button><button id="gGuest" class="ghost">\ue085 切換為訪客</button><button id="gOut" class="out">登出</button><div class="msg" id="acctMsg"></div>`;
       { const gh = m.querySelector('#gHide'); if (gh) gh.onclick = async () => { gh.disabled = true; const r = await pl.pvpHide(!hid); this.renderMenu(); this.say(r.msg); }; }
       { const ue = m.querySelector('#acctUid'); if (ue) ue.onclick = async () => { try { await navigator.clipboard.writeText(u.uid || ''); this.say('已複製 uid'); } catch (e) { const r = document.createRange(); r.selectNodeContents(ue); const s = getSelection(); s.removeAllRanges(); s.addRange(r); this.say('已選取 uid，請按複製'); } }; }
       m.querySelector('#gOut').onclick = () => this.logout(false); m.querySelector('#gGuest').onclick = () => this.logout(true); m.querySelector('#gSync').onclick = async () => { const a = this.boot.adapter; if (a && a.canWrite) { await this.game.play.save(true); this.renderMenu(); } else this.say('目前無法同步'); };

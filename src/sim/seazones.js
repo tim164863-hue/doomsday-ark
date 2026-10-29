@@ -50,12 +50,12 @@ export function seaTick(s, t, tEnd, ev, pre) {
   if (sz.in !== z.id) { // 進入
     sz.in = z.id; sz.n[z.id] = (sz.n[z.id] | 0) + 1;
     e('enter', `${z.icon} 進入${z.name}：${z.blurb}${un > 1 ? `（旗艦階級未達（${needText(z)}），傷害 ×${un}）` : ''}`, { zone: z.id });
-    if (hz.stuck && r && p.moving) { const stk = hz.stuck * FS.hazMul; r.t1 += stk; e('stuck', `🗿 方舟卡在石柱之間，航程多花 ${Math.round(stk / 60)} 分鐘。`, { zone: z.id }); }
+    if (hz.stuck && r && p.moving) { const stk = hz.stuck * FS.hazMul; r.t1 += stk; e('stuck', `\ue000 方舟卡在石柱之間，航程多花 ${Math.round(stk / 60)} 分鐘。`, { zone: z.id }); }
   }
   // 船體
   let dmg = (hz.hull || 0) * dep * un;
-  if (hz.strike && hash(seed, 'szs', ti) / U32 < hz.strike * dep) { dmg += 2 * un; sz.hits++; if (sz.hits % 4 === 1) e('strike', `⚡ 地獄落雷擊中方舟！船體受損。`, { zone: z.id }); }
-  if (hz.rock && p.moving && hash(seed, 'szr', ti) / U32 < hz.rock * dep) { dmg += hz.rockDmg * un; sz.hits++; if (sz.hits % 3 === 1) e('rock', `🗿 方舟擦撞巨石，船體 −${(hz.rockDmg * un).toFixed(1)}%。`, { zone: z.id }); }
+  if (hz.strike && hash(seed, 'szs', ti) / U32 < hz.strike * dep) { dmg += 2 * un; sz.hits++; if (sz.hits % 4 === 1) e('strike', `\ue05c 地獄落雷擊中方舟！船體受損。`, { zone: z.id }); }
+  if (hz.rock && p.moving && hash(seed, 'szr', ti) / U32 < hz.rock * dep) { dmg += hz.rockDmg * un; sz.hits++; if (sz.hits % 3 === 1) e('rock', `\ue000 方舟擦撞巨石，船體 −${(hz.rockDmg * un).toFixed(1)}%。`, { zone: z.id }); }
   dmg *= FS.hazMul * FS.armorMul;   // 旗艦階級：抗危害 × 裝甲
   hullHit(s, sz, dmg);
   if (hz.water) s.res.water = Math.max(0, s.res.water - hz.water * dep * FS.hazMul);
@@ -66,7 +66,7 @@ export function seaTick(s, t, tEnd, ev, pre) {
     const d = pre.h.d; if (!w.hm && d > 0.01) { const a = Math.min(d, hz.pull * dep), vx = (z.x - p.x) / d, vy = (z.y - p.y) / d;
       if (r && p.moving) { r.x0 += vx * a; r.y0 += vy * a; } else if (!r) w.pos = { x: p.x + vx * a, y: p.y + vy * a }; }
     const q = r ? arkPos(w, tEnd) : w.pos; const u2 = Math.hypot(q.x - z.x, q.y - z.y) / z.r; const was = sz.tr;
-    if (u2 < SZ.trapU) { if (r && pre.h.u >= SZ.trapU) { w.pos = { x: q.x, y: q.y }; w.route = null; e('trap', '🌀 方舟被漩渦困在中心！重新規劃航線駛離（航速 ×0.4，越靠外越快）。', { zone: z.id }); } else if (!was) e('trap', '🌀 方舟被漩渦困在中心！重新規劃航線駛離。', { zone: z.id }); sz.tr = 1; } else sz.tr = 0;
+    if (u2 < SZ.trapU) { if (r && pre.h.u >= SZ.trapU) { w.pos = { x: q.x, y: q.y }; w.route = null; e('trap', '\ue093 方舟被漩渦困在中心！重新規劃航線駛離（航速 ×0.4，越靠外越快）。', { zone: z.id }); } else if (!was) e('trap', '\ue093 方舟被漩渦困在中心！重新規劃航線駛離。', { zone: z.id }); sz.tr = 1; } else sz.tr = 0;
   }
   // 迷霧：航線慢慢偏航（只在深處、只在航行中）
   if (hz.drift && w.route && p.moving && dep > 0.25 && w.route.t1 - t > dt * 1.5) {
@@ -82,7 +82,7 @@ export function seaTick(s, t, tEnd, ev, pre) {
     }
     if (hash(seed, 'szb', z.id, ti) / U32 < SZ.tickBp * dep) {
       const pool = z.bp.filter((b) => !f.bp[b]);
-      if (pool.length) { const b = pool[hash(seed, 'szp', z.id, ti) % pool.length]; f.bp[b] = 1; sz.d.bp = (sz.d.bp | 0) + 1; e('bp', `🗺️ 在${z.name}找到稀有藍圖：${PROMO_BP[b].name}！`, { zone: z.id, bp: b }); }
+      if (pool.length) { const b = pool[hash(seed, 'szp', z.id, ti) % pool.length]; f.bp[b] = 1; sz.d.bp = (sz.d.bp | 0) + 1; e('bp', `\ue062 在${z.name}找到稀有藍圖：${PROMO_BP[b].name}！`, { zone: z.id, bp: b }); }
     }
   }
 }
@@ -113,13 +113,13 @@ export function rescueCan(s, nowSec) {
 }
 /** 在漩渦裡出航失敗（燃料不足）時附加的提示；不在漩渦裡回傳 ''。 */
 export function rescueHint(s, nowSec) {
-  const g = rescueGeo(s, nowSec); if (!g) return ''; return rescueCan(s, nowSec).ok ? `——你在漩渦裡：可以呼叫拖船救援（🔩${RESCUE.parts}，海圖側欄），把方舟拖到外緣${s.res.parts < RESCUE.parts ? `。零件不夠 ${RESCUE.parts}（只剩 ${Math.floor(s.res.parts)}）：救援最多只收你現有的零件，剩 0 也免費` : ''}` : `——你在漩渦裡：燃料夠開出外緣（需要 ⛽${Math.ceil(g.need)}），先手動駕駛出去再補給；真的開不出去才能呼叫拖船救援`;
+  const g = rescueGeo(s, nowSec); if (!g) return ''; return rescueCan(s, nowSec).ok ? `——你在漩渦裡：可以呼叫拖船救援（\ue069${RESCUE.parts}，海圖側欄），把方舟拖到外緣${s.res.parts < RESCUE.parts ? `。零件不夠 ${RESCUE.parts}（只剩 ${Math.floor(s.res.parts)}）：救援最多只收你現有的零件，剩 0 也免費` : ''}` : `——你在漩渦裡：燃料夠開出外緣（需要 \ue049${Math.ceil(g.need)}），先手動駕駛出去再補給；真的開不出去才能呼叫拖船救援`;
 }
 export function rescueDo(s, nowSec) {
   const c = rescueCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; const g = rescueGeo(s, nowSec), f = s.fleet, w = f.world;
   const pay = Math.min(RESCUE.parts, Math.floor(s.res.parts)); s.res.parts -= pay; w.route = null; w.pos = { x: g.q.x, y: g.q.y }; w.hm = 0;
-  const sz = ensureSz(w); sz.tr = 0; s.log.push({ t: Math.max(s.simT, nowSec), type: 'seazone', sub: 'rescue', text: `🛟 拖船把方舟拖出漩渦${pay ? `（花了 🔩${pay}）` : ''}。` });
-  return { ok: true, msg: `🛟 拖船把方舟拖出漩渦${pay ? `（花了 🔩${pay}）` : ''}。補點燃料再出航吧。`, pay };
+  const sz = ensureSz(w); sz.tr = 0; s.log.push({ t: Math.max(s.simT, nowSec), type: 'seazone', sub: 'rescue', text: `\ue05b 拖船把方舟拖出漩渦${pay ? `（花了 \ue069${pay}）` : ''}。` });
+  return { ok: true, msg: `\ue05b 拖船把方舟拖出漩渦${pay ? `（花了 \ue069${pay}）` : ''}。補點燃料再出航吧。`, pay };
 }
 
 // ---------------------------------------------------------------- 古碑謎題（海上巨石陣中心；每個遊戲日一次，贏了掉古碑殘片、有機會掉科研 T3 藍圖）
@@ -135,10 +135,10 @@ export function puzzleCan(s, nowSec) {
 /** 玩家解完（或失敗）謎題。input = 玩家依序點的符文（陣列）；在這裡對照當天的正確順序，不信任用戶端說「贏了」。每天只能一次（失敗也算）。 */
 export function puzzleResolve(s, nowSec, input) {
   const c = puzzleCan(s, nowSec); if (!c.ok) return { ok: false, msg: c.why }; const seq = puzzleSeq(s, c.day); const won = Array.isArray(input) && input.length === seq.length && seq.every((v, i) => input[i] === v); const f = s.fleet, w = f.world, sz = ensureSz(w); sz.pz = c.day;
-  if (!won) return { ok: true, won: false, msg: '🗿 古碑沉默了…符文黯淡下去（今天不能再試）。' };
+  if (!won) return { ok: true, won: false, msg: '\ue000 古碑沉默了…符文黯淡下去（今天不能再試）。' };
   const m = f.mat || (f.mat = {}); const add = Math.min(2, SZ.matCap - (m.rune | 0)); if (add > 0) { m.rune = (m.rune | 0) + add; sz.d.stonehenge = (sz.d.stonehenge | 0) + add; }
   let bp = null; if (!f.bp.bp_sci3 && hash(s.seed, 'pzb', c.day) / U32 < 0.25) { f.bp.bp_sci3 = 1; bp = 'bp_sci3'; sz.d.bp = (sz.d.bp | 0) + 1; }
-  return { ok: true, won: true, rune: add, bp, msg: `🗿 古碑亮起！獲得「古碑殘片」×${add}${bp ? `，還有稀有藍圖：${PROMO_BP[bp].name}！` : '。'}` };
+  return { ok: true, won: true, rune: add, bp, msg: `\ue000 古碑亮起！獲得「古碑殘片」×${add}${bp ? `，還有稀有藍圖：${PROMO_BP[bp].name}！` : '。'}` };
 }
 
 /** 給 UI：目前所在海域 + 累計 */

@@ -36,8 +36,8 @@ export const coldAt = (x, y) => coldRaw(x, y) * (1 - 0.8 * shelterAt(x, y));
 export const polarAt = (x, y) => (coldRaw(x, y) >= WX.circle ? (y < C ? 'north' : 'south') : null);
 
 export const KINDS = {
-  clear: { icon: '☀️', name: '晴朗' }, cloudy: { icon: '⛅', name: '多雲' }, rain: { icon: '🌧', name: '下雨' },
-  storm: { icon: '⛈', name: '暴風雨' }, snow: { icon: '🌨', name: '下雪' }, blizzard: { icon: '❄️', name: '暴風雪' }, aurora: { icon: '🌌', name: '極光' },
+  clear: { icon: '\ue088', name: '晴朗' }, cloudy: { icon: '\ue032', name: '多雲' }, rain: { icon: '\ue030', name: '下雨' },
+  storm: { icon: '\ue02f', name: '暴風雨' }, snow: { icon: '\ue031', name: '下雪' }, blizzard: { icon: '\ue07f', name: '暴風雪' }, aurora: { icon: '\ue067', name: '極光' },
 };
 
 /** 遊戲時間 t（秒）、地圖位置 (x,y) 的天氣。回傳新物件。 */
@@ -80,7 +80,7 @@ export const helmFactor = (wx, f) => { const e = effectsOf(wx); const c = f ? fl
 /** 方舟當前位置的天氣（t 秒） */
 export function arkWeather(s, t) { const w = s.fleet && s.fleet.world; if (!w || !w.pos) return null; const p = arkPos(w, t); return weatherAt(t, p.x, p.y); }
 
-const NOTE = { storm: '⛈ 暴風雨來襲，船體會受損，雷擊危險！', blizzard: '❄️ 暴風雪來襲：航速下降、船體受損。', snow: '🌨 下雪了，航速變慢。', aurora: '🌌 極光出現！運氣提升（藍圖機率 ×1.5、收穫 ×1.15）。' };
+const NOTE = { storm: '\ue02f 暴風雨來襲，船體會受損，雷擊危險！', blizzard: '\ue07f 暴風雪來襲：航速下降、船體受損。', snow: '\ue031 下雪了，航速變慢。', aurora: '\ue067 極光出現！運氣提升（藍圖機率 ×1.5、收穫 ×1.15）。' };
 /** 每個 tick（sim.stepTick，在 worldTick 之前）：暴風 / 雷擊 / 雪的減速 / 暖氣耗油 / 雨水 / 極光恩賜。s.fleet.world 不存在 → 什麼都不做。 */
 export function weatherTick(s, t, tEnd, ev, xslow = 0) { // xslow = 特殊海域的額外減速（seazones.seaPre），跟天氣減速相乘合併
   const f = s.fleet, w = f && f.world; if (!w || !w.pos) return;
@@ -97,11 +97,11 @@ export function weatherTick(s, t, tEnd, ev, xslow = 0) { // xslow = 特殊海域
   if (E.hull) hullDmg(s, E.hull);
   if (E.strike && hash(s.seed, 'wxl', ti) / U32 < E.strike) { const sd = WX.strikeDmg * (E.strikeK || 1); const sdA = +hullDmg(s, sd).toFixed(1); st.hits = (st.hits | 0) + 1; ev && ev({ t: tEnd, type: 'weather', sub: 'lightning', text: sdA > 0 ? `雷擊！船體 −${sdA}%` : '雷擊！船體已在保底，沒有再受損' }); }
   if (E.fuel) { const f0 = s.res.fuel; if (f0 > WX.fuelReserve) s.res.fuel = Math.max(WX.fuelReserve, f0 - E.fuel); const f1 = s.res.fuel; // 低油量提示（只在跨過門檻的那一刻，沒有額外存檔欄位）
-    if (ev && f0 >= WX.fuelWarn && f1 < WX.fuelWarn) ev({ t: tEnd, type: 'weather', sub: 'lowfuel', text: `⛽ 燃料只剩 ${Math.floor(f1)}：極地暖氣耗油，儲備 ${WX.fuelReserve} 以下暖氣不再耗油。請盡快補給或駛離極地！` }); }
+    if (ev && f0 >= WX.fuelWarn && f1 < WX.fuelWarn) ev({ t: tEnd, type: 'weather', sub: 'lowfuel', text: `\ue049 燃料只剩 ${Math.floor(f1)}：極地暖氣耗油，儲備 ${WX.fuelReserve} 以下暖氣不再耗油。請盡快補給或駛離極地！` }); }
   if (E.water) s.res.water = Math.min(resCap(s, 'water'), s.res.water + E.water);
   if (wx.kind === 'storm' && wx.i > 0.3) st.storm = (st.storm | 0) + 1; else if (wx.snowy && wx.kind === 'snow' && wx.i > 0.3) st.snow = (st.snow | 0) + 1;
   if (E.lucky) { st.aur = (st.aur | 0) + 1; if (hash(s.seed, 'wxa', ti) / U32 < WX.auroraGift) { const r2 = hash(s.seed, 'wxg', ti); const n = 6 + (r2 % 7); const k = r2 & 1 ? 'parts' : 'fuel'; s.res[k] = Math.min(resCap(s, k), s.res[k] + n); ev && ev({ t: tEnd, type: 'weather', sub: 'aurora', text: `極光恩賜：${k === 'parts' ? '零件' : '燃料'} +${n}` }); } }
   const key = wx.show === 'storm' || wx.show === 'blizzard' || wx.show === 'snow' || wx.show === 'aurora' ? (wx.i > 0.35 || wx.show === 'aurora' ? wx.show : 'clear') : 'clear';
   if (key !== st.k) { st.k = key; if (NOTE[key]) ev && ev({ t: tEnd, type: 'weather', sub: key, text: NOTE[key] }); }
-  const pol = wx.polar === 'north' ? 1 : wx.polar === 'south' ? 2 : 0; if (pol && !(st.polar & pol)) { st.polar |= pol; ev && ev({ t: tEnd, type: 'weather', sub: 'polar', text: pol === 1 ? '🐻‍❄️ 抵達北極圈：冰山、北極熊，氣溫驟降。' : '🐧 抵達南極圈：冰山、企鵝，氣溫驟降。' }); }
+  const pol = wx.polar === 'north' ? 1 : wx.polar === 'south' ? 2 : 0; if (pol && !(st.polar & pol)) { st.polar |= pol; ev && ev({ t: tEnd, type: 'weather', sub: 'polar', text: pol === 1 ? '\ue00a 抵達北極圈：冰山、北極熊，氣溫驟降。' : '\ue008 抵達南極圈：冰山、企鵝，氣溫驟降。' }); }
 }

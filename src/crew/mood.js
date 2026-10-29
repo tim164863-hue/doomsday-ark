@@ -1,8 +1,8 @@
 import { pick } from '../util.js';
 
 export const MOODS = {
-  happy: { icon: '😄', name: '開心' }, focus: { icon: '🎯', name: '專注' }, tired: { icon: '😪', name: '疲累' },
-  anxious: { icon: '😰', name: '焦慮' }, bored: { icon: '🥱', name: '無聊' },
+  happy: { icon: '\ue07a', name: '開心' }, focus: { icon: '\ue08c', name: '專注' }, tired: { icon: '\ue079', name: '疲累' },
+  anxious: { icon: '\ue07b', name: '焦慮' }, bored: { icon: '\ue079', name: '無聊' },
 };
 export const MOOD_KEYS = Object.keys(MOODS);
 

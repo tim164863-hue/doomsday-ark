@@ -87,20 +87,20 @@ function hullFill(i, d) {
     chainCoil(b, ex(50), 0); FN.cargoContainer(b, ex(47), 7.6, 0, 'cargoRed', 4.0); FN.cargoContainer(b, ex(47), -7.6, 0, 'cargoBlue', 4.0);
     b.box('yellow', ex(44.8), 0, 0.3, 14, 0.02, 0.025);
     for (const s of [-1, 1]) lampPost(b, ex(54), s * 3.5, 2.3);
-    plate(d, '⚓ 錨鏈艙', ex(56.2), 2.0, 0, PI / 2, 2.2, 0.45);
+    plate(d, '\ue012 錨鏈艙', ex(56.2), 2.0, 0, PI / 2, 2.2, 0.45);
   } else {
     // 船艉：蒸氣室 / 按摩池
     FN.hotTub(d, ex(-41.5), -5.2, 2.1); FN.hotTub(d, ex(-41.5), 5.2, 2.1);
     for (const z of [-9.2, 0, 9.2]) bench(b, ex(-44.3), z, PI / 2, 2.2, 'woodDark'); lampPost(b, ex(-38.5), 0, 2.0);
     bigPlant(b, ex(-37.2), -9.0, 0.9); bigPlant(b, ex(-37.2), 9.0, 0.9);
-    plate(d, '♨ 溫泉 · SPA', ex(-45.2), 2.2, 0, PI / 2, 2.4, 0.5);
+    plate(d, '\ue090 溫泉 · SPA', ex(-45.2), 2.2, 0, PI / 2, 2.4, 0.5);
     // 船艏：觀景休憩艙
     pergola(b, ex(40), -2.4, ex(46), 2.4, 2.5);
     FN.sofa(b, ex(42), -4.6, 0, 2.6, 'sofa'); FN.sofa(b, ex(42), 4.6, PI, 2.6, 'sofa2'); FN.coffeeTable(b, ex(43.5), 0, 0, 1.4, 0.8);
     FN.sofa(b, ex(50), -3.3, PI / 2, 2.4, 'sofa2'); FN.sofa(b, ex(50), 3.3, -PI / 2, 2.4, 'sofa2'); FN.roundTable(b, ex(52.6), 0, 0.5);
     bigPlant(b, ex(46.8), -7.8, 1); bigPlant(b, ex(46.8), 7.8, 1); bigPlant(b, ex(55), -3.2, 0.8); bigPlant(b, ex(55), 3.2, 0.8);
     stringLights(b, ex(40), -2.4, ex(46), -2.4, 2.4, 10); stringLights(b, ex(40), 2.4, ex(46), 2.4, 2.4, 10);
-    poi(d, 'chat', { x: ex(43.5), z: 0 }); plate(d, '☕ 船艏休憩艙', ex(38.6), 2.4, 0, -PI / 2, 2.4, 0.45);
+    poi(d, 'chat', { x: ex(43.5), z: 0 }); plate(d, '\ue033 船艏休憩艙', ex(38.6), 2.4, 0, -PI / 2, 2.4, 0.45);
   }
 }
 
@@ -138,7 +138,7 @@ function e1(d) {
     b.cyl(['fabricY', 'fabricP', 'fabricG'][ci % 3], W(1.45), Z(4.0), 0.4, 0.42, 0, 12); b.sph(['fabricY', 'fabricP', 'fabricG'][ci % 3], W(1.45), 0.42, Z(4.0), 0.4, 1, 0.45, 1, 10); b.blockC(W(1.45), Z(4.0), 0.8, 0.8);
     FN.plant(b, W(4.9), Z(7.5), 0.8);
     // 桌上小物 / 牆上畫
-    plate(d, ['🌊 海', '⚓ ARK', '☀️'][ci % 3], W(0.12), 1.6, Z(6.6), PI / 2, 0.9, 0.55);
+    plate(d, ['\ue09a 海', '\ue012 ARK', '\ue088'][ci % 3], W(0.12), 1.6, Z(6.6), PI / 2, 0.9, 0.55);
     // 窗簾
     b.box('fabricW', W(7.4), Z(7.92), 0.5, 0.06, 1.7, 0.2); b.box('fabricW', W(5.8), Z(7.92), 0.5, 0.06, 1.7, 0.2);
   }

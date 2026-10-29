@@ -93,12 +93,12 @@ export class Mascots {
     if (deck == null) { const vd = this.game.viewDeck; deck = (vd != null && vd >= 0 && vd < decks.length && chance(0.6)) ? vd : pick(decks); }
     let p = null; for (let k = 0; k < 6 && !p; k++) { p = this.spot(deck); if (!p) deck = pick(decks); } if (!p) return false;
     const mk = (type, x, z) => { const model = type === 'benben' ? buildBenben() : buildBaobao(); model.scale.setScalar(0.001); sh.decks[deck].group.add(model); model.position.set(x, 0, z);
-      const el = document.createElement('div'); el.className = 'ft mascot ' + type; el.innerHTML = `<div class="r"><i>${type === 'benben' ? '🟢' : '❤️'}</i><span class="t">${NAMES[type]}</span></div><div class="mbub"></div>`; el.onclick = (e) => { e.stopPropagation(); this.tap(m); }; this.play.hud.tagLayer.append(el);
+      const el = document.createElement('div'); el.className = 'ft mascot ' + type; el.innerHTML = `<div class="r"><i>${type === 'benben' ? '\ue02a' : '\ue052'}</i><span class="t">${NAMES[type]}</span></div><div class="mbub"></div>`; el.onclick = (e) => { e.stopPropagation(); this.tap(m); }; this.play.hud.tagLayer.append(el);
       const m = { type, model, deck, x, z, yaw: 0, v: 0, el, born: this.t, bub: null, bubUntil: 0, size: type === 'benben' ? 0.62 : 0.5, label: 1.25, on: null, ph: Math.random() * 6 }; return m; };
     const b = mk('benben', p.x, p.z), h = mk('baobao', p.x - 1.0, p.z); this.list = [b, h]; this.trail = []; this.wp = null; this.pause = 0; this.stay = rnd(70, 110); this.leaving = 0; this.age = 0;
     for (const m of this.list) { m.model.userData.s = 0; }
     this.spark(deck, p.x, 0.5, p.z, 14);
-    const g = this.game, ui = g.ui; if (ui && ui.toast && (deck === g.viewDeck || g.controls.mode === 'overview')) ui.toast(g.small ? '🟢❤️ 奔奔和抱抱跑上了甲板！' : `🟢❤️ 奔奔和抱抱跑上了 ${deck + 1}F！`);
+    const g = this.game, ui = g.ui; if (ui && ui.toast && (deck === g.viewDeck || g.controls.mode === 'overview')) ui.toast(g.small ? '\ue02a\ue052 奔奔和抱抱跑上了甲板！' : `\ue02a\ue052 奔奔和抱抱跑上了 ${deck + 1}F！`);
     this.botsNear(deck, p, 16, BOT_SPAWN, 2); return true;
   }
   botsNear(deck, p, R, lines, n) {

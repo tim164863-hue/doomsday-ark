@@ -142,10 +142,10 @@ export class Social {
     }
     // 同桌的人聊兩句（朋友更常聊）
     occ.forEach((tb) => { if (tb.length < 2) return; for (const delay of [24, 52]) this.at(delay + rnd() * 6, () => { const a = pick(tb); const b = pick(tb.filter((x) => x !== a)); if (!b || a.sleeping || a.convo || b.convo || a.avatar.poseName !== 'eat') return; const ls = this.convLines(a, b) || L.convLines('friend', a.title, b.title); this.crew.startConvo(a, b, ls); R.bump(this.s, a.key, b.key, R.relKind(this.s, a.key, b.key) === 'rival' ? 0 : 0.3); }); });
-    this.toast(`🍽 ${name}時間！${n} 位船員到餐廳用餐`, 'meal'); return true;
+    this.toast(`\ue047 ${name}時間！${n} 位船員到餐廳用餐`, 'meal'); return true;
   }
   checkParty() {
-    const s = this.s; const now = this.now(); if (!R.partyWindow(s, now)) return; const dk = R.dayOf(now, s.tz); if (this.partyDay === dk) return; this.partyDay = dk; if (this.party()) this.toast('🎉 夜間派對開始了！大家聚到休閒甲板', 'party');
+    const s = this.s; const now = this.now(); if (!R.partyWindow(s, now)) return; const dk = R.dayOf(now, s.tz); if (this.partyDay === dk) return; this.partyDay = dk; if (this.party()) this.toast('\ue035 夜間派對開始了！大家聚到休閒甲板', 'party');
   }
 
   // ------------------------------------------------------------------ 模擬事件 → 演出

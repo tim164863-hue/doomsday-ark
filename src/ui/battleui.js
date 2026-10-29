@@ -21,27 +21,27 @@ export function riskText(pv, rk) {
 }
 /** 目前遭遇的完整風險：pv（船員 / 公式）+ ar（接管，機器人試打）+ 文字 */
 export function riskOf(s, own) { const pv = BT.battlePreview(s, own), ar = arenaRisk(own, pv.foe); return { pv, ar, rk: riskText(pv, ar) }; }
-export const KIND_TXT = { win: ['⚔️', '擊退了！'], draw: ['🤝', '僵持不下'], lose: ['💥', '被擊退…'], fled: ['💨', '甩開了'], caught: ['💥', '逃失敗'] };
+export const KIND_TXT = { win: ['\ue08b', '擊退了！'], draw: ['\ue050', '僵持不下'], lose: ['\ue006', '被擊退…'], fled: ['\ue09b', '甩開了'], caught: ['\ue006', '逃失敗'] };
 
 /** 海圖側欄的「海戰」卡片（HTML）：目前遭遇 / 最近一場 / 戰績 / 圖鑑 */
 export function btHtml(s, now) {
   const b = BT.btStats(s); if (!b) return ''; const c = BT.curOf(s); const own = F.combatOf(s); let cur = '';
   if (c && now < c.end) {
     const B = BT.FOES[c.k], { pv, ar, rk } = riskOf(s, own), left = c.end - now;
-    cur = `<div class="btcur"><b>${B.icon} ${esc(c.nm || B.name)} <small>Lv ${c.lv}${B.boss ? ' · 首領' : ''}</small></b><br><small>${rk.crew}　·　${rk.take}${ar.risky ? ' ⚠️' : ''}　·　${rk.retreat}　· 剩 <span data-btleft>${mmss(left)}</span></small><div class="eo"><button data-a="btTake">🎯 接管指揮</button><button data-a="btCrew">交給船員</button></div></div>`;
+    cur = `<div class="btcur"><b>${B.icon} ${esc(c.nm || B.name)} <small>Lv ${c.lv}${B.boss ? ' · 首領' : ''}</small></b><br><small>${rk.crew}　·　${rk.take}${ar.risky ? ' \ue099' : ''}　·　${rk.retreat}　· 剩 <span data-btleft>${mmss(left)}</span></small><div class="eo"><button data-a="btTake">\ue08c 接管指揮</button><button data-a="btCrew">交給船員</button></div></div>`;
   }
   const last = b.last ? `<p class="btlast">${esc(b.last.text)}</p>` : '<p class="dim">還沒遇過海怪。離開近海、停在遠海域或特殊海域，就會碰上牠們。</p>';
-  const st = b.st, kills = BT.FOE_ORDER.map((k) => `<span class="zc ${(b.k[k] | 0) ? '' : 'un'}" title="${esc(BT.FOES[k].name)}">${(b.k[k] | 0) ? BT.FOES[k].icon + '×' + b.k[k] : '❓'}</span>`).join('');
-  return `<div class="pk btp"><h4>⚔️ 海戰 <small>勝 ${st.w}・敗 ${st.l}・平 ${st.d}・逃 ${st.f}</small></h4>${cur}${last}<div class="zonebar">${kills}</div><p class="dim">船員會自動處理（離線也一樣）。在線時可接管：在砲戰場打倒敵人就算勝利（船體損失就是戰場上實際受的傷）；打輸 / 超時才照船的戰力公式結算，也可以中途撤退（機率逃脫）。接管是硬拚，風險比船員自己判斷高，不保證比自動好。</p></div>`;
+  const st = b.st, kills = BT.FOE_ORDER.map((k) => `<span class="zc ${(b.k[k] | 0) ? '' : 'un'}" title="${esc(BT.FOES[k].name)}">${(b.k[k] | 0) ? BT.FOES[k].icon + '×' + b.k[k] : '\ue071'}</span>`).join('');
+  return `<div class="pk btp"><h4>\ue08b 海戰 <small>勝 ${st.w}・敗 ${st.l}・平 ${st.d}・逃 ${st.f}</small></h4>${cur}${last}<div class="zonebar">${kills}</div><p class="dim">船員會自動處理（離線也一樣）。在線時可接管：在砲戰場打倒敵人就算勝利（船體損失就是戰場上實際受的傷）；打輸 / 超時才照船的戰力公式結算，也可以中途撤退（機率逃脫）。接管是硬拚，風險比船員自己判斷高，不保證比自動好。</p></div>`;
 }
 
 export class BattleUI {
   constructor(hud) {
     this.hud = hud; this.phase = 'idle'; this.keys = new Set(); this.aim = null; this.fireHeld = false; this.latch = 0; this.ammo = 0; this.stick = { x: 0, y: 0 }; this.fx = []; this.msg = '';
-    this.pill = $(`<div id="btpill" class="hide"><div class="bpt"></div><div class="bpb"><button class="pri" data-a="take">🎯 接管</button><button data-a="crew">交給船員</button></div></div>`);
-    this.el = $(`<div id="btl" class="hide"><canvas></canvas><div class="btTop"><b class="btTitle"></b><span class="sp"></span><span class="btTimer"></span><button data-a="retreat" title="撤退：機率逃脫，失敗會被追著打">🏳️ 撤退</button><button data-a="crew" title="立刻讓船員用自動戰鬥結算">交給船員</button><button data-a="close" title="離開（遭遇還在，可以再回來）">✕</button></div>
+    this.pill = $(`<div id="btpill" class="hide"><div class="bpt"></div><div class="bpb"><button class="pri" data-a="take">\ue08c 接管</button><button data-a="crew">交給船員</button></div></div>`);
+    this.el = $(`<div id="btl" class="hide"><canvas></canvas><div class="btTop"><b class="btTitle"></b><span class="sp"></span><span class="btTimer"></span><button data-a="retreat" title="撤退：機率逃脫，失敗會被追著打">\ue045 撤退</button><button data-a="crew" title="立刻讓船員用自動戰鬥結算">交給船員</button><button data-a="close" title="離開（遭遇還在，可以再回來）">✕</button></div>
       <div id="bjoy"><div class="ring"></div><i class="tri u"></i><i class="tri d"></i><i class="tri l"></i><i class="tri r"></i><div class="knob"></div></div>
-      <div class="btCtl"><button data-a="inc" title="燃燒彈（Q）：持續燒傷，但裝填慢">🔥<b>5</b></button><button data-a="fire" class="pri">💥 開砲</button></div><div class="btHint"></div><div class="btRes hide"><div class="btCard"></div></div></div>`);
+      <div class="btCtl"><button data-a="inc" title="燃燒彈（Q）：持續燒傷，但裝填慢">\ue042<b>5</b></button><button data-a="fire" class="pri">\ue006 開砲</button></div><div class="btHint"></div><div class="btRes hide"><div class="btCard"></div></div></div>`);
     this.cf = $(`<div id="btcf" class="hide"><div class="btCard"></div></div>`); hud.root.append(this.pill, this.el, this.cf); this.cv = this.el.querySelector('canvas'); this.ctx = this.cv.getContext('2d'); this.cv.style.touchAction = 'none';
     this.pill.querySelector('[data-a=take]').onclick = () => this.take(); this.pill.querySelector('[data-a=crew]').onclick = () => this.crew();
     this.el.querySelector('[data-a=close]').onclick = () => this.close(); this.el.querySelector('[data-a=crew]').onclick = () => this.crew(); this.el.querySelector('[data-a=retreat]').onclick = () => this.retreat();
@@ -62,7 +62,7 @@ export class BattleUI {
     const s = this.s, c = s && BT.curOf(s), now = nowSec(); const show = !!c && now < c.end && !this.isOpen();
     this.pill.classList.toggle('hide', !show); if (!show) return;
     const B = BT.FOES[c.k], own = F.combatOf(s), { pv, ar, rk } = riskOf(s, own), left = c.end - now;
-    const t = `⚔️ ${B.icon} ${esc(c.nm || B.name)} Lv${c.lv} 來襲　<span class="tm">⏱ ${mmss(left)}</span><small>${rk.crew}${c.eng ? '・已接管' : ''}<br>${rk.take}${ar.risky ? ' ⚠️' : ''}・${rk.retreat}</small>`; const el = this.pill.querySelector('.bpt'); if (el.innerHTML !== t) el.innerHTML = t;
+    const t = `\ue08b ${B.icon} ${esc(c.nm || B.name)} Lv${c.lv} 來襲　<span class="tm">\ue091 ${mmss(left)}</span><small>${rk.crew}${c.eng ? '・已接管' : ''}<br>${rk.take}${ar.risky ? ' \ue099' : ''}・${rk.retreat}</small>`; const el = this.pill.querySelector('.bpt'); if (el.innerHTML !== t) el.innerHTML = t;
   }
   // ---------------------------------------------------------------- 玩家動作
   /** 接管入口（提示條 / 海圖卡共用）：勝率低或預期損失大 → 先二次確認 */
@@ -71,7 +71,7 @@ export class BattleUI {
     if (c.eng) { this.open(); return; }   // 已經接管過（回來繼續打）不用再問
     const { pv, ar, rk } = riskOf(s, F.combatOf(s)); if (!ar.risky) { this.open(); return; }
     const B = BT.FOES[c.k], box = this.cf.querySelector('.btCard'), hopeless = ar.win < 0.1;
-    box.innerHTML = `<div class="rk">⚠️</div><h3>確定要接管嗎？</h3><p class="rtx">${B.icon} ${esc(c.nm || B.name)} Lv${c.lv} ${hopeless ? '<b>這場幾乎打不贏</b>，建議交給船員（或進場後隨時撤退）。' : '對現在的船很危險。'}</p><p class="dim">${rk.take}${ar.winMax > ar.win + 0.02 ? '（全力指揮最好 ' + pc(ar.winMax) + '%）' : ''}<br>${rk.crew}<br>${rk.retreat}</p><p class="dim">在砲戰場打倒牠＝勝利；打輸 / 超時才照公式結算，船員自己判斷風險比較低。中途可以按「撤退」。</p><div class="eo">${hopeless ? '<button data-a="crew" class="pri">交給船員</button><button data-a="go">仍要接管</button>' : '<button data-a="go" class="pri">仍要接管</button><button data-a="crew">交給船員</button>'}<button data-a="no">再想想</button></div>`;
+    box.innerHTML = `<div class="rk">\ue099</div><h3>確定要接管嗎？</h3><p class="rtx">${B.icon} ${esc(c.nm || B.name)} Lv${c.lv} ${hopeless ? '<b>這場幾乎打不贏</b>，建議交給船員（或進場後隨時撤退）。' : '對現在的船很危險。'}</p><p class="dim">${rk.take}${ar.winMax > ar.win + 0.02 ? '（全力指揮最好 ' + pc(ar.winMax) + '%）' : ''}<br>${rk.crew}<br>${rk.retreat}</p><p class="dim">在砲戰場打倒牠＝勝利；打輸 / 超時才照公式結算，船員自己判斷風險比較低。中途可以按「撤退」。</p><div class="eo">${hopeless ? '<button data-a="crew" class="pri">交給船員</button><button data-a="go">仍要接管</button>' : '<button data-a="go" class="pri">仍要接管</button><button data-a="crew">交給船員</button>'}<button data-a="no">再想想</button></div>`;
     box.querySelector('[data-a=go]').onclick = () => { this.cf.classList.add('hide'); this.open(); }; box.querySelector('[data-a=no]').onclick = () => this.cf.classList.add('hide');
     box.querySelector('[data-a=crew]').onclick = () => { this.cf.classList.add('hide'); this.crew(); }; this.cf.classList.remove('hide');
   }
@@ -110,11 +110,11 @@ export class BattleUI {
     this.el.classList.add('done'); this.el.querySelector('.btCtl').classList.add('hide'); const box = this.el.querySelector('.btRes'), card = box.querySelector('.btCard'); box.classList.remove('hide');
     const b = BT.btStats(this.s), last = b && b.last && b.last.id === this.cid ? b.last : null;
     if (!r || !r.ok) {
-      const [ic, tt] = last ? KIND_TXT[last.r] || ['⚔️', '結束'] : ['⏳', ''];
-      card.innerHTML = last ? `<div class="rk">${ic}</div><h3>⏳ 來不及了，船員已經處理</h3><p class="rtx">${esc(last.text)}</p><p class="dim">結果：${tt.replace(/[！!。…]+$/, '')}。倒數結束時，沒有人接管的遭遇會由船員自動結算（你剛才在砲戰場的表現不計入）。</p><div class="eo"><button data-a="ok" class="pri">回到海上</button></div>`
-        : `<div class="rk">⏳</div><h3>${esc((r && r.msg) || '遭遇已經由船員處理')}</h3><div class="eo"><button data-a="ok" class="pri">回到海上</button></div>`;
+      const [ic, tt] = last ? KIND_TXT[last.r] || ['\ue08b', '結束'] : ['\ue054', ''];
+      card.innerHTML = last ? `<div class="rk">${ic}</div><h3>\ue054 來不及了，船員已經處理</h3><p class="rtx">${esc(last.text)}</p><p class="dim">結果：${tt.replace(/[！!。…]+$/, '')}。倒數結束時，沒有人接管的遭遇會由船員自動結算（你剛才在砲戰場的表現不計入）。</p><div class="eo"><button data-a="ok" class="pri">回到海上</button></div>`
+        : `<div class="rk">\ue054</div><h3>${esc((r && r.msg) || '遭遇已經由船員處理')}</h3><div class="eo"><button data-a="ok" class="pri">回到海上</button></div>`;
     } else {
-      const [ic, tt] = KIND_TXT[r.kind] || ['⚔️', '結束']; const B = BT.FOES[last ? last.k : 'serpent'];
+      const [ic, tt] = KIND_TXT[r.kind] || ['\ue08b', '結束']; const B = BT.FOES[last ? last.k : 'serpent'];
       let why;
       if (how === 'retreat') why = '你下令撤退：能不能甩開看逃脫機率（跟砲戰表現無關），失敗會被追著打。';
       else if (how === 'arena' && r.arena) why = `你在砲戰場把牠打倒了＝<b>勝利</b>。船體損失就是砲戰中實際受到的傷害（${m ? m.loss : 0}%），照舊不會低於 20%。`;
@@ -146,7 +146,7 @@ export class BattleUI {
   loop(t) {
     if (this.phase !== 'fight') return; const dt = Math.min(0.1, Math.max(0, (t - this.last) / 1000)); this.last = t; const a = this.arena; this.acc += dt;
     while (this.acc >= A.AR.dt && !a.over) { this.acc -= A.AR.dt; const inp = this.input(); const ev = A.stepArena(a, inp, A.AR.dt); this.latch = Math.max(0, this.latch - A.AR.dt); if (ev.some((x) => x.k === 'fire')) this.latch = 0; for (const e of ev) this.onArenaEvent(e); }
-    this.syncBtn(); this.el.querySelector('.btTimer').textContent = `⏱ ${Math.max(0, Math.ceil(A.AR.time - a.t))}s`; this.draw(); const cc = BT.curOf(this.s);
+    this.syncBtn(); this.el.querySelector('.btTimer').textContent = `\ue091 ${Math.max(0, Math.ceil(A.AR.time - a.t))}s`; this.draw(); const cc = BT.curOf(this.s);
     if (!cc || cc.id !== this.cid) { this.phase = 'done'; this.showResult({ ok: false, msg: '遭遇已經由船員處理完了' }, null, null, 'crew'); return; }
     if (a.over) { this.over0 = this.over0 || performance.now(); if (performance.now() - this.over0 > 900) { this.over0 = 0; this.finish(); return; } } else this.over0 = 0;
     this.raf = requestAnimationFrame((tt) => this.loop(tt));
@@ -178,7 +178,7 @@ export class BattleUI {
     }
     if (a.foe.st === 'charge' && a.foe.lane) { const L2 = a.foe.lane, dx = L2.x1 - L2.x0, dy = L2.y1 - L2.y0, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l, w = L2.w, k = clamp(L2.t / L2.T, 0, 1); g.fillStyle = `rgba(255,59,47,${0.1 + 0.25 * k})`; g.beginPath(); g.moveTo(P(L2.x0 + nx * w), P(L2.y0 + ny * w)); g.lineTo(P(L2.x0 + dx * 3 + nx * w), P(L2.y0 + dy * 3 + ny * w)); g.lineTo(P(L2.x0 + dx * 3 - nx * w), P(L2.y0 + dy * 3 - ny * w)); g.lineTo(P(L2.x0 - nx * w), P(L2.y0 - ny * w)); g.fill(); }
     // 對手
-    const F = a.foe; g.textAlign = 'center'; g.textBaseline = 'middle'; if (F.vis) { circ(F.x, F.y + F.r * 0.5, F.r * 1.05, '#00000040'); g.font = `${Math.round(P(F.r) * 2.3)}px system-ui,"Apple Color Emoji","Noto Color Emoji",sans-serif`; g.fillStyle = '#fff'; g.fillText(F.icon, P(F.x), P(F.y)); if (F.burn > 0) { g.font = `${Math.round(P(F.r))}px sans-serif`; g.fillText('🔥', P(F.x + F.r * 0.6), P(F.y - F.r * 0.6)); } } else { for (let i = 0; i < 3; i++) circ(F.x, F.y, F.r * (0.5 + i * 0.35 + (a.t * 0.8 % 0.35)), null, `rgba(255,255,255,${0.35 - i * 0.1})`, 1.5); }
+    const F = a.foe; g.textAlign = 'center'; g.textBaseline = 'middle'; if (F.vis) { circ(F.x, F.y + F.r * 0.5, F.r * 1.05, '#00000040'); g.font = `${Math.round(P(F.r) * 2.3)}px ArkIcons,system-ui,"Apple Color Emoji","Noto Color Emoji",sans-serif`; g.fillStyle = '#fff'; g.fillText(F.icon, P(F.x), P(F.y)); if (F.burn > 0) { g.font = `${Math.round(P(F.r))}px ArkIcons,sans-serif`; g.fillText('\ue042', P(F.x + F.r * 0.6), P(F.y - F.r * 0.6)); } } else { for (let i = 0; i < 3; i++) circ(F.x, F.y, F.r * (0.5 + i * 0.35 + (a.t * 0.8 % 0.35)), null, `rgba(255,255,255,${0.35 - i * 0.1})`, 1.5); }
     // 彈
     for (const q of a.proj) { circ(q.x, q.y, q.r, '#ff9a3c', '#fff3', 1); }
     for (const s of a.shells) { const k = clamp(s.t / s.T, 0, 1), x = s.x0 + (s.x1 - s.x0) * k, y = s.y0 + (s.y1 - s.y0) * k, h = Math.sin(k * Math.PI) * 6; circ(s.x1, s.y1, 1.8, null, '#ffffff55', 1); circ(x, y - h, 1.3, s.inc ? '#ff8a3c' : '#e8f3ff'); }
@@ -190,11 +190,11 @@ export class BattleUI {
     if (a.p.cd > 0) { g.strokeStyle = '#ffffff88'; g.lineWidth = 2; g.beginPath(); g.arc(P(p.x), P(p.y), P(4.6), -Math.PI / 2, -Math.PI / 2 + (1 - clamp(p.cd / A.AR.cd, 0, 1)) * Math.PI * 2); g.stroke(); }
     if (this.phase === 'fight') { const aim = this.aim || A.defaultAim(a); g.strokeStyle = this.ammo && p.inc > 0 ? '#ff9a3c' : '#9fe3ff'; g.lineWidth = 1.5; g.setLineDash([4, 5]); g.beginPath(); g.moveTo(P(p.x), P(p.y)); g.lineTo(P(aim.x), P(aim.y)); g.stroke(); g.setLineDash([]); circ(aim.x, aim.y, 1.9, null, g.strokeStyle, 2); g.beginPath(); g.moveTo(P(aim.x) - 5, P(aim.y)); g.lineTo(P(aim.x) + 5, P(aim.y)); g.moveTo(P(aim.x), P(aim.y) - 5); g.lineTo(P(aim.x), P(aim.y) + 5); g.stroke(); }
     // 血條
-    const bar = (x, y, w, h, k, c, lab) => { g.fillStyle = '#00000088'; g.fillRect(x, y, w, h); g.fillStyle = c; g.fillRect(x, y, w * clamp(k, 0, 1), h); g.strokeStyle = '#ffffff55'; g.lineWidth = 1; g.strokeRect(x, y, w, h); if (lab) { g.fillStyle = '#fff'; g.font = '11px system-ui,sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(lab, x + 6, y + h / 2 + 0.5); } };
+    const bar = (x, y, w, h, k, c, lab) => { g.fillStyle = '#00000088'; g.fillRect(x, y, w, h); g.fillStyle = c; g.fillRect(x, y, w * clamp(k, 0, 1), h); g.strokeStyle = '#ffffff55'; g.lineWidth = 1; g.strokeRect(x, y, w, h); if (lab) { g.fillStyle = '#fff'; g.font = '11px ArkIcons,system-ui,sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(lab, x + 6, y + h / 2 + 0.5); } };
     bar(10, 8, S - 20, 14, F.hp / F.max, F.phase === 2 ? '#ff5b4a' : '#e0803c', `${F.icon} ${F.name}${F.phase === 2 ? '・發怒' : ''}`);
     const hp = (a.hullPct - a.floor) / (100 - a.floor); bar(10, S - 22, Math.min(200, S - 20), 12, hp, hp < 0.3 ? '#ff6b5e' : '#6fd78f', `船體 ${Math.round(a.hullPct)}%`);
-    if (this.msg) { g.fillStyle = '#fff'; g.font = '600 14px system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(this.msg, S / 2, 40); }
-    if (a.over) { g.fillStyle = '#000a'; g.fillRect(0, S / 2 - 26, S, 52); g.fillStyle = '#fff'; g.font = '700 24px system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(a.over === 'win' ? '🎯 打倒了！' : a.over === 'lose' ? '💥 撐不住了' : '⏱ 時間到', S / 2, S / 2); }
+    if (this.msg) { g.fillStyle = '#fff'; g.font = '600 14px ArkIcons,system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(this.msg, S / 2, 40); }
+    if (a.over) { g.fillStyle = '#000a'; g.fillRect(0, S / 2 - 26, S, 52); g.fillStyle = '#fff'; g.font = '700 24px ArkIcons,system-ui,sans-serif'; g.textAlign = 'center'; g.fillText(a.over === 'win' ? '\ue08c 打倒了！' : a.over === 'lose' ? '\ue006 撐不住了' : '\ue091 時間到', S / 2, S / 2); }
     g.restore();
   }
 }

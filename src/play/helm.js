@@ -45,7 +45,7 @@ export class Helm {
   get zmul() { const z = this.g.szFx; return z && z.z ? SZ.helmMul : 1; }
   get displaced() { return Math.hypot(this.x - this.piv, this.z) > 0.01 || Math.abs(this.yaw) > 1e-4; }
   get speed() { return this.v; }
-  // ------------------------------------------------------------ 座標轉換（母船座標系 ↔ 世界）
+  // ------------------------------------------------------------ 座標轉換（母船座標系 \ue016 世界）
   world(p) {
     if (!this.displaced) return p; const q = toWorld(this, this.piv, p); return { ...p, x: q.x, z: q.z, yaw: (p.yaw || 0) + this.yaw };
   }
@@ -55,13 +55,13 @@ export class Helm {
   // ------------------------------------------------------------ 開始 / 結束
   canStart() {
     const g = this.g, p = this.p; if (g.homeless) return '還沒有船可以駕駛';
-    if (refitting(p.state.fleet)) return '旗艦正在改裝（⭐ 旗艦晉升），完工前不能駕駛'; if (p.pilot) return '先把出海的船開回港（結束領航）再駕駛母船'; if (p.gaming) return '先結束手上的小遊戲';
+    if (refitting(p.state.fleet)) return '旗艦正在改裝（\ue084 旗艦晉升），完工前不能駕駛'; if (p.pilot) return '先把出海的船開回港（結束領航）再駕駛母船'; if (p.gaming) return '先結束手上的小遊戲';
     if (g.small) { const sh = F.homeShip(p.state.fleet); if (!sh) return '還沒有旗艦'; if (sh.state !== 'idle' && sh.state !== 'dock') { const V = p.fleetViews.get(sh.id); if (V && V.pos && V.pos.away) return '旗艦出海中，等它回來再駕駛'; } }
     return null;
   }
   toggle() { return this.on ? this.stop() : this.start(); }
   start() {
-    if (this.on) return; const g = this.g, p = this.p, ui = g.ui; const why = this.canStart(); if (why) { ui && ui.toast('⚠️ ' + why); return; }
+    if (this.on) return; const g = this.g, p = this.p, ui = g.ui; const why = this.canStart(); if (why) { ui && ui.toast('\ue099 ' + why); return; }
     if (g.small) { const sh = F.homeShip(p.state.fleet); this._spd = (sh && SHIPS[sh.type] ? SHIPS[sh.type].speed : 1); }
     const w = p.state.fleet && p.state.fleet.world; let note = '';
     if (w && w.route) { const r = F.stopArk(p.state, nowSec()); note = '（已取消自動航行）'; p.save(true); }
@@ -69,18 +69,18 @@ export class Helm {
     const c = g.controls; this.prevMode = c.mode; c.setMode('follow'); this.camSave = { dist: c.dist, pitch: c.pitch, yaw: c.yaw };
     const cf = this.cfg; c.dist = cf.cam; c.pitch = cf.pitch; c.yaw = this.yaw - Math.PI / 2; this.userT = -99; this.updateCam(true);
     document.body.classList.add('helming'); p.hud.showHelmBar(true); g.updateDecks(); g.ui && g.ui.refreshDeckBtns && g.ui.refreshDeckBtns();
-    ui && ui.toast((g.small ? '⛵ 駕駛小船' : '🚢 駕駛母船') + note + (document.body.classList.contains('touch') ? '　搖桿轉向 · 按鈕控油門/停車' : '　W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車 · G 退出'));
+    ui && ui.toast((g.small ? '\ue075 駕駛小船' : '\ue003 駕駛母船') + note + (document.body.classList.contains('touch') ? '　搖桿轉向 · 按鈕控油門/停車' : '　W/S 油門 · A/D 舵 · Shift 加速 · 空白鍵停車 · G 退出'));
   }
   stop() {
     if (!this.on) return; this.on = false; this.thr = 0; const g = this.g, c = g.controls;
     if (this.camSave) { c.dist = this.camSave.dist; c.pitch = this.camSave.pitch; c.yaw = this.camSave.yaw; } if (this.prevMode && this.prevMode !== 'follow') c.setMode(this.prevMode);
     document.body.classList.remove('helming'); this.p.hud.showHelmBar(false); g.updateDecks(); g.ui && g.ui.refreshDeckBtns && g.ui.refreshDeckBtns();
-    this.syncWorld(true); this.p.save(true); g.ui && g.ui.toast('⚓ 已退出駕駛，船慢慢滑行停下');
+    this.syncWorld(true); this.p.save(true); g.ui && g.ui.toast('\ue012 已退出駕駛，船慢慢滑行停下');
   }
   // ------------------------------------------------------------ 每幀
   update(dt, time) {
     const g = this.g, c = g.controls; const moving = Math.abs(this.v) > 0.02 || Math.abs(this.w) > 0.0005;
-    if (this.on && this.p.state.fleet && this.p.state.fleet.world && this.p.state.fleet.world.route) { this.g.ui && this.g.ui.toast('⚓ 已啟動自動航行，退出手動駕駛'); this.stop(); }
+    if (this.on && this.p.state.fleet && this.p.state.fleet.world && this.p.state.fleet.world.route) { this.g.ui && this.g.ui.toast('\ue012 已啟動自動航行，退出手動駕駛'); this.stop(); }
     if (this.on) {
       const inp = c.move; const rate = 1.0; const run = inp.run;
       if (Math.abs(inp.y) > 0.12) this.thr = clamp(this.thr + inp.y * rate * dt * (run ? 1.6 : 1), -0.35, run ? 1.35 : 1);
@@ -110,7 +110,7 @@ export class Helm {
     this._was = true; const [rx, rz] = this.rootXZ(); sh.root.position.x = rx; sh.root.position.z = rz; if (this.g.small) sh.root.rotation.y = this.yaw;
   }
   homeWorld(p) { return this.world(p); }
-  fuelOk() { const s = this.p.state; if (!s || !s.res) return true; if (s.res.fuel < 1) { this.edgeT += 1; if (this.edgeT === 1 || this.edgeT % 600 === 0) this.g.ui && this.g.ui.toast((this.g.szFx && this.g.szFx.id === 'whirlpool' ? '⛽ 燃料用完了，船被漩渦拉住——打開海圖 🧭 呼叫拖船救援' : '⛽ 燃料用完了，船只能滑行')); return false; } this.edgeT = 0; return true; }
+  fuelOk() { const s = this.p.state; if (!s || !s.res) return true; if (s.res.fuel < 1) { this.edgeT += 1; if (this.edgeT === 1 || this.edgeT % 600 === 0) this.g.ui && this.g.ui.toast((this.g.szFx && this.g.szFx.id === 'whirlpool' ? '\ue049 燃料用完了，船被漩渦拉住——打開海圖 \ue034 呼叫拖船救援' : '\ue049 燃料用完了，船只能滑行')); return false; } this.edgeT = 0; return true; }
   fuelOk0() { const s = this.p.state; return !!(s && s.res && s.res.fuel >= 1); }
   /** 引擎本身的耗油（跟地圖航程的耗油分開算；累積到整數才扣，HUD 另外顯示小數） */
   burn(a) { const s = this.p.state; this.fuelUsed += a; if (s && s.res) s.res.fuel = Math.max(0, s.res.fuel - a); }
@@ -121,22 +121,22 @@ export class Helm {
     if (this.on && hit.imp > IMPACT_MIN && now - (this._propT || 0) > 2000) {
       this._propT = now; const s = this.p.state, sz = this.g.szFx, stone = hit.kind === 'stone'; const dmg = impactDamage(hit.imp, stone && sz ? sz.un : 1);
       if (s && typeof s.cond === 'number') { const b0 = s.cond; s.cond = Math.max(Math.min(b0, SZ.floor), b0 - dmg); if (stone) { const w = s.fleet && s.fleet.world; if (w && w.sz) { w.sz.hull += b0 - s.cond; w.sz.hits++; } } }
-      const T = { stone: '🗿 撞上石柱', ice: '🧊 撞上冰山', ruin: '🏚 撞上廢墟', bridge: '🌉 撞上橋', debris: '🪵 撞上漂流殘骸' }; this.g.ui && this.g.ui.toast((T[hit.kind] || '💥 撞上障礙') + '！船體 −' + dmg.toFixed(1) + '%'); this.g.audio && this.g.audio.event('crash', 10);
-    } else if (this.on && hit.imp > 0.3 && performance.now() - (this._propS || 0) > 3000) { this._propS = performance.now(); this.g.ui && this.g.ui.toast('⛔ 前面有東西擋住了——轉彎繞過去'); }
+      const T = { stone: '\ue000 撞上石柱', ice: '\ue007 撞上冰山', ruin: '\ue056 撞上廢墟', bridge: '\ue020 撞上橋', debris: '\ue011 撞上漂流殘骸' }; this.g.ui && this.g.ui.toast((T[hit.kind] || '\ue006 撞上障礙') + '！船體 −' + dmg.toFixed(1) + '%'); this.g.audio && this.g.audio.event('crash', 10);
+    } else if (this.on && hit.imp > 0.3 && performance.now() - (this._propS || 0) > 3000) { this._propS = performance.now(); this.g.ui && this.g.ui.toast('\ue065 前面有東西擋住了——轉彎繞過去'); }
   }
   /** 特殊海域的力：漩渦往中心拉 + 場內小漩渦的旋轉推力；迷霧讓船頭慢慢漂（失去方向感） */
   zoneForces(st, dt, time, cfg) {
     const sz = this.g.szFx; if (!sz || sz.depth <= 0) return; const zf = this.g.zonefx;
     if (sz.id === 'whirlpool') { const d = whirlDrift(sz, zf ? vortexPush(zf.vortexItems(), st.x, st.z) : null, cfg ? cfg.vmax : 7); st.x += d.x * dt; st.z += d.z * dt; }   // 拉力 + 局部漩渦合起來 ≤ 最高速 40%
-    if (sz.lost > 0 && Math.abs(st.v) > 0.5) { st.yaw += (Math.sin(time * 0.31) + Math.sin(time * 0.83 + 1.7)) * 0.5 * 0.03 * sz.lost * dt; if (this.on && !this._lostT) this._lostT = 1, this.g.ui && this.g.ui.toast('🌫 迷霧中羅盤亂轉，船頭會慢慢偏掉——小心修正方向。'); }
-    if (sz.trapped && this.on && performance.now() - (this._trapT || 0) > 20000) { this._trapT = performance.now(); this.g.ui && this.g.ui.toast('🌀 被漩渦困在中心！全速往外開（越靠外越輕鬆），也可以在海圖重新出航。'); }
+    if (sz.lost > 0 && Math.abs(st.v) > 0.5) { st.yaw += (Math.sin(time * 0.31) + Math.sin(time * 0.83 + 1.7)) * 0.5 * 0.03 * sz.lost * dt; if (this.on && !this._lostT) this._lostT = 1, this.g.ui && this.g.ui.toast('\ue02e 迷霧中羅盤亂轉，船頭會慢慢偏掉——小心修正方向。'); }
+    if (sz.trapped && this.on && performance.now() - (this._trapT || 0) > 20000) { this._trapT = performance.now(); this.g.ui && this.g.ui.toast('\ue093 被漩渦困在中心！全速往外開（越靠外越輕鬆），也可以在海圖重新出航。'); }
   }
   /** 世界邊界：地圖位置推出世界外就停船 */
   limit(st) {
     const w = this.p.state && this.p.state.fleet && this.p.state.fleet.world; if (!w || !w.pos) return;
     const k = HELM_K * this.zmul; const b = this.base; const nx = w.pos.x + (st.x - b.x) * k, ny = w.pos.y + (st.z - b.z) * k;
-    { const gt = pointGate(this.p.state.fleet, nx, ny, w.pos); if (gt) { st.x = this.x; st.z = this.z; st.v *= 0.5; if (this.on && performance.now() - (this._gateT || 0) > 4000) { this._gateT = performance.now(); this.g.ui && this.g.ui.toast('🚫 ' + gateMsg(gt.z)); } return; } }   // 特殊海域硬條件（旗艦階級不夠就進不去）
-    if (!WD.insideWorld(nx, ny)) { st.x = this.x; st.z = this.z; st.v *= 0.5; if (this.on && performance.now() - (this._edgeToast || 0) > 4000) { this._edgeToast = performance.now(); this.g.ui && this.g.ui.toast('🌐 那裡已經是世界的盡頭'); } }
+    { const gt = pointGate(this.p.state.fleet, nx, ny, w.pos); if (gt) { st.x = this.x; st.z = this.z; st.v *= 0.5; if (this.on && performance.now() - (this._gateT || 0) > 4000) { this._gateT = performance.now(); this.g.ui && this.g.ui.toast('\ue070 ' + gateMsg(gt.z)); } return; } }   // 特殊海域硬條件（旗艦階級不夠就進不去）
+    if (!WD.insideWorld(nx, ny)) { st.x = this.x; st.z = this.z; st.v *= 0.5; if (this.on && performance.now() - (this._edgeToast || 0) > 4000) { this._edgeToast = performance.now(); this.g.ui && this.g.ui.toast('\ue04d 那裡已經是世界的盡頭'); } }
   }
   /** 把本地位移累積推到地圖位置（1 Hz；停車 / 退出時 force） */
   syncWorld(force) {

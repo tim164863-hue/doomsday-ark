@@ -100,7 +100,7 @@ function resolveMission(s, ship, tEnd, rep) {
   let text = `${B.icon}${ship.name} ${m.fail ? '遇襲，勉強帶回' : '從' + Z.name + '返航'}：${gains}` + (m.dmg ? `（船體 −${m.dmg}%）` : '');
   if (ship.hp <= 0) { ship.state = 'wreck'; f.stats.sunk++; text += `。${ship.name} 重創擱淺，需要整修！`; } else ship.state = 'dock';
   if (m.ev && m.ev.c >= 0 && m.ev.txt) text += `（${m.ev.txt}）`;
-  if (m.bp && !f.bp[m.bp]) { f.bp[m.bp] = 1; text += `。🗺️ 在海上發現「${SHIPS[m.bp].name}」藍圖！`; ev(s, rep, { t: tEnd, type: 'blueprint', bp: m.bp, text: `發現藍圖：${SHIPS[m.bp].name}` }); }
+  if (m.bp && !f.bp[m.bp]) { f.bp[m.bp] = 1; text += `。\ue062 在海上發現「${SHIPS[m.bp].name}」藍圖！`; ev(s, rep, { t: tEnd, type: 'blueprint', bp: m.bp, text: `發現藍圖：${SHIPS[m.bp].name}` }); }
   ev(s, rep, { t: tEnd, type: 'fleet', ship: ship.id, text, fail: m.fail });
   const hauled = RES_KEYS.reduce((a, k) => a + (m.res[k] || 0), 0); if (!m.fail && hauled >= 90 && ship.hp > 0) R.celebrate(s, tEnd, (e) => ev(s, rep, e), `${ship.name} 載滿而歸（${hauled} 單位），船員們一起慶祝！`);
 }
@@ -146,7 +146,7 @@ export function setHome(s, id) {
   if (!HOME_TYPES.includes(sh.type)) return { ok: false, msg: SHIPS[sh.type].name + ' 不能當旗艦（潛艇沒有甲板）' };
   if (sh.state === 'build') return { ok: false, msg: '還在建造中' }; if (sh.state === 'sail' || sh.state === 'pilot') return { ok: false, msg: '船在海上，返港後再換旗艦' };
   if (homeShip(f) && homeShip(f).id === id) return { ok: true, msg: '已經是旗艦了', same: true };
-  f.home = id; const text = `⭐ 旗艦換成「${sh.name}」`; s.log.push({ t: s.simT, type: 'fleet', ship: id, text }); return { ok: true, msg: text, ship: sh };
+  f.home = id; const text = `\ue084 旗艦換成「${sh.name}」`; s.log.push({ t: s.simT, type: 'fleet', ship: id, text }); return { ok: true, msg: text, ship: sh };
 }
 export function pickStarter(s, type, nowSec) {
   const f = s.fleet; if (!f) return { ok: false, msg: '艦隊尚未建立' }; if (f.pick) return { ok: false, msg: '已經選過了' }; if (!STARTERS.includes(type)) return { ok: false, msg: '請從入門船型中選一艘' };
@@ -218,7 +218,7 @@ export function pilotCollect(s, nowSec, tz = 0) {
 export function sendShip(s, id, zone, nowSec) {
   const ship = findShip(s, id); if (!ship) return { ok: false, msg: '找不到這艘船' }; if (ship.state !== 'dock') return { ok: false, msg: '船現在不在港內' }; if (ship.hp < 25) return { ok: false, msg: '船況太差，先整修' };
   if (!ZONES[zone] || !SHIPS[ship.type].zones.includes(zone)) return { ok: false, msg: `${SHIPS[ship.type].name}無法前往該海域` };
-  const fuel = missionFuel(ship, zone); if (s.res.fuel < fuel + RESERVE_FUEL) return { ok: false, msg: `燃料不足（需要 ⛽${fuel}）` };
+  const fuel = missionFuel(ship, zone); if (s.res.fuel < fuel + RESERVE_FUEL) return { ok: false, msg: `燃料不足（需要 \ue049${fuel}）` };
   s.res.fuel -= fuel; ship.m = planMission(s, ship, zone, Math.max(s.simT, nowSec)); ship.state = 'sail'; return { ok: true, msg: `${ship.name} 出航：${ZONES[zone].name}` };
 }
 export const stopArk = (s, nowSec) => W.stopArk(s, nowSec);

@@ -9,19 +9,19 @@ import { MAX_LV, USE, SHIP_FUEL_USE } from './defs.js';
 
 export const RES4 = ['food', 'water', 'fuel', 'parts'];
 export const LINES = [
-  { id: 'basic', icon: '🧭', name: '基本操作' },
-  { id: 'biz', icon: '⚓', name: '經營' },
+  { id: 'basic', icon: '\ue034', name: '基本操作' },
+  { id: 'biz', icon: '\ue012', name: '經營' },
 ];
 // ev = 事件旗標（由遊戲層的動作掛勾設定）；r = 完成這一步的獎勵（一次）
 export const STEPS = [
-  { id: 'move', line: 'basic', ev: 'move', icon: '🚶', name: '走動一下', r: { food: 50, water: 60, fuel: 60, parts: 10 } },
-  { id: 'talk', line: 'basic', ev: 'talk', icon: '💬', name: '和船員聊聊', r: { food: 50, water: 60, fuel: 60, parts: 10 } },
-  { id: 'chart', line: 'basic', ev: 'chart', icon: '🧭', name: '打開航海圖', r: { food: 60, water: 70, fuel: 80, parts: 20 } },
-  { id: 'sail', line: 'basic', ev: 'sail', icon: '🛳️', name: '開船出航', r: { food: 60, water: 70, fuel: 100, parts: 20 } },
-  { id: 'salvage', line: 'biz', ev: 'salvage', icon: '🚣', name: '出海打撈', r: { food: 130, water: 150, fuel: 120, parts: 40 } },
-  { id: 'supply', line: 'biz', ev: 'supply', icon: '📦', name: '補給：蓋設施', r: { food: 120, water: 130, fuel: 140, parts: 40 } },
-  { id: 'upgrade', line: 'biz', ev: 'upgrade', icon: '⬆️', name: '升級小船', r: { food: 140, water: 160, fuel: 160, parts: 50 } },
-  { id: 'build', line: 'biz', ev: 'buildShip', icon: '🛠️', name: '建造新船', r: { food: 150, water: 180, fuel: 160, parts: 50 } },
+  { id: 'move', line: 'basic', ev: 'move', icon: '\ue06e', name: '走動一下', r: { food: 50, water: 60, fuel: 60, parts: 10 } },
+  { id: 'talk', line: 'basic', ev: 'talk', icon: '\ue026', name: '和船員聊聊', r: { food: 50, water: 60, fuel: 60, parts: 10 } },
+  { id: 'chart', line: 'basic', ev: 'chart', icon: '\ue034', name: '打開航海圖', r: { food: 60, water: 70, fuel: 80, parts: 20 } },
+  { id: 'sail', line: 'basic', ev: 'sail', icon: '\ue00c', name: '開船出航', r: { food: 60, water: 70, fuel: 100, parts: 20 } },
+  { id: 'salvage', line: 'biz', ev: 'salvage', icon: '\ue01e', name: '出海打撈', r: { food: 130, water: 150, fuel: 120, parts: 40 } },
+  { id: 'supply', line: 'biz', ev: 'supply', icon: '\ue06a', name: '補給：蓋設施', r: { food: 120, water: 130, fuel: 140, parts: 40 } },
+  { id: 'upgrade', line: 'biz', ev: 'upgrade', icon: '\ue015', name: '升級小船', r: { food: 140, water: 160, fuel: 160, parts: 50 } },
+  { id: 'build', line: 'biz', ev: 'buildShip', icon: '\ue092', name: '建造新船', r: { food: 150, water: 180, fuel: 160, parts: 50 } },
 ];
 export const STEP_IDS = STEPS.map((x) => x.id);
 export const EVENTS = STEPS.map((x) => x.ev);
@@ -99,4 +99,4 @@ export const questDone = (s, id) => !!(s.quest && s.quest.done && s.quest.done[i
 export function questProgress(s) { const q = s.quest || newQuest(); const n = STEP_IDS.filter((id) => q.done[id]).length; return { n, total: STEPS.length, fin: !!q.fin }; }
 /** 這條線第一個還沒完成的步驟（沒有 = 這條線完成）。 */
 export function nextStep(s, line) { const q = s.quest || newQuest(); return STEPS.find((x) => x.line === line && !q.done[x.id]) || null; }
-export const poolText = (q) => RES4.filter((k) => q && q.pool[k] > 0.5).map((k) => ({ food: '🍖', water: '💧', fuel: '⛽', parts: '🔩' }[k] + Math.round(q.pool[k]))).join(' ');
+export const poolText = (q) => RES4.filter((k) => q && q.pool[k] > 0.5).map((k) => ({ food: '\ue047', water: '\ue03c', fuel: '\ue049', parts: '\ue069' }[k] + Math.round(q.pool[k]))).join(' ');

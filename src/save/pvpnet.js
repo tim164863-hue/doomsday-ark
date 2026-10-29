@@ -110,7 +110,7 @@ export class PvpClient {
     const pv = ensurePv(s); if (!pv) return { ok: false, msg: '還沒有世界地圖' }; if (!this.enabled) return { ok: false, msg: '登入後才有玩家對戰' };
     if (on && (pv.att || pv.out.length)) return { ok: false, msg: '還有突襲正在進行或結果還沒送出，稍後再開隱身' };
     pv.hid = on ? 1 : 0; pv.nt = 1;
-    if (on) { const ok = await this.wipe(); return { ok: true, msg: ok ? '🕶 已隱身：你的公開資料已刪除，別人看不到你（你也暫時不能出手）' : '🕶 已隱身（雲端暫時連不上，之後會再刪除你的公開資料）', pending: !ok }; }
+    if (on) { const ok = await this.wipe(); return { ok: true, msg: ok ? '\ue08a 已隱身：你的公開資料已刪除，別人看不到你（你也暫時不能出手）' : '\ue08a 已隱身（雲端暫時連不上，之後會再刪除你的公開資料）', pending: !ok }; }
     this.last = null; this.pubAt = 0; this.wipePending = false; return { ok: true, msg: '已取消隱身，會重新出現在附近玩家的海圖上' };
   }
   /** 刪掉自己的 presence（隱身 / 登出 / 刪除帳號時）。失敗回傳 false（不丟例外）。 */

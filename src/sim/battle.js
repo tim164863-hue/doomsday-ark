@@ -38,13 +38,13 @@ const BRANCH_FP = { war: 0.2, mer: 0, sci: 0.1 };   // 旗艦分支的火力加�
 
 // hp / atk 是「基準值」，實際 = 基準 × 海域與天氣縮放。loot.res = [最少, 最多]；loot.mat / loot.bp = 機率 + 數量 / 來源。
 export const FOES = tbl({
-  serpent: { id: 'serpent', name: '海蛇', icon: '🐍', hp: 70, atk: 9, loot: { res: { food: [28, 60], parts: [6, 16] }, mat: { p: 0.3, n: [1, 1] }, bp: { p: 0.04, pool: 't1' } },
+  serpent: { id: 'serpent', name: '海蛇', icon: '\ue00d', hp: 70, atk: 9, loot: { res: { food: [28, 60], parts: [6, 16] }, mat: { p: 0.3, n: [1, 1] }, bp: { p: 0.04, pool: 't1' } },
     blurb: '成群出沒、動作快，單隻不算強。' },
-  kraken: { id: 'kraken', name: '巨型海妖', icon: '🦑', hp: 260, atk: 26, loot: { res: { parts: [70, 150], fuel: [18, 40], food: [20, 40] }, mat: { p: 0.65, n: [1, 2] }, bp: { p: 0.1, pool: 'zone' } },
+  kraken: { id: 'kraken', name: '巨型海妖', icon: '\ue00f', hp: 260, atk: 26, loot: { res: { parts: [70, 150], fuel: [18, 40], food: [20, 40] }, mat: { p: 0.65, n: [1, 2] }, bp: { p: 0.1, pool: 'zone' } },
     blurb: '觸手會封住航道，會對準船砸下去。' },
-  leviathan: { id: 'leviathan', name: '利維坦', icon: '🐉', hp: 800, atk: 62, boss: true, loot: { res: { parts: [260, 480], fuel: [80, 140], food: [60, 110], water: [40, 80] }, mat: { p: 1, n: [2, 3] }, bp: { p: 0.55, pool: 't3' } },
+  leviathan: { id: 'leviathan', name: '利維坦', icon: '\ue005', hp: 800, atk: 62, boss: true, loot: { res: { parts: [260, 480], fuel: [80, 140], food: [60, 110], water: [40, 80] }, mat: { p: 1, n: [2, 3] }, bp: { p: 0.55, pool: 't3' } },
     blurb: '特殊海域深處的 Boss。要有 T2 以上的戰艦才打得過。' },
-  pirate: { id: 'pirate', name: '海盜船', icon: '🏴‍☠️', hp: 120, atk: 14, loot: { res: { parts: [50, 130], fuel: [24, 60], food: [14, 36], water: [10, 30] }, mat: { p: 0, n: [0, 0] }, bp: { p: 0.1, pool: 'ship' } },
+  pirate: { id: 'pirate', name: '海盜船', icon: '\ue009', hp: 120, atk: 14, loot: { res: { parts: [50, 130], fuel: [24, 60], food: [14, 36], water: [10, 30] }, mat: { p: 0, n: [0, 0] }, bp: { p: 0.1, pool: 'ship' } },
     blurb: '改裝過的武裝船，贏了有零件、燃料，偶爾有船隻藍圖；輸了會被搶。' },
 });
 export const FOE_ORDER = ['serpent', 'kraken', 'leviathan', 'pirate'];
@@ -170,7 +170,7 @@ export function lossRoll(s, cur, kind) {
   else { const v = Math.floor(s.res.fuel * 0.05 * k); if (v > 0) { s.res.fuel -= v; out.fuel = v; } }
   return out;
 }
-const RIC = { food: '🍖', water: '💧', fuel: '⛽', parts: '🔩' };
+const RIC = { food: '\ue047', water: '\ue03c', fuel: '\ue049', parts: '\ue069' };
 export const resText = (o, sign = '+') => Object.keys(o).filter((k) => o[k] > 0).map((k) => `${RIC[k] || k}${sign}${o[k]}`).join(' ');
 const matText = (m) => Object.keys(m).map((k) => `${MATERIALS[k].icon}${MATERIALS[k].name}×${m[k]}`).join(' ');
 
@@ -184,12 +184,12 @@ function settle(s, cur, out, own, tEnd, man) {   // man = 玩家接管過（撤�
     if (loot.bp) { f.bp[loot.bp] = 1; }
   } else lost = lossRoll(s, cur, out.kind);
   const hl = hull > 0 ? `，船體 −${hull}%` : '';
-  if (out.kind === 'win') { bt.st.w++; bt.k[cur.k] = (bt.k[cur.k] | 0) + 1; const bits = [resText(loot.res), matText(loot.mat), loot.bp ? `🗺️藍圖「${(PROMO_BP[loot.bp] || { name: loot.bp }).name}」` : ''].filter(Boolean).join('　');
-    text = `⚔️ ${man ? '指揮擊退' : '船員擊退'}${B.icon}${nm}${bits ? '！戰利品：' + bits : '！'}${hl}`; }
-  else if (out.kind === 'draw') { bt.st.d++; text = `⚔️ 與${B.icon}${nm}僵持不下，雙方退開${loot && Object.keys(loot.res).length ? '（撿到 ' + resText(loot.res) + '）' : ''}${hl}`; }
-  else if (out.kind === 'fled') { bt.st.f++; text = out.act === 'retreat' ? `🏳️ 指揮下令撤退，成功甩開${B.icon}${nm}，毫髮無傷。` : `💨 船員發現${B.icon}${nm}打不贏，全速甩開了牠，毫髮無傷。`; }
-  else if (out.kind === 'caught') { bt.st.l++; text = `💥 ${out.act === 'retreat' ? '撤退失敗，' : '想逃卻'}被${B.icon}${nm}追上咬了幾口${hl}${Object.keys(lost).length ? '，' + resText(lost, '−') : ''}。`; }
-  else { bt.st.l++; text = `💥 被${B.icon}${nm}打得節節敗退${hl}${Object.keys(lost).length ? '，' + resText(lost, '−') : ''}。船體穩住在 ${SZ.floor}% 以上。`; }
+  if (out.kind === 'win') { bt.st.w++; bt.k[cur.k] = (bt.k[cur.k] | 0) + 1; const bits = [resText(loot.res), matText(loot.mat), loot.bp ? `\ue062藍圖「${(PROMO_BP[loot.bp] || { name: loot.bp }).name}」` : ''].filter(Boolean).join('　');
+    text = `\ue08b ${man ? '指揮擊退' : '船員擊退'}${B.icon}${nm}${bits ? '！戰利品：' + bits : '！'}${hl}`; }
+  else if (out.kind === 'draw') { bt.st.d++; text = `\ue08b 與${B.icon}${nm}僵持不下，雙方退開${loot && Object.keys(loot.res).length ? '（撿到 ' + resText(loot.res) + '）' : ''}${hl}`; }
+  else if (out.kind === 'fled') { bt.st.f++; text = out.act === 'retreat' ? `\ue045 指揮下令撤退，成功甩開${B.icon}${nm}，毫髮無傷。` : `\ue09b 船員發現${B.icon}${nm}打不贏，全速甩開了牠，毫髮無傷。`; }
+  else if (out.kind === 'caught') { bt.st.l++; text = `\ue006 ${out.act === 'retreat' ? '撤退失敗，' : '想逃卻'}被${B.icon}${nm}追上咬了幾口${hl}${Object.keys(lost).length ? '，' + resText(lost, '−') : ''}。`; }
+  else { bt.st.l++; text = `\ue006 被${B.icon}${nm}打得節節敗退${hl}${Object.keys(lost).length ? '，' + resText(lost, '−') : ''}。船體穩住在 ${SZ.floor}% 以上。`; }
   bt.last = { t: tEnd, id: cur.id, k: cur.k, r: out.kind, text, man: man ? 1 : 0 }; bt.cur = null; if (cur.k === 'leviathan') bt.lv = Math.floor(tEnd);
   return { text, loot, lost, hull };
 }
@@ -215,7 +215,7 @@ export function battleTick(s, t, tEnd, ev, own) {
   if ((bt && bt.cur) || refitting(f)) return; if (bt && sl1 - bt.ls < BT.cool) return;
   const p = arkPos(w, tEnd); const enc = rollEncounter(s.seed, sl1, p, bt ? bt.lv : -99, own().scoutK, tEnd); if (!enc) return;
   bt = ensureBt(w); bt.n++; bt.ls = sl1; bt.cur = { id: bt.n, ...enc, t0: tEnd, end: tEnd + BT.grace, eng: 0 };
-  const B = FOES[enc.k], Z = enc.z ? SPECIAL_ZONES[enc.z] : null; ev && ev({ t: tEnd, type: 'battle', sub: 'start', foe: enc.k, text: `⚔️ 遭遇${B.icon}${enc.nm || B.name}${Z ? `（${Z.icon}${Z.name}）` : ''}！${BT.grace / 60} 分鐘內可到海圖接管指揮，否則船員會自動處理。` });
+  const B = FOES[enc.k], Z = enc.z ? SPECIAL_ZONES[enc.z] : null; ev && ev({ t: tEnd, type: 'battle', sub: 'start', foe: enc.k, text: `\ue08b 遭遇${B.icon}${enc.nm || B.name}${Z ? `（${Z.icon}${Z.name}）` : ''}！${BT.grace / 60} 分鐘內可到海圖接管指揮，否則船員會自動處理。` });
 }
 function resolveCur(s, tEnd, ev, own, rep, man) {
   const bt = s.fleet.world.bt, cur = bt.cur, foe = foeStats(cur);

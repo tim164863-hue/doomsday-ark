@@ -6,19 +6,19 @@ import { autoBattle, foeStats } from './battle.js';
 
 // opt: res=收穫倍率, dmg=額外船體損傷, bp=額外藍圖機率, risk=失敗機率（會被火力降低；失敗：收穫再 ×0.6、再 −8% 船體）, delay=延後返航(分鐘)
 export const EVENTS = tbl({
-  drift:   { icon: '📦', name: '漂流貨櫃', zones: ['near', 'reef', 'ruins', 'ice'], text: '前方有個半沉的貨櫃隨浪漂浮，封條還在。',
+  drift:   { icon: '\ue06a', name: '漂流貨櫃', zones: ['near', 'reef', 'ruins', 'ice'], text: '前方有個半沉的貨櫃隨浪漂浮，封條還在。',
     opts: [{ t: '靠上去撬開', d: '收穫 +35%，有點風險', res: 1.35, dmg: 3, risk: 0.2 }, { t: '拖回去', d: '收穫 +20%，多花 8 分鐘', res: 1.2, delay: 8, risk: 0.05 }, { t: '繞過去', d: '平安最重要', res: 1, dmg: -2 }] },
-  pirate:  { icon: '🏴‍☠️', name: '海盜小艇', zones: ['near', 'reef', 'ruins'], text: '遠處有艘改裝小艇朝你們全速駛來，船頭站著人。',
+  pirate:  { icon: '\ue009', name: '海盜小艇', zones: ['near', 'reef', 'ruins'], text: '遠處有艘改裝小艇朝你們全速駛來，船頭站著人。',
     opts: [{ t: '開火迎戰', d: '火力越高越安全，贏了收穫 +25%', res: 1.25, dmg: 5, risk: 0.45, fp: true }, { t: '丟下一些貨', d: '收穫 −25%，全身而退', res: 0.75, dmg: -3 }, { t: '全速甩開', d: '船體受點損傷', res: 0.95, dmg: 4, risk: 0.2 }] },
-  signal:  { icon: '📡', name: '廢墟信號', zones: ['ruins', 'reef'], text: '殘破大樓頂上有盞燈在閃，像是求救，也像陷阱。',
+  signal:  { icon: '\ue021', name: '廢墟信號', zones: ['ruins', 'reef'], text: '殘破大樓頂上有盞燈在閃，像是求救，也像陷阱。',
     opts: [{ t: '登樓搜索', d: '可能找到藍圖，船體 −8%', res: 1.1, dmg: 8, bp: 0.28, risk: 0.3 }, { t: '記下座標離開', d: '什麼都不改變', res: 1 }] },
-  berg:    { icon: '🧊', name: '擋路的冰山', zones: ['ice'], text: '一座巨大冰山擋在航道上，兩側都是碎冰。',
+  berg:    { icon: '\ue007', name: '擋路的冰山', zones: ['ice'], text: '一座巨大冰山擋在航道上，兩側都是碎冰。',
     opts: [{ t: '撞開碎冰', d: '更快、收穫 +15%，船體受損', res: 1.15, dmg: 9, risk: 0.25 }, { t: '繞行', d: '多花 12 分鐘，平安', res: 1, delay: 12, dmg: -2 }] },
-  glow:    { icon: '🕳️', name: '深淵異光', zones: ['abyss'], text: '海面下有一圈幽藍的光在脈動，聲納讀數很怪。',
+  glow:    { icon: '\ue029', name: '深淵異光', zones: ['abyss'], text: '海面下有一圈幽藍的光在脈動，聲納讀數很怪。',
     opts: [{ t: '下潛調查', d: '收穫 +60%，可能有藍圖，風險高', res: 1.6, dmg: 10, bp: 0.2, risk: 0.45 }, { t: '保持距離記錄', d: '收穫 +10%', res: 1.1 }] },
-  battle:  { icon: '🐍', name: '海怪來襲', zones: ['reef', 'ruins', 'ice', 'abyss'], text: '浪裡鑽出一條巨大的海蛇，緊貼著船身繞圈。',
+  battle:  { icon: '\ue00d', name: '海怪來襲', zones: ['reef', 'ruins', 'ice', 'abyss'], text: '浪裡鑽出一條巨大的海蛇，緊貼著船身繞圈。',
     opts: [{ t: '開砲迎戰', d: '用這艘船的火力打（階段④海戰規則）：贏了收穫 +30%，輸了 −40% 且受傷', battle: true }, { t: '全速逃離', d: '收穫 −5%，多半甩得掉', res: 0.95, dmg: 2, risk: 0.2 }, { t: '丟貨引開牠', d: '收穫 −20%，全身而退', res: 0.8 }] },
-  whale:   { icon: '🐋', name: '鯨魚擱淺的訊號', zones: ['near', 'reef', 'ice', 'abyss'], text: '一頭大鯨魚在附近緩緩盤旋，似乎在帶路。',
+  whale:   { icon: '\ue00e', name: '鯨魚擱淺的訊號', zones: ['near', 'reef', 'ice', 'abyss'], text: '一頭大鯨魚在附近緩緩盤旋，似乎在帶路。',
     opts: [{ t: '跟著牠', d: '多花 6 分鐘，收穫 +25%', res: 1.25, delay: 6, risk: 0.05 }, { t: '保持航向', d: '照原計畫', res: 1 }] },
 });
 const KEYS = Object.keys(EVENTS);

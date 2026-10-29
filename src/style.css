@@ -1,4 +1,6 @@
-:root { --glass: rgba(10,22,38,.62); --line: rgba(255,255,255,.14); --acc: #ffd36b; --txt: #eaf2fb; font-family: "Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; }
+/* 圖示字型：Phosphor (MIT) + game-icons.net (CC BY 3.0)，見 ASSETS.md；取代所有 emoji。PUA 字元只存在這個字型裡，所以放在字型堆疊最前面即可。 */
+@font-face { font-family: 'ArkIcons'; src: url('./assets/ark-icons.woff2') format('woff2'); font-display: block; }
+:root { --glass: rgba(10,22,38,.62); --line: rgba(255,255,255,.14); --acc: #ffd36b; --txt: #eaf2fb; font-family: ArkIcons,"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif; }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: #06101c; color: var(--txt); overscroll-behavior: none; }
 #app { position: fixed; inset: 0; }
@@ -400,3 +402,11 @@ body:not(.touch) #bjoy { display: none; }
 @media (min-width: 701px) { #quest { top: 238px; } }
 
 #quest .qstop { display: block; margin-top: 5px; padding: 4px 8px; font-size: 11px; border-radius: 8px; border: 1px solid var(--acc); color: var(--acc); background: rgba(255,255,255,.06); cursor: pointer; }
+
+/* ===== 圖示（ArkIcons 字型）的末日廢土上色：生鏽金屬 / 模板噴漆。圖示是字元，顏色跟著文字，不是彩色 emoji。 ===== */
+.rc i, .shipc .sh .ic, .mcard h3, #quest h3, #modal h3, .zonebar i { text-shadow: 0 1px 0 rgba(0,0,0,.55); }
+.rc[data-k=food] i { color: #e0b765; } .rc[data-k=water] i { color: #6fb7d9; } .rc[data-k=fuel] i { color: #e8833c; } .rc[data-k=parts] i { color: #b8b2a8; }
+.rc.wx i, .rc.sz i { color: #cdbfa6; } .rc.cond i { color: #e9a24b; }
+.shipc .sh .ic { color: #c98f58; text-shadow: 0 1px 0 rgba(0,0,0,.6), 0 0 10px rgba(201,106,42,.22); }
+.shipc.flag .sh .ic { color: #ffd36b; }
+#modal h3 { color: #f1d9a6; }
