@@ -6,6 +6,8 @@
 const puppeteer = require(process.env.PUPPETEER || '/tmp/shot/node_modules/puppeteer-core');
 const BASE = process.argv[2] || 'http://127.0.0.1:5173/';
 const TYPES = (process.env.TYPES || 'skiff,speedboat,tug,patrol,icebreaker').split(',');
+const LVS = (process.env.LVS || '1,2,3').split(',').map(Number); // 升級等級：每種船 × Lv1–3 都要走
+const COMBOS = TYPES.flatMap((t) => LVS.map((l) => [t, l]));
 (async () => {
   const b = await puppeteer.launch({ executablePath: process.env.CHROME || '/usr/bin/google-chrome', headless: 'new', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const w = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -14,19 +16,19 @@ const TYPES = (process.env.TYPES || 'skiff,speedboat,tug,patrol,icebreaker').spl
   const fails = [], errs = []; let n = 0;
   const open = async (q) => { const pg = await b.newPage(); await pg.setViewport({ width: 900, height: 600 }); pg.on('pageerror', (e) => errs.push(e.message)); pg.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); }); await pg.goto(BASE + '?help=0&q=low&t=0.5&' + q, { waitUntil: 'domcontentloaded', timeout: 60000 }); await w(4500); return pg; };
   const dismiss = async (pg) => { for (let i = 0; i < 3; i++) { await pg.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => /開始航行|繼續航行/.test(e.textContent)); if (x) x.click(); }); await w(300); } };
-  for (const type of TYPES) {
-    console.log("…" + type);
+  for (const [type0, lv] of COMBOS) {
+    const type = type0 + '-Lv' + lv; console.log('…' + type);
     // 1) 全新訪客存檔 → 選這艘小船並存檔
     console.log("  a"); let pg = await open("guest=1&fresh=1"); console.log("  b"); await dismiss(pg); console.log("  c");
-    await pg.evaluate((t) => { ark.play.fleetAct('pick', { type: ['patrol', 'icebreaker'].includes(t) ? 'skiff' : t }); if (['patrol', 'icebreaker'].includes(t)) { const f = ark.play.state.fleet; f.ships[0].type = t; f.pick = t; } ark.play.save(true); }, type); console.log("  saved");
+    await pg.evaluate(([t, lv]) => { ark.play.fleetAct('pick', { type: ['patrol', 'icebreaker'].includes(t) ? 'skiff' : t }); if (['patrol', 'icebreaker'].includes(t)) { const f = ark.play.state.fleet; f.ships[0].type = t; f.pick = t; } ark.play.state.fleet.ships[0].lv = lv; ark.play.save(true); }, [type0, lv]); console.log("  saved");
     // 第 17 輪：pick 會觸發 reloadHome（隨機起始小船 ≠ 選的船時），重新載入完成前存檔可能存到舊船 → 先等狀態穩定，確認存下來的就是要測的船，否則重選（決定性）
-    for (let i = 0; i < 6; i++) { await w(700); const okp = await pg.evaluate((t) => { const f = ark.play.state.fleet; if (f.pick === t && f.ships[0] && f.ships[0].type === t) { ark.play.save(true); return true; } if (!['patrol', 'icebreaker'].includes(t)) ark.play.fleetAct('pick', { type: t }); else { f.ships[0].type = t; f.pick = t; } ark.play.save(true); return false; }, type).catch(() => false); if (okp) break; }
+    for (let i = 0; i < 6; i++) { await w(700); const okp = await pg.evaluate(([t, lv]) => { const f = ark.play.state.fleet; if (f.pick === t && f.ships[0] && f.ships[0].type === t && f.ships[0].lv === lv) { ark.play.save(true); return true; } if (!['patrol', 'icebreaker'].includes(t) && f.pick !== t) ark.play.fleetAct('pick', { type: t }); else { f.ships[0].type = t; f.pick = t; } ark.play.state.fleet.ships[0].lv = lv; ark.play.save(true); return false; }, [type0, lv]).catch(() => false); if (okp) break; }
     await w(500); await closePg(pg); console.log("  closed");
     // 2) 重新載入（不 fresh）：這時才是真正的「小船」家
     console.log("  reopen"); pg = await open("guest=1"); await dismiss(pg); console.log("  opened");
-    const info = await pg.evaluate(() => ({ small: ark.small, type: ark.ship.type, key: ark.player.avatar.key, pkey: ark.player.key, owner: ark.owner, ch: ark.charId, nd: ark.ship.decks[0].pois.desks.length, ne: ark.ship.decks[0].pois.extraDesks.length, crew: [...ark.crew.bots.values()].map((x) => [x.key, x.avatar.look.model, !!x.info.look]), pl: ark.play.state.pl }));
+    const info = await pg.evaluate(() => ({ small: ark.small, type: ark.ship.type, lv: ark.play.state.fleet.ships[0].lv, key: ark.player.avatar.key, pkey: ark.player.key, owner: ark.owner, ch: ark.charId, nd: ark.ship.decks[0].pois.desks.length, ne: ark.ship.decks[0].pois.extraDesks.length, crew: [...ark.crew.bots.values()].map((x) => [x.key, x.avatar.look.model, !!x.info.look]), pl: ark.play.state.pl }));
     const chk = (ok, msg) => { n++; if (!ok) fails.push(`${type}: ${msg}`); };
-    chk(info.small && info.type === type && !info.owner, `不是小船家 ${JSON.stringify([info.small, info.type, info.owner])}`);
+    chk(info.small && info.type === type0 && info.lv === lv && !info.owner, `不是小船家 ${JSON.stringify([info.small, info.type, info.owner])}`);
     chk(info.pkey === 'player', `玩家鍵不是 T董 (${info.pkey})`);
     chk(info.nd === 0 && info.ne === 0, `甲板上不該有辦公桌 (${info.nd}/${info.ne})`);
     chk(/^P:/.test(info.key) && info.key !== 'P:T董' && info.pl && info.pl.c === info.ch, `玩家角色不是資料庫角色 (${info.key})`);
@@ -39,7 +41,7 @@ const TYPES = (process.env.TYPES || 'skiff,speedboat,tug,patrol,icebreaker').spl
       let lo = null, hi = null; for (let iz = 0; iz < 64; iz++) for (let ix = 0; ix < 232; ix++) { const x = nav.cx(ix), z = nav.cz(iz); if (nav.walkable(x, z, 0.24)) { if (!lo || x < lo[0]) lo = [x, z]; if (!hi || x > hi[0]) hi = [x, z]; } }
       const p0 = nav.nearestFree(S.start[0], S.start[1], 4);
       for (const [k, l] of [['chat', m.chat], ['rail', m.rail], ['seat', m.canteen], ['lounger', m.lounger]]) (l || []).forEach((p, i) => T.push([k + i, p.x, p.z]));
-      for (const [k, v] of Object.entries(ark.play.fac)) T.push(['fac:' + k, v.x, v.z]);
+      for (const [k, v] of Object.entries(ark.play.fac)) { T.push(['fac:' + k, v.x, v.z]); const sp = ark.play.standPos(k); if (sp) T.push(['stand:' + k, sp[0], sp[1]]); }
       T.push(['land', S.land[0], S.land[1]], ['party', S.anchors.party.x, S.anchors.party.z], ['door', S.door[0], S.door[1]]);
       if (lo) T.push(['end-stern', lo[0], lo[1]]); if (hi) T.push(['end-bow', hi[0], hi[1]]);
       for (const x of ark.crew.bots.values()) T.push(['crew:' + x.key, x.actor.x, x.actor.z]);

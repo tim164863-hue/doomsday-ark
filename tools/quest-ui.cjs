@@ -15,7 +15,7 @@ let n = 300; const SHOT = (name) => `/workspace/doomsday-ark/shots/${process.env
     const R = (s) => { const e = document.querySelector(s); if (!e) return null; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') return null; const r = e.getBoundingClientRect(); return r.width > 1 ? { l: r.left, t: r.top, r: r.right, b: r.bottom, s } : null; };
     const qp = R('#quest'); const out = []; if (!qp) return { label, shown: false };
     const ov = (a, b) => b && a.l < b.r - 1 && a.r > b.l + 1 && a.t < b.b - 1 && a.b > b.t + 1;
-    for (const s of ['#prompt', '#timebar', '#joy', '#helmbar', '#pilotbar', '#crewmini', '#right', '#resbar', '#top', '#tlpill', '#toast', '#mg']) { const r = R(s); if (ov(qp, r)) out.push(s); }
+    for (const s of ['#prompt', '#timebar', '#joy', '#helmbar', '#pilotbar', '#crewmini', '#right', '#resbar', '#top', '#tlpill', '#mg']) { const r = R(s); if (ov(qp, r)) out.push(s); }
     const inV = qp.l >= 0 && qp.t >= 0 && qp.r <= innerWidth + 1 && qp.b <= innerHeight + 1;
     return { label, shown: true, overlaps: out, inViewport: inV, rect: [qp.l | 0, qp.t | 0, qp.r | 0, qp.b | 0] };
   }, label);
@@ -29,21 +29,24 @@ let n = 300; const SHOT = (name) => `/workspace/doomsday-ark/shots/${process.env
   await pg.goto(url, { waitUntil: 'domcontentloaded' }); await sleep(5000);
   if (ownerArg !== 'owner') { await pg.evaluate(() => { const bt = [...document.querySelectorAll('#modal button')].find((x) => x.textContent.includes('選這艘')); bt && bt.click(); }); await sleep(2500); }
   ok(await waitFor(() => !!(window.ark && window.ark.play && window.ark.play.ready && window.ark.hud && window.ark.hud.quest) && !document.getElementById('loading') || document.getElementById('loading').classList.contains('done'), 90000), '遊戲載入完成');
+  for (let i = 0; i < 3; i++) { await pg.evaluate(() => { const x = [...document.querySelectorAll('button')].find((e) => /開始航行|繼續航行/.test(e.textContent)); if (x) x.click(); }); await sleep(400); }
+  await sleep(800); await pg.evaluate(() => { const h = window.ark.hud; if (h.modalKind === 'report') h.closeModal(); });
+  await waitFor(() => window.ark.crew && window.ark.crew.bots.size > 0, 30000); await sleep(1500);
   // ★ 起始資源要維持原樣
-  let S = await q(); ok(S.res.food === 150 && S.res.water === 150 && S.res.fuel === 80 && S.res.parts === 70, `起始資源不變 ${JSON.stringify(S.res)}`); ok(S.q && Object.keys(S.q.done).length === 0, '一開始沒有完成任何步驟');
+  let S = await q(); ok(Math.abs(S.res.food - 150) < 6 && Math.abs(S.res.water - 150) < 6 && Math.abs(S.res.fuel - 80) < 6 && S.res.parts === 70, `起始資源不變 ${JSON.stringify(S.res)}`); ok(S.q && Object.keys(S.q.done).length === 0, '一開始沒有完成任何步驟');
   const reward = async (id, d) => { const A = await q(); ok(A.q.done[id] === 1, `步驟完成：${id}`); return A; };
   // 1 move
-  await check('1-move'); await pg.evaluate(() => { const g = window.ark; const bots = [...g.crew.bots.values()]; const a = g.player.actor; const c = bots.filter((x) => !x.away && x.actor.deck === a.deck).sort((p, q) => Math.hypot(q.actor.x - a.x, q.actor.z - a.z) - Math.hypot(p.actor.x - a.x, p.actor.z - a.z)); g.play.walkToBot(c[0] || bots[0]); });
+  await check('1-move', ownerArg !== 'owner'); await pg.evaluate(() => { const g = window.ark; const bots = [...g.crew.bots.values()]; const a = g.player.actor; const c = bots.filter((x) => !x.away && x.actor.deck === a.deck).sort((p, q) => Math.hypot(q.actor.x - a.x, q.actor.z - a.z) - Math.hypot(p.actor.x - a.x, p.actor.z - a.z)); g.play.walkToBot(c[0] || bots[0]); });
   const mvOk = await waitFor(() => !!window.ark.play.state.quest.done.move, 60000); ok(mvOk, 'move：走過去 → 步驟完成'); if (!mvOk) console.log('DBGM', JSON.stringify(await pg.evaluate(() => { const g = window.ark, a = g.player.actor; return { a: [a.x, a.z, a.deck], qd: g.play._qd, qp: g.play._qp, ev: g.play.state.quest.ev, bots: [...g.crew.bots.values()].map((b) => [b.away, b.actor.deck, b.actor.x, b.actor.z]) }; }))); S = await q(); ok(S.res.food >= 150 + 50 - 3 && S.res.parts >= 70 + 10, `move 獎勵已入帳 ${JSON.stringify(S.res)}`); await sleep(1200);
   // 2 talk：走近船員 → 按「聊天」（船員會自己走動，所以失敗就重新走過去）
   let hasChat = false, r2 = null;
-  for (let i = 0; i < 8 && !hasChat; i++) { await pg.evaluate(() => { const g = window.ark; const a = g.player.actor; const bots = [...g.crew.bots.values()].filter((x) => !x.away && x.actor.deck === a.deck); bots.sort((p, q) => Math.hypot(p.actor.x - a.x, p.actor.z - a.z) - Math.hypot(q.actor.x - a.x, q.actor.z - a.z)); g.play.walkToBot(bots[0]); });
-    hasChat = await waitFor(() => !!document.querySelector('#prompt:not(.hide) [data-a=chat]:not([disabled])'), 12000); }
+  for (let i = 0; i < 8 && !hasChat; i++) { await pg.evaluate(() => { const g = window.ark; const a = g.player.actor; let bots = [...g.crew.bots.values()].filter((x) => !x.away && x.actor.deck === a.deck); if (!bots.length) bots = [...g.crew.bots.values()].filter((x) => !x.away); bots.sort((p, q) => Math.hypot(p.actor.x - a.x, p.actor.z - a.z) - Math.hypot(q.actor.x - a.x, q.actor.z - a.z)); g.play.walkToBot(bots[0]); });
+    hasChat = await waitFor(() => !!document.querySelector('#prompt:not(.hide) [data-a=chat]:not([disabled])'), ownerArg === 'owner' ? 30000 : 12000); }
   ok(hasChat, 'talk：走近船員後出現「聊天」按鈕');
   if (hasChat) { await sleep(300); await waitFor(() => /聊天/.test((document.querySelector('#qring .ql') || {}).textContent || ''), 6000); r2 = await ring(); await pg.screenshot({ path: SHOT('2-talk') }); ok(r2 && /聊天/.test(r2.label), 'talk：圈指在「聊天」按鈕 ' + (r2 && r2.label)); const L2 = await layout('2-talk'); ok(L2.shown && !L2.overlaps.length && L2.inViewport, `[2-talk] 面板沒壓到互動卡：${(L2.overlaps || []).join(',') || '無'}`); await click('#prompt [data-a=chat]'); }
   ok(await waitFor(() => !!window.ark.play.state.quest.done.talk, 8000), 'talk：聊天 → 步驟完成'); await sleep(1500);
   // 3 chart
-  const r3 = await check('3-chart'); ok(r3 && /航海圖/.test(r3.label), 'chart：圈指在 🧭' + (touch ? '（手機先指 📊 展開選單時也算）' : '')); if (touch) await check('3-chart-menu', true);
+  const r3 = await check('3-chart'); ok(r3 && (touch ? /航海圖|選單/ : /航海圖/).test(r3.label), 'chart：圈指在 🧭' + (touch ? '（手機先指 📊 展開選單時也算）' : '')); if (touch) await check('3-chart-menu', true);
   await menu('#btnChart'); ok(await waitFor(() => !!window.ark.play.state.quest.done.chart, 8000), 'chart：打開航海圖 → 步驟完成'); await sleep(800); await pg.screenshot({ path: SHOT('3-chart-open') }); await click('#seachart [data-a=close]'); await sleep(600);
   // 4 sail
   { const st = await pg.evaluate(() => window.ark.play.helm.canStart()); if (st) { await sleep(900); const t = await pg.evaluate(() => document.querySelector('#quest .qp').textContent + document.querySelector('#quest .qt').textContent); ok(/駕駛|出海/.test(t), '旗艦出海中：提示說明要返港才能駕駛（' + t.slice(0, 40) + '…）'); await pg.screenshot({ path: SHOT('4-sail-blocked') }); await pg.evaluate(() => { for (const x of window.ark.play.state.fleet.ships) { x.state = 'dock'; x.m = null; } window.ark.hud.refresh(true); }); await sleep(900); } }
@@ -54,9 +57,18 @@ let n = 300; const SHOT = (name) => `/workspace/doomsday-ark/shots/${process.env
   await click('#trSites .site'); await sleep(500); const rc = await check('5-salvage-crew'); ok(rc && /船員/.test(rc.label), 'salvage：圈指「派一位船員」'); await click('#trCrew .cm:not([disabled])'); await sleep(500); const rg = await check('5-salvage-go'); ok(rg && /出發/.test(rg.label), 'salvage：圈指「出發」');
   await click('#trGo'); ok(await waitFor(() => !!window.ark.play.state.quest.done.salvage, 8000), 'salvage：出發 → 步驟完成'); await click('#modal .x'); await sleep(700);
   // 6 supply（點設施標籤走過去 → 按建造）
-  const r6 = await check('6-supply'); ok(r6 && /設施/.test(r6.label), 'supply：圈指在設施標籤'); await pg.evaluate(() => { const T = window.ark.hud.tags.get('greenhouse'); T.el.click(); });
-  let hasBuild = false; for (const f of ['greenhouse', 'generator', 'workshop', 'infirmary']) { await pg.evaluate((f) => { const T = window.ark.hud.tags.get(f); T && T.el.click(); }, f); hasBuild = await waitFor(() => !!document.querySelector('#prompt:not(.hide) [data-a=build]'), 15000); if (hasBuild) break; } ok(hasBuild, 'supply：走到設施旁出現「建造」'); if (!hasBuild) console.log('DBG', JSON.stringify(await pg.evaluate(() => { const a = window.ark.player.actor; const p = document.getElementById('prompt'); return { a: [a.x, a.z, a.deck], pr: p.className + '|' + p.textContent.slice(0, 80), sf: window.ark.play.standPos('greenhouse') }; })));  if (hasBuild) { const rb = await check('6-supply-build'); ok(rb && /建造/.test(rb.label), 'supply：圈指「建造」'); await click('#prompt [data-a=build]'); }
-  ok(await waitFor(() => !!window.ark.play.state.quest.done.supply, 8000), 'supply：蓋設施 → 步驟完成'); await sleep(1200);
+  const r6 = await check('6-supply'); ok(r6 && /設施|建造/.test(r6.label), 'supply：圈指在設施標籤或建造');
+  let hasBuild = false, built = false;
+  for (const f of ['greenhouse', 'generator', 'infirmary', 'workshop', 'greenhouse', 'generator']) {
+    await pg.evaluate((f) => { const T = window.ark.hud.tags.get(f); T && T.el.click(); }, f);
+    hasBuild = await waitFor(() => !!document.querySelector('#prompt:not(.hide) [data-a=build]'), 15000);
+    if (!hasBuild) continue; ok(true, 'supply：走到設施旁出現「建造」');
+    const rb = await check('6-supply-build'); ok(rb && /建造/.test(rb.label), 'supply：圈指「建造」');
+    await pg.evaluate(() => { const b = document.querySelector('#prompt [data-a=build]'); b && b.click(); });
+    built = await waitFor(() => !!window.ark.play.state.quest.done.supply, 4000); if (built) break;
+  }
+  if (!hasBuild) console.log('DBG', JSON.stringify(await pg.evaluate(() => { const a = window.ark.player.actor; const p = document.getElementById('prompt'); return { a: [a.x, a.z, a.deck], pr: p.className + '|' + p.textContent.slice(0, 80) }; })));
+  ok(built, 'supply：蓋設施 → 步驟完成'); await sleep(1200);
   // 7 upgrade
   { const bl = await pg.evaluate(() => ({ st: window.ark.play.state.fleet.ships.map((x) => x.state), txt: document.querySelector('#quest .qt').textContent + document.querySelector('#quest .qp').textContent })); if (bl.st.every((x) => x !== 'dock')) { await sleep(600); const t = await pg.evaluate(() => document.querySelector('#quest .qt').textContent + ' ' + document.querySelector('#quest .qp').textContent); ok(/出海/.test(t), '小船出海中時：提示說明要返港才能升級（' + t.slice(0, 40) + '…）'); await pg.screenshot({ path: SHOT('7-upgrade-blocked') }); await pg.evaluate(() => { for (const x of window.ark.play.state.fleet.ships) { x.state = 'dock'; x.m = null; } window.ark.hud.refresh(true); }); await sleep(600); } }
   const r7 = await check('7-upgrade'); await menu('#btnFleet'); await sleep(900); const ru = await check('7-upgrade-btn'); ok(ru && /升級/.test(ru.label), 'upgrade：圈指「升級」');

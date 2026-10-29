@@ -24,6 +24,18 @@ export class QuestUI {
   }
   q() { return this.play.state && this.play.state.quest; }
   get s() { return this.play.state; }
+  /** 互動卡（#prompt）出現而面板會壓到它時，面板自動縮成一條標題列（圈與標籤照常指路），卡片消失後恢復 */
+  autoFold() {
+    const el = this.el; el.classList.remove('afold'); const pr = document.querySelector('#prompt:not(.hide)'); if (!pr) return;
+    const a = el.getBoundingClientRect(), b = pr.getBoundingClientRect(); if (a.width < 1 || b.width < 1) return;
+    if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) el.classList.add('afold');
+  }
+  /** 旗艦（T董）右側按鈕列比較長：面板若壓到 #right 就往左挪到它旁邊 */
+  avoidRight() {
+    const el = this.el; el.style.right = ''; const rt = document.getElementById('right'); if (!rt) return;
+    const a = el.getBoundingClientRect(), b = rt.getBoundingClientRect(); if (a.width < 1 || b.width < 1) return;
+    if (a.left < b.right - 1 && a.right > b.left + 1 && a.top < b.bottom - 1 && a.bottom > b.top + 1) el.style.right = Math.round(innerWidth - b.left + 8) + 'px';
+  }
   reopen() { const q = this.q(); if (!q) return; q.x = 0; q.c = 0; this.sig = ''; this.render(); this.play.save(); }
   refresh() { this.sig = ''; this.render(); }
   // ---- 目標解析：回傳 { el | pt(世界座標 Vector3) , label, text }
@@ -105,7 +117,7 @@ export class QuestUI {
       let bl = null; for (const x of open) { const r = this.resolve(x); if (r && r.blocked) { this.note = '⏳ ' + x.name + '：' + r.text; bl = r; continue; } st = x; cur = r; break; }
       if (!cur && bl) { cur = { text: bl.text }; this.note = ''; }
       this.step = st; const prev = (this.cur && this.cur.text) + '|' + this.note + '|' + (st && st.id); this.cur = q.fin ? null : cur; const now = (this.cur && this.cur.text) + '|' + this.note + '|' + (st && st.id);
-      if (now !== prev) this.sig = ''; this.render(); const show = this.shouldShow(); this.el.classList.toggle('hide', !show);
+      if (now !== prev) this.sig = ''; this.render(); const show = this.shouldShow(); this.el.classList.toggle('hide', !show); if (show) { this.avoidRight(); this.autoFold(); }
       this.ringOn = !!(this.cur && (this.cur.el || this.cur.pt) && !q.x && this.ringAllowed());
     }
     this.place();
@@ -114,7 +126,9 @@ export class QuestUI {
   place() {
     const R = this.ring; if (!this.ringOn || !this.cur) { if (!R.classList.contains('hide')) R.classList.add('hide'); return; }
     let x, y, w = 46, h = 46, rad = '50%'; const c = this.cur;
-    if (c.el) { if (!c.el.isConnected) { R.classList.add('hide'); return; } const r = c.el.getBoundingClientRect(); if (r.width < 2) { R.classList.add('hide'); return; } x = r.left + r.width / 2; y = r.top + r.height / 2; w = r.width + 10; h = r.height + 10; rad = Math.min(w, h) > 60 ? '14px' : '99px'; }
+    if (c.el) { if (!c.el.isConnected) { R.classList.add('hide'); return; } let r = c.el.getBoundingClientRect(); if (r.width < 2) { R.classList.add('hide'); return; }
+      // 彈窗裡的目標若在可見範圍外（小螢幕要捲動），自動捲到中間讓圈真的指得到
+      if ((r.bottom > innerHeight - 40 || r.top < 36) && c.el.closest('#modal') && performance.now() - (this._sc || 0) > 1200) { this._sc = performance.now(); try { c.el.scrollIntoView({ block: 'center' }); } catch (e) { /* ignore */ } r = c.el.getBoundingClientRect(); } x = r.left + r.width / 2; y = r.top + r.height / 2; w = r.width + 10; h = r.height + 10; rad = Math.min(w, h) > 60 ? '14px' : '99px'; }
     else { const v = c.pt.clone().project(this.g.camera); if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) { R.classList.add('hide'); return; } x = (v.x * 0.5 + 0.5) * this.g.W; y = (-v.y * 0.5 + 0.5) * this.g.H; }
     R.classList.remove('hide'); const u = R.querySelector('u'); u.style.width = w + 'px'; u.style.height = h + 'px'; u.style.borderRadius = rad;
     const lab = R.querySelector('.ql'); if (lab.textContent !== c.label) lab.textContent = c.label || '';
