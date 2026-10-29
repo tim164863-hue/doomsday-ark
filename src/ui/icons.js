@@ -161,5 +161,8 @@ export const IC = {
   fishing_boat: '\ue09e',
   speed_boat: '\ue09f',
   submarine: '\ue0a0',
+  cargo_ship: '\ue0a1',
+  warship: '\ue0a3',
+  iceberg: '\ue0a2',
 };
 export const ICON_FONT = 'ArkIcons';

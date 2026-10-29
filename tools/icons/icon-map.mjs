@@ -33,4 +33,4 @@ export const MAP = {
   '1f39e': 'ph:film-strip-fill', '25b6': 'ph:play-fill', '1f552': 'ph:clock-fill', '1f7e0': 'ph:circle-fill',
 };
 // 沒有對應 emoji、但程式要用的圖示（名稱 → 規格）；會一起進字型與 src/ui/icons.js 的 IC。
-export const EXTRA = { fishing_boat: 'gi:fishing-boat', speed_boat: 'gi:speed-boat', submarine: 'gi:submarine' };
+export const EXTRA = { fishing_boat: 'gi:fishing-boat', speed_boat: 'gi:speed-boat', submarine: 'gi:submarine', cargo_ship: 'gi:cargo-ship', warship: 'gi:iron-hulled-warship', iceberg: 'gi:iceberg' };

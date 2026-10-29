@@ -260,7 +260,7 @@ export class HUD {
   // -- 艦隊
   statsRow(type, lv = 1) {
     const st = FL.shipStats({ type, lv }); const B = SHIPS[type];
-    return `<span class="st" title="速度">\ue09b ${st.speed.toFixed(1)}</span><span class="st" title="載貨量（每趟收穫上限）">\ue06a ${st.cargo}</span><span class="st" title="耐久">\ue077 ${st.hull}</span><span class="st" title="火力：降低遇襲風險、提高戰果">\ue08c ${st.fp}</span><span class="st zn" title="可航行海域">${B.zones.map((z) => ZONES[z].icon).join('')}</span>`;
+    return `<span class="st" title="速度">\ue09b ${st.speed.toFixed(1)}</span><span class="st" title="載貨量（每趟收穫上限）">\ue06a ${st.cargo}</span><span class="st" title="耐久">\ue077 ${st.hull}</span><span class="st" title="火力：降低遇襲風險、提高戰果">\ue08c ${st.fp}</span><span class="zn" title="可航行海域">${B.zones.map((z) => `<span class="zl" style="--zc:${ZONES[z].color}">${ZONES[z].icon} ${ZONES[z].name}</span>`).join('')}</span>`;
   }
   /** 角色挑選（非船東）：10 位角色；點一下立刻換上，存在存檔的 pl.c。 */
   renderChar() {

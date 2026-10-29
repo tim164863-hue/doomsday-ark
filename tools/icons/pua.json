@@ -159,5 +159,8 @@
  "ph:wrench-fill": 57501,
  "gi:fishing-boat": 57502,
  "gi:speed-boat": 57503,
- "gi:submarine": 57504
+ "gi:submarine": 57504,
+ "gi:cargo-ship": 57505,
+ "gi:iceberg": 57506,
+ "gi:iron-hulled-warship": 57507
 }
