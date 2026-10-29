@@ -1,0 +1,2 @@
+{ "name": "ark-assets-tool", "private": true, "type": "module", "description": "只在重新抓取/轉檔素材時需要：cd tools/assets && npm i && cd ../.. && node tools/fetch-assets.mjs",
+  "devDependencies": { "@gltf-transform/cli": "^4.1.0", "@gltf-transform/core": "^4.1.0", "@gltf-transform/extensions": "^4.1.0", "@gltf-transform/functions": "^4.1.0", "meshoptimizer": "^0.22.0", "sharp": "^0.33.5" } }
