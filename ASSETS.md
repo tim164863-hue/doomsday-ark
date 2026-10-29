@@ -76,3 +76,8 @@ shader 以**物件空間三向投影**取樣（沒有 UV 也不會拉伸），�
 - 重新產生全部素材：`cd tools/assets && npm i && cd ../.. && node tools/fetch-assets.mjs`（來源下載會快取在 `tools/assets/.cache/`，已 gitignore）。
 
 （角色、生物、廢墟、冰山等之後的里程碑會繼續補在本檔。）
+
+## 7. 下一步（milestone 2 待辦，尚未開始）
+
+- 拖船與旗艦目前**太乾淨、偏灰**：要把鏽蝕／汙垢的**對比**找回來（分層磨損：水線下鏽斑、鉚釘接縫流鏽、油汙、補丁板的色差；調 `injectWear` 的 chip/rust/dirt 係數與 `grade` 濾鏡，別讓灰階抹平色相）。
+- 角色／T董（CC0 帶骨架 idle/walk）、碎片、廢墟、冰山、北極熊、企鵝、海怪、海盜。
