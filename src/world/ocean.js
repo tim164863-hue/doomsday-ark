@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { WAVES } from './waves.js';
 import { SHIP, HULL_XS, HULL_XB, HULL_TIP, SHIP_CX } from '../ship/config.js';
+import { WL_ON } from '../ship/wasteland.js';
 
 const N = WAVES.length;
 const vert = /* glsl */`
@@ -33,7 +34,7 @@ precision highp float;
 uniform float uTime, uAmp, uDetail;
 uniform vec3 uDeep, uShallow, uZenith, uHorizon, uGlow, uSunDir, uSunCol, uMoonDir, uFog;
 uniform float uFogD, uDay, uMoonVis, uSunVis, uShipHL, uShipHW, uHullOn, uSmallOn;
-uniform vec4 uSmall; uniform vec4 uArk;
+uniform vec4 uSmall; uniform vec4 uArk; uniform float uWl;
 varying vec3 vWorld; varying float vH; varying float vDist; varying vec2 vGrad;
 float hash2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
 float noise(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
@@ -74,7 +75,19 @@ void main(){
   // 水體：深色 + 浪尖次表面散射
   float crest = clamp(vH/(0.9*uAmp+0.001) * 0.5 + 0.5, 0.0, 1.0);
   vec3 body = mix(uDeep, uShallow, pow(crest, 2.2)*0.8 + (1.0-ndv)*0.12);
+  // 末日廢土：海水變混濁（去飽和、偏灰綠、更暗）+ 大片油膜（薄膜干涉彩紋，只在近處）
+  float wlOil = 0.0; vec3 wlFilm = vec3(0.0);
+  if (uWl > 0.5) {
+    float gr = dot(body, vec3(0.33));
+    body = mix(body, vec3(gr*0.95, gr*1.04, gr*0.88) + vec3(0.012,0.02,0.0), 0.36) * 0.88;
+    wlOil = smoothstep(0.6, 0.82, noise(wp*0.05 + vec2(t*0.012, -t*0.008))*0.65 + noise(wp*0.14 - vec2(t*0.01, t*0.006))*0.35) * (1.0 - smoothstep(160.0, 650.0, vDist));
+    float ph = noise(wp*0.32 + t*0.03)*6.2832 + ndv*4.0 + vH*2.0;
+    wlFilm = 0.5 + 0.5*cos(ph + vec3(0.0, 2.1, 4.2));
+    body = mix(body, body*0.5 + wlFilm*0.1, wlOil*0.55);
+  }
   vec3 col = mix(body, refl, F) + spec;
+  col += wlFilm * wlOil * (0.03 + 0.2*pow(1.0-ndv, 2.5)) * (0.15 + 0.85*uDay);
+  if (uWl > 0.5) col = mix(col, col*0.7, wlOil*0.3);
   // 泡沫：浪尖 + 船身周圍
   float fn = noise(wp*1.3 + vec2(t*0.1, -t*0.07)) * 0.6 + noise(wp*4.1 - t*0.2)*0.4;
   float foam = smoothstep(0.94, 1.05, crest + (fn-0.5)*0.3) * 0.16;
@@ -131,7 +144,7 @@ export class Ocean {
       uZenith: U.uZenith, uHorizon: U.uHorizon, uGlow: U.uGlow, uSunDir: U.uSunDir, uSunCol: U.uSunCol, uMoonDir: U.uMoonDir,
       uFog: { value: scene.fog.color }, uFogD: { value: 0.0005 }, uDay: U.uDay, uMoonVis: U.uMoonVis, uSunVis: U.uSunVis,
       uShipHL: { value: (HULL_XB - HULL_XS) / 2 }, uShipHW: { value: 12.3 },
-      uHullOn: { value: 1 }, uOrg: { value: new THREE.Vector2(0, 0) }, uArk: { value: new THREE.Vector4(SHIP_CX, 0, 0, SHIP_CX) }, uSmallOn: { value: 0 }, uSmall: { value: new THREE.Vector4(0, 0, 0, 12) },
+      uWl: { value: WL_ON ? 1 : 0 }, uHullOn: { value: 1 }, uOrg: { value: new THREE.Vector2(0, 0) }, uArk: { value: new THREE.Vector4(SHIP_CX, 0, 0, SHIP_CX) }, uSmallOn: { value: 0 }, uSmall: { value: new THREE.Vector4(0, 0, 0, 12) },
     };
     this.mat = new THREE.ShaderMaterial({ uniforms: this.uniforms, vertexShader: vert, fragmentShader: frag, fog: false });
     this.scene = scene; this.build(quality);

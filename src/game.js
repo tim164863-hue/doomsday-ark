@@ -3,6 +3,7 @@ import { runSelfTest } from './sim/selftest.js';
 import { QUALITY, ORDER, detectQuality } from './config.js';
 import { Environment } from './world/environment.js';
 import { Ocean } from './world/ocean.js';
+import { Debris } from './world/debris.js';
 import { Ship } from './ship/ship.js';
 import { SmallShip } from './ship/smallship.js';
 import { mapDecksTo } from './crew/decks.js';
@@ -42,6 +43,7 @@ export class Game {
     this.time = 0; this.clock = new THREE.Clock();
     this.env = new Environment(this.scene, this.renderer, this.quality);
     this.ocean = new Ocean(this.scene, this.env, this.quality);
+    this.debris = new Debris(this.scene, this.quality);
     this.tv = new ContestTV();
     // 擁有者：T董 的郵輪方舟；其他人（訪客 / 其他帳號）：只有自己選的小船（尚未選時：只有海，不顯示任何船殼）
     this.owner = !!opts.owner; // 要在 Player / Crew 之前設好
@@ -115,6 +117,7 @@ export class Game {
     this.time += dt;
     const sdt = Math.min(dt, 0.1);
     this.updateWeather(sdt); this.ocean.update(this.time, waveState.amp);
+    { const o = this.ocean.uniforms; const keep = []; if (o.uSmallOn.value > 0.5) keep.push({ x: o.uSmall.value.x, z: o.uSmall.value.y, r: Math.max(16, o.uSmall.value.w * 1.3) }); this.debris.update(this.time, o.uOrg.value.x, o.uOrg.value.y, keep); }
     if (this.helm) this.helm.update(sdt, this.time);
     this.ship.update(sdt, this.time);
     if (this.helm) this.helm.apply();
