@@ -1,9 +1,19 @@
+// ⚠️ 提案（PROPOSAL）— 階段⑤ PvP 的 Firestore 規則。**沒有部署**，也沒有改任何 Firebase 專案設定。
+// 現行（已部署）的規則仍是 firestore.rules（只有 arks/{uid}）；`firebase.json` 指向的也是它。這份只在 tools/rules-emulator 的本機模擬器測試裡被載入。
+// 要上線時由人工比對後再貼到主控台 / firebase deploy（不要讓任何自動流程部署這個檔）。
+// 跟 src/save/pvpnet.js 的 ruleCheckPresence / ruleCheckRaid（JS 鏡像）一一對應；tools/rules-emulator/rules.test.mjs 是對這份規則的測試。
+// 免費版沒有伺服端驗證：規則只能限制形狀 / 大小 / 頻率 / 數值上限 / 與對方 presence 快照比對，無法證明戰鬥發生或座標真實 ⇒ 防不了作弊。
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 每個登入使用者只有一份自己的方舟：arks/{uid}
-    // 欄位：v(int 存檔版本) / data(string，JSON 存檔) / lastSeen(number) / updatedAt(server timestamp)
+    // ---------------------------------------------------------------- 共用
+    function nowS()      { return request.time.toMillis() / 1000; }
+    function isOwner(u)  { return u in ['7yB5MDDkd3bymKEDHczUyb3buK63']; }     // = src/save/cloud.js 的 OWNER_UIDS；船東不參與 PvP
+    function rng(v, lo, hi) { return v is number && v >= lo && v <= hi; }
+    function nint(v, hi)    { return v is int && v >= 0 && v <= hi; }
+
+    // ---------------------------------------------------------------- arks（既有，原封不動）
     function validArk(d) {
       return d.keys().hasAll(['v', 'data', 'lastSeen', 'updatedAt'])
         && d.keys().hasOnly(['v', 'data', 'lastSeen', 'updatedAt'])
@@ -12,12 +22,84 @@ service cloud.firestore {
         && d.lastSeen is number
         && d.updatedAt == request.time;
     }
-
     match /arks/{uid} {
       allow read: if request.auth != null && request.auth.uid == uid;
-      allow create, update: if request.auth != null && request.auth.uid == uid
-                            && validArk(request.resource.data);
+      allow create, update: if request.auth != null && request.auth.uid == uid && validArk(request.resource.data);
       allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // ---------------------------------------------------------------- presence/{uid}：公開快照（本人寫、登入者讀）
+    function cellOk(c, i) { return c.size() <= i || (c[i] is string && c[i].size() <= 5 && c[i].matches('[0-9]{1,2}_[0-9]{1,2}')); }
+    function resOk(r) {
+      return r is map && r.keys().hasOnly(['food', 'water', 'fuel', 'parts']) && r.keys().size() == 4
+        && rng(r.food, 0, 2000) && rng(r.water, 0, 2000) && rng(r.fuel, 0, 2000) && rng(r.parts, 0, 2000);
+    }
+    function rtOk(r) {
+      return r is map && r.keys().hasOnly(['x0', 'y0', 'x1', 'y1', 't0', 't1']) && r.keys().size() == 6
+        && rng(r.x0, 0, 2000) && rng(r.y0, 0, 2000) && rng(r.x1, 0, 2000) && rng(r.y1, 0, 2000)
+        && rng(r.t0, 0, nowS() + 2592000) && rng(r.t1, r.t0, nowS() + 2592000);
+    }
+    function presOk(d) {
+      return d.keys().hasAll(['v', 'h', 'x', 'y', 'fp', 'res', 'cap', 'sh', 'ls', 't', 'ut', 'cells'])
+        && d.keys().hasOnly(['v', 'h', 'x', 'y', 'fp', 'res', 'cap', 'sh', 'ls', 't', 'ut', 'cells', 'rt'])   // 第 14 輪：hl / cd 移除（隱私）、新增 ut（伺服器寫入時間）
+        && d.v == 1
+        && d.h is string && d.h.size() >= 1 && d.h.size() <= 12
+        && rng(d.x, 0, 2000) && rng(d.y, 0, 2000) && rng(d.fp, 0, 200) && rng(d.cap, 0, 1000)
+        && resOk(d.res)
+        && rng(d.t, nowS() - 120, nowS() + 120)                     // t 必須接近伺服器時間
+        && d.ut == request.time                                      // ut 一定是伺服器時間（客戶端寫 serverTimestamp()）；頻率限制比的是它，不是客戶端自己填的 t
+        && rng(d.ls, d.t - 86400, d.t + 600)                        // ls 在客戶端被「進位」到 10 分鐘 ⇒ 最多比 t 晚 600 秒；也不能無限久以前
+        && rng(d.sh, 0, nowS() + 43200 + 120)                       // 護盾最多再 12 小時（+ 時鐘誤差 120 秒）→ 沒有永久護盾
+        && d.cells is list && d.cells.size() >= 1 && d.cells.size() <= 16
+        && cellOk(d.cells, 0) && cellOk(d.cells, 1) && cellOk(d.cells, 2) && cellOk(d.cells, 3) && cellOk(d.cells, 4) && cellOk(d.cells, 5) && cellOk(d.cells, 6) && cellOk(d.cells, 7) && cellOk(d.cells, 8) && cellOk(d.cells, 9) && cellOk(d.cells, 10) && cellOk(d.cells, 11) && cellOk(d.cells, 12) && cellOk(d.cells, 13) && cellOk(d.cells, 14) && cellOk(d.cells, 15)
+        && (!('rt' in d) || rtOk(d.rt));
+    }
+    match /presence/{uid} {
+      allow get: if request.auth != null && (resource == null || resource.data.ls > nowS() - 604800);     // 超過 7 天沒上線的幽靈船讀不到
+      allow list: if request.auth != null && request.query.limit <= 24;          // 掃描附近：array-contains-any(cells) limit ≤ 24（沒帶 limit = 拒絕）。list 沒辦法用 ls 過濾（需要複合索引 = 要動專案設定），所以 7 天的過濾由客戶端掃描做，並由 raid 規則強制
+      allow create: if request.auth != null && request.auth.uid == uid && !isOwner(uid) && presOk(request.resource.data);
+      allow update: if request.auth != null && request.auth.uid == uid && !isOwner(uid) && presOk(request.resource.data)
+                    && request.time - resource.data.ut >= duration.value(10, 's');   // 寫入頻率下限：比對「上一次的伺服器時間 ut」；create 時 resource 是 null，所以不能放在 create
+      allow delete: if request.auth != null && request.auth.uid == uid;           // 隱身 / 登出 / 刪帳號時本人刪除
+    }
+
+    // ---------------------------------------------------------------- raids/{defender}/in/{attacker}_{bucket}：唯一的跨使用者寫入（只能 create）
+    function pres(u) { return get(/databases/$(database)/documents/presence/$(u)).data; }
+    function lootOk(l, p) {            // 每種資源 ≤ 400、是整數、≤ 防守者 presence 的 8% 與 cap
+      return l is map && l.keys().hasOnly(['food', 'water', 'fuel', 'parts'])
+        && nint(l.get('food', 0), 400) && nint(l.get('water', 0), 400) && nint(l.get('fuel', 0), 400) && nint(l.get('parts', 0), 400)
+        && l.get('food', 0)  <= p.res.food  * 0.08 && l.get('food', 0)  <= p.cap
+        && l.get('water', 0) <= p.res.water * 0.08 && l.get('water', 0) <= p.cap
+        && l.get('fuel', 0)  <= p.res.fuel  * 0.08 && l.get('fuel', 0)  <= p.cap
+        && l.get('parts', 0) <= p.res.parts * 0.08 && l.get('parts', 0) <= p.cap;
+    }
+    function near(ax, ay, p) { return math.abs(ax - p.x) <= 140 && math.abs(ay - p.y) <= 140; }     // 範圍 80 + 邊際 60
+    function raidOk(d, defender, rid) {
+      return d.keys().hasAll(['v', 'attacker', 'defender', 'b', 't', 'ah', 'loot', 'ap'])
+        && d.keys().hasOnly(['v', 'attacker', 'defender', 'b', 't', 'ah', 'loot', 'ap'])
+        && d.v == 1
+        && d.attacker == request.auth.uid && d.defender == defender && defender != request.auth.uid
+        && d.ah is string && d.ah.size() <= 12
+        && d.t is number && d.b is int && d.b == int(d.t / 43200)                 // 12 小時桶
+        && rid == request.auth.uid + '_' + string(d.b)                             // 每個「攻擊者×12 小時桶」一份（create-only ⇒ 不能重複）
+        && rng(d.t, nowS() - 120, nowS() + 120)
+        && d.ap is map && d.ap.keys().hasOnly(['x', 'y']) && d.ap.keys().size() == 2 && rng(d.ap.x, 0, 2000) && rng(d.ap.y, 0, 2000)
+        // 防守者的 presence：存在、已離線 ≥ 10 分鐘、沒有護盾、戰利品不超過它自己公開的 8% / cap、宣稱座標在範圍內
+        && exists(/databases/$(database)/documents/presence/$(defender))
+        && pres(defender).ls <= d.t - 600 && pres(defender).ls >= d.t - 604800 && pres(defender).sh <= d.t   // 離線 ≥ 10 分鐘、但不是超過 7 天的幽靈船；沒有護盾
+        && lootOk(d.loot, pres(defender))
+        && near(d.ap.x, d.ap.y, pres(defender))
+        // 攻擊者自己的 presence：存在、最近有發佈（≤ 15 分鐘）、位置與宣稱座標 / 目標座標都一致（防止在別處亂報座標）
+        && exists(/databases/$(database)/documents/presence/$(request.auth.uid))
+        && pres(request.auth.uid).t >= d.t - 900 && pres(request.auth.uid).ls >= d.t - 900
+        && near(d.ap.x, d.ap.y, pres(request.auth.uid))
+        && near(pres(request.auth.uid).x, pres(request.auth.uid).y, pres(defender));
+    }
+    match /raids/{defender}/in/{rid} {
+      allow get: if request.auth != null && (request.auth.uid == defender || request.auth.uid == resource.data.attacker);
+      allow list: if request.auth != null && request.auth.uid == defender && request.query.limit <= 60;   // 只有防守者讀自己的收件匣
+      allow create: if request.auth != null && !isOwner(request.auth.uid) && raidOk(request.resource.data, defender, rid);
+      allow update, delete: if false;
     }
 
     // 其他一律拒絕
